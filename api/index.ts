@@ -8,12 +8,26 @@ let appPromise: Promise<Express> | null = null;
 
 function getApp(): Promise<Express> {
   if (!appPromise) {
-    appPromise = createApp();
+    appPromise = createApp().catch((err) => {
+      appPromise = null;
+      throw err;
+    });
   }
   return appPromise;
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  const app = await getApp();
-  (app as unknown as (req: IncomingMessage, res: ServerResponse) => void)(req, res);
+  try {
+    const app = await getApp();
+    (app as unknown as (req: IncomingMessage, res: ServerResponse) => void)(req, res);
+  } catch (err: any) {
+    console.error('Serverless handler crashed:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      error: 'Serverless handler crashed',
+      message: err?.message || String(err),
+      stack: err?.stack || null,
+    }));
+  }
 }
