@@ -59,7 +59,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/attendance - Save attendance for a month
-router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { month, records } = req.body;
     if (!month || !Array.isArray(records)) {
@@ -118,9 +118,9 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
       });
     }
 
-    const saved = db.attendance.saveMonthRecords(month, processedRecords);
+    const saved = await db.attendance.saveMonthRecords(month, processedRecords);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -314,7 +314,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
 });
 
 // POST /api/attendance/import/confirm - Commit validated attendance to database
-router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { month, rows } = req.body;
     if (!month || !Array.isArray(rows)) {
@@ -344,9 +344,9 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthReq
       };
     });
 
-    db.attendance.saveMonthRecords(month, attendanceRecords);
+    await db.attendance.saveMonthRecords(month, attendanceRecords);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',

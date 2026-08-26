@@ -220,7 +220,7 @@ router.get('/:id', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/employees - Create new employee
-router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const {
       employeeId,
@@ -298,9 +298,9 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
       updatedAt: timestamp,
     };
 
-    db.employees.create(newEmployee);
+    await db.employees.create(newEmployee);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -317,7 +317,7 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
 });
 
 // PUT /api/employees/:id - Update employee
-router.put('/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const employee = db.employees.findById(id);
@@ -360,9 +360,9 @@ router.put('/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: R
     if (recoverFrom !== undefined) updates.recoverFrom = recoverFrom.trim();
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
 
-    const updated = db.employees.update(id, updates, req.user?.username);
+    const updated = await db.employees.update(id, updates, req.user?.username);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -379,19 +379,19 @@ router.put('/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: R
 });
 
 // PATCH /api/employees/:id/toggle-active
-router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const employee = db.employees.findById(id);
     if (!employee) return res.status(404).json({ error: 'Employee not found.' });
 
     const newStatus = !employee.isActive;
-    const updated = db.employees.update(id, {
+    const updated = await db.employees.update(id, {
       isActive: newStatus,
       dateOfLeaving: newStatus ? null : (employee.dateOfLeaving || new Date().toISOString().split('T')[0]),
     }, req.user?.username);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -540,7 +540,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
 });
 
 // POST /api/employees/import/confirm - Commit validated rows to database
-router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { rows, updateExisting } = req.body;
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -563,7 +563,7 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthReq
 
       if (existing) {
         if (updateExisting) {
-          db.employees.update(existing.id, {
+          await db.employees.update(existing.id, {
             employeeName: r.employeeName,
             employeeType: r.employeeType,
             nationalityType: r.nationalityType,
@@ -605,12 +605,12 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthReq
           createdAt: timestamp,
           updatedAt: timestamp,
         };
-        db.employees.create(newEmp);
+        await db.employees.create(newEmp);
         importedCount++;
       }
     }
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',

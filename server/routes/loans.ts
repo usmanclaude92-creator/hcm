@@ -48,7 +48,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/loans - Create new employee loan
-router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, loanAmount, loanDate, monthlyRecoveryAmount, remarks } = req.body;
 
@@ -89,9 +89,9 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
       recoveries: [],
     };
 
-    db.loans.create(newLoan);
+    await db.loans.create(newLoan);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -108,7 +108,7 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
 });
 
 // POST /api/loans/:id/repayments - Record a direct loan repayment
-router.post('/:id/repayments', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/:id/repayments', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { recoveryAmount, recoveryDate, remarks } = req.body;
@@ -137,9 +137,9 @@ router.post('/:id/repayments', verifyAuth, requireWritePermission, (req: AuthReq
       createdAt: new Date().toISOString(),
     };
 
-    db.loans.addRecovery(rec);
+    await db.loans.addRecovery(rec);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -156,7 +156,7 @@ router.post('/:id/repayments', verifyAuth, requireWritePermission, (req: AuthReq
 });
 
 // PATCH /api/loans/:id/status - Update loan status (e.g. Cancel or Complete)
-router.patch('/:id/status', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.patch('/:id/status', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -165,10 +165,10 @@ router.patch('/:id/status', verifyAuth, requireWritePermission, (req: AuthReques
       return res.status(400).json({ error: 'Invalid loan status.' });
     }
 
-    const updated = db.loans.updateStatus(id, status as LoanStatus);
+    const updated = await db.loans.updateStatus(id, status as LoanStatus);
     if (!updated) return res.status(404).json({ error: 'Loan not found.' });
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',

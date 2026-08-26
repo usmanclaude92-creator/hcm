@@ -78,14 +78,21 @@ class DatabaseManager {
   private isInitialized: boolean = false;
 
   constructor() {
-    this.ensureDataDirectory();
-    this.loadFromDisk();
-    this.ensureInitialSeed();
+    // On a serverless deploy (DATABASE_URL set) the filesystem is read-only/ephemeral,
+    // so local JSON-file bootstrapping is skipped entirely and Postgres is loaded in init().
+    if (!process.env.DATABASE_URL) {
+      this.ensureDataDirectory();
+      this.loadFromDisk();
+    }
   }
 
   private ensureDataDirectory() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+    } catch (e) {
+      console.error('Error ensuring local data directory (expected on read-only filesystems):', (e as Error).message);
     }
   }
 
@@ -111,8 +118,13 @@ class DatabaseManager {
       }
     }
 
-    // Load from persistent local store
-    this.loadFromDisk();
+    if (this.isPostgresConnected) {
+      await this.loadFromPostgres();
+    } else {
+      // Load from persistent local store (no-op if DATABASE_URL was set, since the
+      // constructor skips disk access entirely on serverless/read-only filesystems)
+      this.loadFromDisk();
+    }
 
     // Ensure default admin user and initial demo dataset
     await this.ensureInitialSeed();
@@ -170,6 +182,12 @@ class DatabaseManager {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
 
+        CREATE TABLE IF NOT EXISTS app_state (
+          id VARCHAR(64) PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
         CREATE TABLE IF NOT EXISTS audit_logs (
           id VARCHAR(64) PRIMARY KEY,
           user_id VARCHAR(64),
@@ -191,34 +209,53 @@ class DatabaseManager {
     }
   }
 
+  private applyParsedData(parsed: any) {
+    this.inMemoryData = {
+      users: parsed.users || [],
+      employees: parsed.employees || [],
+      designationHistory: parsed.designationHistory || [],
+      salaryHistory: parsed.salaryHistory || [],
+      projects: parsed.projects || [],
+      attendance: parsed.attendance || [],
+      payrolls: parsed.payrolls || [],
+      payrollLines: parsed.payrollLines || [],
+      payrollRevisions: parsed.payrollRevisions || [],
+      salaryPayments: parsed.salaryPayments || [],
+      wpsRecoveries: parsed.wpsRecoveries || [],
+      wpsRecoveryTransactions: parsed.wpsRecoveryTransactions || [],
+      loans: parsed.loans || [],
+      loanRecoveries: parsed.loanRecoveries || [],
+      auditLogs: parsed.auditLogs || [],
+    };
+  }
+
   private loadFromDisk() {
     try {
       if (fs.existsSync(DB_FILE)) {
         const fileContent = fs.readFileSync(DB_FILE, 'utf-8');
-        const parsed = JSON.parse(fileContent);
-        this.inMemoryData = {
-          users: parsed.users || [],
-          employees: parsed.employees || [],
-          designationHistory: parsed.designationHistory || [],
-          salaryHistory: parsed.salaryHistory || [],
-          projects: parsed.projects || [],
-          attendance: parsed.attendance || [],
-          payrolls: parsed.payrolls || [],
-          payrollLines: parsed.payrollLines || [],
-          payrollRevisions: parsed.payrollRevisions || [],
-          salaryPayments: parsed.salaryPayments || [],
-          wpsRecoveries: parsed.wpsRecoveries || [],
-          wpsRecoveryTransactions: parsed.wpsRecoveryTransactions || [],
-          loans: parsed.loans || [],
-          loanRecoveries: parsed.loanRecoveries || [],
-          auditLogs: parsed.auditLogs || [],
-        };
+        this.applyParsedData(JSON.parse(fileContent));
         console.log(`Database loaded from persistent disk: ${this.inMemoryData.employees.length} employees, ${this.inMemoryData.payrolls.length} payrolls.`);
       } else {
         this.saveToDisk();
       }
     } catch (e) {
       console.error('Error loading database from disk:', e);
+    }
+  }
+
+  private async loadFromPostgres(): Promise<boolean> {
+    if (!this.pgPool) return false;
+    try {
+      const res = await this.pgPool.query('SELECT data FROM app_state WHERE id = $1', ['main']);
+      if (res.rows.length > 0 && res.rows[0].data) {
+        this.applyParsedData(res.rows[0].data);
+        console.log(`Database loaded from PostgreSQL: ${this.inMemoryData.employees.length} employees, ${this.inMemoryData.payrolls.length} payrolls.`);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Error loading database from PostgreSQL:', (e as Error).message);
+      return false;
     }
   }
 
@@ -231,6 +268,25 @@ class DatabaseManager {
     } catch (e) {
       console.error('Error persisting database to disk:', e);
     }
+  }
+
+  // Single source of truth for durability: writes the whole in-memory dataset to
+  // Postgres (serverless-safe) when connected, otherwise falls back to the local JSON file.
+  private async persist(): Promise<void> {
+    if (this.isPostgresConnected && this.pgPool) {
+      try {
+        await this.pgPool.query(
+          `INSERT INTO app_state (id, data, updated_at) VALUES ($1, $2, NOW())
+           ON CONFLICT (id) DO UPDATE SET data = $2, updated_at = NOW()`,
+          ['main', JSON.stringify(this.inMemoryData)]
+        );
+        return;
+      } catch (e) {
+        console.error('Error persisting database to PostgreSQL:', (e as Error).message);
+        return;
+      }
+    }
+    this.saveToDisk();
   }
 
   public getStatus() {
@@ -316,20 +372,17 @@ class DatabaseManager {
       },
     ];
 
-    // Ensure every default user exists and has a valid password hash
+    // Ensure every default user exists; never overwrite one that's already there,
+    // so a real password/role change survives future restarts (incl. serverless cold starts).
     for (const coreUser of defaultCoreUsers) {
       const existing = this.inMemoryData.users.find(u => u.username.toLowerCase() === coreUser.username.toLowerCase());
       if (!existing) {
         this.inMemoryData.users.push(coreUser);
-      } else {
-        existing.passwordHash = coreUser.passwordHash;
-        existing.isActive = true;
-        existing.role = coreUser.role;
       }
     }
 
     if (!forceReset && this.inMemoryData.employees.length > 0) {
-      this.saveToDisk();
+      await this.persist();
       return;
     }
 
@@ -884,7 +937,7 @@ class DatabaseManager {
       auditLogs: initialAuditLogs,
     };
 
-    this.saveToDisk();
+    await this.persist();
     console.log('Database initialized with production baseline & realistic demo records.');
   }
 
@@ -895,12 +948,12 @@ class DatabaseManager {
       getAll: () => [...this.inMemoryData.users],
       findById: (id: string) => this.inMemoryData.users.find(u => u.id === id),
       findByUsername: (username: string) => this.inMemoryData.users.find(u => u.username.toLowerCase() === username.trim().toLowerCase()),
-      create: (user: User) => {
+      create: async (user: User) => {
         this.inMemoryData.users.push(user);
-        this.saveToDisk();
+        await this.persist();
         return user;
       },
-      update: (id: string, updates: Partial<User>) => {
+      update: async (id: string, updates: Partial<User>) => {
         const index = this.inMemoryData.users.findIndex(u => u.id === id);
         if (index === -1) return null;
         this.inMemoryData.users[index] = {
@@ -908,14 +961,14 @@ class DatabaseManager {
           ...updates,
           updatedAt: new Date().toISOString(),
         };
-        this.saveToDisk();
+        await this.persist();
         return this.inMemoryData.users[index];
       },
-      delete: (id: string) => {
+      delete: async (id: string) => {
         const index = this.inMemoryData.users.findIndex(u => u.id === id);
         if (index === -1) return false;
         this.inMemoryData.users.splice(index, 1);
-        this.saveToDisk();
+        await this.persist();
         return true;
       }
     };
@@ -929,16 +982,16 @@ class DatabaseManager {
         const norm = normalizeEmployeeId(empId);
         return this.inMemoryData.employees.find(e => normalizeEmployeeId(e.employeeId) === norm);
       },
-      create: (emp: Employee) => {
+      create: async (emp: Employee) => {
         emp.employeeId = normalizeEmployeeId(emp.employeeId);
         emp.monthlySalaryOrRate = roundOMR(emp.monthlySalaryOrRate);
         emp.wpsSalary = roundOMR(emp.wpsSalary);
         emp.actualSalary = roundOMR(emp.actualSalary);
         this.inMemoryData.employees.push(emp);
-        this.saveToDisk();
+        await this.persist();
         return emp;
       },
-      update: (id: string, updates: Partial<Employee>, user?: string) => {
+      update: async (id: string, updates: Partial<Employee>, user?: string) => {
         const index = this.inMemoryData.employees.findIndex(e => e.id === id);
         if (index === -1) return null;
         const current = this.inMemoryData.employees[index];
@@ -991,7 +1044,7 @@ class DatabaseManager {
           ...updates,
           updatedAt: new Date().toISOString(),
         };
-        this.saveToDisk();
+        await this.persist();
         return this.inMemoryData.employees[index];
       },
       getDesignationHistory: (empId: string) => {
@@ -1010,13 +1063,13 @@ class DatabaseManager {
       getAll: () => [...this.inMemoryData.projects],
       findById: (id: string) => this.inMemoryData.projects.find(p => p.id === id),
       findByCode: (code: string) => this.inMemoryData.projects.find(p => p.projectCode.trim().toUpperCase() === code.trim().toUpperCase()),
-      create: (proj: Project) => {
+      create: async (proj: Project) => {
         proj.projectCode = proj.projectCode.trim().toUpperCase();
         this.inMemoryData.projects.push(proj);
-        this.saveToDisk();
+        await this.persist();
         return proj;
       },
-      update: (id: string, updates: Partial<Project>) => {
+      update: async (id: string, updates: Partial<Project>) => {
         const index = this.inMemoryData.projects.findIndex(p => p.id === id);
         if (index === -1) return null;
         if (updates.projectCode) {
@@ -1027,7 +1080,7 @@ class DatabaseManager {
           ...updates,
           updatedAt: new Date().toISOString(),
         };
-        this.saveToDisk();
+        await this.persist();
         return this.inMemoryData.projects[index];
       }
     };
@@ -1040,12 +1093,12 @@ class DatabaseManager {
         const norm = normalizeEmployeeId(empId);
         return this.inMemoryData.attendance.filter(a => normalizeEmployeeId(a.employeeId) === norm && a.payrollMonth === month);
       },
-      saveMonthRecords: (month: string, records: AttendanceRecord[]) => {
+      saveMonthRecords: async (month: string, records: AttendanceRecord[]) => {
         // Remove existing records for this month
         this.inMemoryData.attendance = this.inMemoryData.attendance.filter(a => a.payrollMonth !== month);
         // Add new records
         this.inMemoryData.attendance.push(...records);
-        this.saveToDisk();
+        await this.persist();
         return this.inMemoryData.attendance.filter(a => a.payrollMonth === month);
       }
     };
@@ -1063,7 +1116,7 @@ class DatabaseManager {
           lines,
         };
       },
-      saveDraft: (payroll: MonthlyPayroll, lines: PayrollLine[]) => {
+      saveDraft: async (payroll: MonthlyPayroll, lines: PayrollLine[]) => {
         const existingIndex = this.inMemoryData.payrolls.findIndex(p => p.payrollMonth === payroll.payrollMonth);
         if (existingIndex !== -1) {
           // If already finalized, cannot overwrite directly without revision
@@ -1101,13 +1154,13 @@ class DatabaseManager {
         }));
         this.inMemoryData.payrollLines.push(...processedLines);
 
-        this.saveToDisk();
+        await this.persist();
         return {
           ...payroll,
           lines: processedLines,
         };
       },
-      finalize: (month: string, user: string) => {
+      finalize: async (month: string, user: string) => {
         const payroll = this.inMemoryData.payrolls.find(p => p.payrollMonth === month);
         if (!payroll) throw new Error(`No payroll found for month ${month}`);
         if (payroll.status === 'Finalized') throw new Error(`Payroll for ${month} is already finalized.`);
@@ -1173,13 +1226,13 @@ class DatabaseManager {
           }
         }
 
-        this.saveToDisk();
+        await this.persist();
         return {
           ...payroll,
           lines,
         };
       },
-      revise: (month: string, reason: string, user: string) => {
+      revise: async (month: string, reason: string, user: string) => {
         const payroll = this.inMemoryData.payrolls.find(p => p.payrollMonth === month);
         if (!payroll) throw new Error(`No payroll found for month ${month}`);
         if (payroll.status !== 'Finalized') throw new Error(`Only finalized payroll can be revised.`);
@@ -1207,7 +1260,7 @@ class DatabaseManager {
         payroll.revisionNumber = revision.revisionNumber;
         payroll.updatedAt = new Date().toISOString();
 
-        this.saveToDisk();
+        await this.persist();
         return {
           payroll,
           revision,
@@ -1226,13 +1279,13 @@ class DatabaseManager {
         const norm = normalizeEmployeeId(empId);
         return this.inMemoryData.salaryPayments.filter(p => normalizeEmployeeId(p.employeeId) === norm && p.payrollMonth === month && !p.isReversed);
       },
-      create: (payment: SalaryPaymentTransaction) => {
+      create: async (payment: SalaryPaymentTransaction) => {
         payment.payAmount = roundOMR(payment.payAmount);
         this.inMemoryData.salaryPayments.push(payment);
-        this.saveToDisk();
+        await this.persist();
         return payment;
       },
-      update: (id: string, updates: Partial<SalaryPaymentTransaction>) => {
+      update: async (id: string, updates: Partial<SalaryPaymentTransaction>) => {
         const index = this.inMemoryData.salaryPayments.findIndex(p => p.id === id);
         if (index === -1) return null;
         if (updates.payAmount !== undefined) {
@@ -1243,10 +1296,10 @@ class DatabaseManager {
           ...updates,
           updatedAt: new Date().toISOString(),
         };
-        this.saveToDisk();
+        await this.persist();
         return this.inMemoryData.salaryPayments[index];
       },
-      reverse: (id: string, reason: string, user: string) => {
+      reverse: async (id: string, reason: string, user: string) => {
         const index = this.inMemoryData.salaryPayments.findIndex(p => p.id === id);
         if (index === -1) return null;
         const current = this.inMemoryData.salaryPayments[index];
@@ -1260,7 +1313,7 @@ class DatabaseManager {
         current.reversalReason = reason;
         current.updatedAt = new Date().toISOString();
 
-        this.saveToDisk();
+        await this.persist();
         return current;
       }
     };
@@ -1282,12 +1335,12 @@ class DatabaseManager {
           transactions: this.inMemoryData.wpsRecoveryTransactions.filter(t => t.wpsRecoveryId === item.id),
         };
       },
-      create: (wps: WPSRecovery) => {
+      create: async (wps: WPSRecovery) => {
         this.inMemoryData.wpsRecoveries.push(wps);
-        this.saveToDisk();
+        await this.persist();
         return wps;
       },
-      addTransaction: (tx: WPSRecoveryTransaction) => {
+      addTransaction: async (tx: WPSRecoveryTransaction) => {
         const wps = this.inMemoryData.wpsRecoveries.find(w => w.id === tx.wpsRecoveryId);
         if (!wps) throw new Error('WPS Recovery record not found.');
 
@@ -1309,7 +1362,7 @@ class DatabaseManager {
         }
         wps.updatedAt = new Date().toISOString();
 
-        this.saveToDisk();
+        await this.persist();
         return tx;
       }
     };
@@ -1331,7 +1384,7 @@ class DatabaseManager {
           recoveries: this.inMemoryData.loanRecoveries.filter(r => r.loanId === item.id),
         };
       },
-      create: (loan: EmployeeLoan) => {
+      create: async (loan: EmployeeLoan) => {
         loan.employeeId = normalizeEmployeeId(loan.employeeId);
         loan.loanAmount = roundOMR(loan.loanAmount);
         loan.monthlyRecoveryAmount = roundOMR(loan.monthlyRecoveryAmount);
@@ -1339,10 +1392,10 @@ class DatabaseManager {
         loan.outstandingBalance = loan.loanAmount;
         loan.status = 'Active';
         this.inMemoryData.loans.push(loan);
-        this.saveToDisk();
+        await this.persist();
         return loan;
       },
-      addRecovery: (recovery: LoanRecoveryTransaction) => {
+      addRecovery: async (recovery: LoanRecoveryTransaction) => {
         const loan = this.inMemoryData.loans.find(l => l.id === recovery.loanId);
         if (!loan) throw new Error('Loan record not found.');
 
@@ -1362,15 +1415,15 @@ class DatabaseManager {
         }
         loan.updatedAt = new Date().toISOString();
 
-        this.saveToDisk();
+        await this.persist();
         return recovery;
       },
-      updateStatus: (id: string, status: LoanStatus) => {
+      updateStatus: async (id: string, status: LoanStatus) => {
         const loan = this.inMemoryData.loans.find(l => l.id === id);
         if (!loan) return null;
         loan.status = status;
         loan.updatedAt = new Date().toISOString();
-        this.saveToDisk();
+        await this.persist();
         return loan;
       }
     };
@@ -1379,7 +1432,7 @@ class DatabaseManager {
   public get audit() {
     return {
       getAll: () => [...this.inMemoryData.auditLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-      log: (entry: Omit<AuditLog, 'id' | 'timestamp'>) => {
+      log: async (entry: Omit<AuditLog, 'id' | 'timestamp'>) => {
         const logEntry: AuditLog = {
           ...entry,
           id: crypto.randomUUID(),
@@ -1390,7 +1443,7 @@ class DatabaseManager {
         if (this.inMemoryData.auditLogs.length > 5000) {
           this.inMemoryData.auditLogs.pop();
         }
-        this.saveToDisk();
+        await this.persist();
         return logEntry;
       }
     };

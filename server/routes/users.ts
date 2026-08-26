@@ -44,7 +44,7 @@ router.get('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, 
 });
 
 // POST /api/users (Admin only)
-router.post('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, res: Response) => {
+router.post('/', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
   try {
     const { username, name, email, role, password } = req.body;
     if (!username || !name || !email || !role || !password) {
@@ -70,9 +70,9 @@ router.post('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest,
       updatedAt: timestamp,
     };
 
-    db.users.create(newUser);
+    await db.users.create(newUser);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'Admin',
       userRole: req.user?.role || 'Administrator',
@@ -97,7 +97,7 @@ router.post('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest,
 });
 
 // PUT /api/users/:id (Admin only)
-router.put('/:id', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, res: Response) => {
+router.put('/:id', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { name, email, role, isActive, password } = req.body;
@@ -109,12 +109,12 @@ router.put('/:id', verifyAuth, requireRoles(['Administrator']), (req: AuthReques
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
     if (password && password.trim()) updates.passwordHash = bcrypt.hashSync(password, 10);
 
-    const updated = db.users.update(id, updates);
+    const updated = await db.users.update(id, updates);
     if (!updated) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'Admin',
       userRole: req.user?.role || 'Administrator',
@@ -138,7 +138,7 @@ router.put('/:id', verifyAuth, requireRoles(['Administrator']), (req: AuthReques
 });
 
 // PATCH /api/users/:id/toggle-active (Admin only)
-router.patch('/:id/toggle-active', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, res: Response) => {
+router.patch('/:id/toggle-active', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const targetUser = db.users.findById(id);
@@ -150,9 +150,9 @@ router.patch('/:id/toggle-active', verifyAuth, requireRoles(['Administrator']), 
       return res.status(400).json({ error: 'You cannot deactivate your own account.' });
     }
 
-    const updated = db.users.update(id, { isActive: !targetUser.isActive });
+    const updated = await db.users.update(id, { isActive: !targetUser.isActive });
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'Admin',
       userRole: req.user?.role || 'Administrator',
@@ -176,7 +176,7 @@ router.patch('/:id/toggle-active', verifyAuth, requireRoles(['Administrator']), 
 });
 
 // DELETE /api/users/:id (Admin only)
-router.delete('/:id', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, res: Response) => {
+router.delete('/:id', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const targetUser = db.users.findById(id);
@@ -188,9 +188,9 @@ router.delete('/:id', verifyAuth, requireRoles(['Administrator']), (req: AuthReq
       return res.status(400).json({ error: 'You cannot delete your own account.' });
     }
 
-    db.users.delete(id);
+    await db.users.delete(id);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'Admin',
       userRole: req.user?.role || 'Administrator',

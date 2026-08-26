@@ -148,7 +148,7 @@ router.get('/:month', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/payroll/calculate - Run payroll calculation engine for a month
-router.post('/calculate', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/calculate', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.body;
     if (!month) {
@@ -203,9 +203,9 @@ router.post('/calculate', verifyAuth, requireWritePermission, (req: AuthRequest,
       updatedAt: timestamp,
     };
 
-    const saved = db.payroll.saveDraft(payrollData, lines);
+    const saved = await db.payroll.saveDraft(payrollData, lines);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -222,7 +222,7 @@ router.post('/calculate', verifyAuth, requireWritePermission, (req: AuthRequest,
 });
 
 // PUT /api/payroll/:month/lines/:lineId - Update individual payroll line (allow rate override, additions, deductions)
-router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { month, lineId } = req.params;
     const payroll = db.payroll.getByMonth(month);
@@ -304,7 +304,7 @@ router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, (req: Au
     payroll.totalWpsSalary = roundOMR(lines.reduce((s, l) => s + l.wpsSalary, 0));
     payroll.totalRecoverableSalary = roundOMR(lines.reduce((s, l) => s + l.recoverableSalary, 0));
 
-    const saved = db.payroll.saveDraft(payroll, lines);
+    const saved = await db.payroll.saveDraft(payroll, lines);
     res.json(saved);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update payroll line' });
@@ -312,14 +312,14 @@ router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, (req: Au
 });
 
 // POST /api/payroll/:month/finalize - Finalize payroll
-router.post('/:month/finalize', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/:month/finalize', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.params;
     const user = req.user?.username || 'Admin';
 
-    const finalized = db.payroll.finalize(month, user);
+    const finalized = await db.payroll.finalize(month, user);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: user,
       userRole: req.user?.role || 'Payroll User',
@@ -336,15 +336,15 @@ router.post('/:month/finalize', verifyAuth, requireWritePermission, (req: AuthRe
 });
 
 // POST /api/payroll/:month/revise - Request revision of finalized payroll
-router.post('/:month/revise', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/:month/revise', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.params;
     const { reason } = req.body;
     const user = req.user?.username || 'Admin';
 
-    const result = db.payroll.revise(month, reason || 'Revision requested', user);
+    const result = await db.payroll.revise(month, reason || 'Revision requested', user);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: user,
       userRole: req.user?.role || 'Payroll User',

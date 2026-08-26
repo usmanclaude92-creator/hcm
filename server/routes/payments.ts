@@ -262,7 +262,7 @@ router.post('/check-duplicate', verifyAuth, (req: AuthRequest, res: Response) =>
 });
 
 // POST /api/payments/transactions - Pay Now: Create a new salary payment transaction
-router.post('/transactions', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/transactions', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const {
       employeeId,
@@ -335,12 +335,12 @@ router.post('/transactions', verifyAuth, requireWritePermission, (req: AuthReque
       updatedAt: timestamp,
     };
 
-    db.salaryPayments.create(newTransaction);
+    await db.salaryPayments.create(newTransaction);
 
     const totalPaidAfter = roundOMR(totalPaidBefore + numericAmount);
     const outstandingAfter = roundOMR(Math.max(0, line.netSalary - totalPaidAfter));
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -364,7 +364,7 @@ router.post('/transactions', verifyAuth, requireWritePermission, (req: AuthReque
 });
 
 // PUT /api/payments/transactions/:id - Edit an existing payment transaction
-router.put('/transactions/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.put('/transactions/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { payAmount, payTo, paymentDate, receiptUrl, receiptFileName, remarks } = req.body;
@@ -413,9 +413,9 @@ router.put('/transactions/:id', verifyAuth, requireWritePermission, (req: AuthRe
       updates.receiptStatus = receiptUrl ? 'Attached' : 'Attachment Pending';
     }
 
-    const updated = db.salaryPayments.update(id, updates);
+    const updated = await db.salaryPayments.update(id, updates);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -432,7 +432,7 @@ router.put('/transactions/:id', verifyAuth, requireWritePermission, (req: AuthRe
 });
 
 // POST /api/payments/transactions/:id/reverse - Soft reversal of payment transaction
-router.post('/transactions/:id/reverse', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/transactions/:id/reverse', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -442,9 +442,9 @@ router.post('/transactions/:id/reverse', verifyAuth, requireWritePermission, (re
       return res.status(400).json({ error: 'Reversal reason is mandatory for financial audit trail.' });
     }
 
-    const reversed = db.salaryPayments.reverse(id, String(reason).trim(), user);
+    const reversed = await db.salaryPayments.reverse(id, String(reason).trim(), user);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: user,
       userRole: req.user?.role || 'Payroll User',
@@ -629,7 +629,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
 });
 
 // POST /api/payments/import/confirm - Commit validated payment rows
-router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { rows } = req.body;
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -667,11 +667,11 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, (req: AuthReq
         updatedAt: timestamp,
       };
 
-      db.salaryPayments.create(tx);
+      await db.salaryPayments.create(tx);
       count++;
     }
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',

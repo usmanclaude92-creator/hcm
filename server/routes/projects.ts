@@ -33,7 +33,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/projects - Create project
-router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { projectCode, projectName, status, startDate, endDate, remarks } = req.body;
 
@@ -60,9 +60,9 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
       updatedAt: timestamp,
     };
 
-    db.projects.create(newProject);
+    await db.projects.create(newProject);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -79,7 +79,7 @@ router.post('/', verifyAuth, requireWritePermission, (req: AuthRequest, res: Res
 });
 
 // PUT /api/projects/:id - Update project
-router.put('/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const project = db.projects.findById(id);
@@ -103,9 +103,9 @@ router.put('/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: R
     if (endDate !== undefined) updates.endDate = endDate || null;
     if (remarks !== undefined) updates.remarks = remarks.trim();
 
-    const updated = db.projects.update(id, updates);
+    const updated = await db.projects.update(id, updates);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
@@ -122,16 +122,16 @@ router.put('/:id', verifyAuth, requireWritePermission, (req: AuthRequest, res: R
 });
 
 // PATCH /api/projects/:id/toggle-status
-router.patch('/:id/toggle-status', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.patch('/:id/toggle-status', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const project = db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
     const newStatus = project.status === 'Active' ? 'Inactive' : 'Active';
-    const updated = db.projects.update(id, { status: newStatus });
+    const updated = await db.projects.update(id, { status: newStatus });
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',

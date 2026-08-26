@@ -53,7 +53,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/wps/transactions - Add a WPS recovery transaction
-router.post('/transactions', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/transactions', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { wpsRecoveryId, recoveryAmount, recoveryDate, recoveredFrom, remarks } = req.body;
 
@@ -90,9 +90,9 @@ router.post('/transactions', verifyAuth, requireWritePermission, (req: AuthReque
       createdAt: new Date().toISOString(),
     };
 
-    db.wps.addTransaction(tx);
+    await db.wps.addTransaction(tx);
 
-    db.audit.log({
+    await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
