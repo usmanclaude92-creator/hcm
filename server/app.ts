@@ -1,6 +1,6 @@
 import express, { Express } from 'express';
 import path from 'path';
-import { db } from './db';
+import { db, POSTGRES_CONNECTION_STRING } from './db';
 import authRouter from './routes/auth';
 import employeesRouter from './routes/employees';
 import projectsRouter from './routes/projects';
@@ -40,7 +40,7 @@ export async function createApp(): Promise<Express> {
 
   app.get('/api/system/status', (req, res) => {
     try {
-      const isPg = Boolean(process.env.DATABASE_URL);
+      const isPg = Boolean(POSTGRES_CONNECTION_STRING);
       const employeesCount = db.employees.getAll().length;
       const projectsCount = db.projects.getAll().length;
       const payrollsCount = db.payroll.getAll().length;

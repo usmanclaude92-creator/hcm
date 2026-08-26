@@ -54,6 +54,13 @@ interface DatabaseSchema {
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'payroll_database.json');
 
+// Different Postgres marketplace integrations (Vercel Postgres, Supabase, Neon)
+// inject the connection string under different env var names.
+export const POSTGRES_CONNECTION_STRING =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_URL_NON_POOLING;
+
 class DatabaseManager {
   private inMemoryData: DatabaseSchema = {
     users: [],
@@ -78,9 +85,10 @@ class DatabaseManager {
   private isInitialized: boolean = false;
 
   constructor() {
-    // On a serverless deploy (DATABASE_URL set) the filesystem is read-only/ephemeral,
-    // so local JSON-file bootstrapping is skipped entirely and Postgres is loaded in init().
-    if (!process.env.DATABASE_URL) {
+    // On a serverless deploy (a Postgres connection string is set) the filesystem is
+    // read-only/ephemeral, so local JSON-file bootstrapping is skipped entirely and
+    // Postgres is loaded in init().
+    if (!POSTGRES_CONNECTION_STRING) {
       this.ensureDataDirectory();
       this.loadFromDisk();
     }
@@ -100,12 +108,12 @@ class DatabaseManager {
     if (this.isInitialized) return;
 
     // Check for PostgreSQL environment variable
-    if (process.env.DATABASE_URL) {
+    if (POSTGRES_CONNECTION_STRING) {
       try {
-        console.log('Checking PostgreSQL database at DATABASE_URL...');
+        console.log('Checking PostgreSQL database connection...');
         this.pgPool = new pg.Pool({
-          connectionString: process.env.DATABASE_URL,
-          ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+          connectionString: POSTGRES_CONNECTION_STRING,
+          ssl: POSTGRES_CONNECTION_STRING.includes('localhost') ? false : { rejectUnauthorized: false },
           connectionTimeoutMillis: 2000,
         });
         const res = await this.pgPool.query('SELECT NOW()');
