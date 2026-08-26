@@ -1,0 +1,6 @@
+{
+  "name": "Employee & Payroll Management System",
+  "description": "Production-ready web-based Employee & Payroll Management System with attendance, multi-project allocation, OMR 3-decimal payroll, WPS recovery, loans, Excel import/export, and payment tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
