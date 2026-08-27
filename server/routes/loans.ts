@@ -111,7 +111,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
 router.post('/:id/repayments', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { recoveryAmount, recoveryDate, remarks } = req.body;
+    const { recoveryAmount, recoveryDate, remarks, receiptAttachment, receiptFileName, repaymentMode, referenceNumber } = req.body;
 
     const loan = db.loans.findById(id);
     if (!loan) return res.status(404).json({ error: 'Loan not found.' });
@@ -134,6 +134,12 @@ router.post('/:id/repayments', verifyAuth, requireWritePermission, async (req: A
       recoveryAmount: numAmount,
       recoveryDate: recoveryDate || new Date().toISOString().split('T')[0],
       remarks: remarks ? String(remarks).trim() : 'Direct cashier repayment',
+      receiptAttachment: receiptAttachment || null,
+      receiptFileName: receiptFileName || null,
+      repaymentMode: repaymentMode || undefined,
+      referenceNumber: referenceNumber || undefined,
+      createdByName: req.user?.name || req.user?.username,
+      createdBy: req.user?.username,
       createdAt: new Date().toISOString(),
     };
 

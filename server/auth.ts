@@ -3,7 +3,10 @@ import jwt from 'jsonwebtoken';
 import { db } from './db.js';
 import type { UserRole } from '../src/types/index';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'omr_payroll_erp_secret_key_production_2026_x89f2a';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required.');
+}
 
 export interface AuthRequest extends Request {
   user?: {

@@ -48,6 +48,7 @@ export const WPSRecoveryView: React.FC = () => {
   const [recoveryForm, setRecoveryForm] = useState({
     amount: '0.000',
     recoveryDate: new Date().toISOString().split('T')[0],
+    recoveredFrom: '',
     recoveryMode: 'Bank Transfer',
     referenceNumber: '',
     receiptAttachment: null as string | null,
@@ -63,7 +64,7 @@ export const WPSRecoveryView: React.FC = () => {
       if (statusFilter !== 'ALL') params.append('status', statusFilter);
 
       const data = await apiRequest(`/api/wps?${params.toString()}`);
-      setRecords(data.records || []);
+      setRecords(data.items || []);
       setSummary(data.summary || null);
       setError(null);
     } catch (err: any) {
@@ -83,7 +84,7 @@ export const WPSRecoveryView: React.FC = () => {
       return (
         r.employeeId.toLowerCase().includes(q) ||
         r.employeeName.toLowerCase().includes(q) ||
-        (r.recoverFrom && r.recoverFrom.toLowerCase().includes(q))
+        (r.recoveredFrom && r.recoveredFrom.toLowerCase().includes(q))
       );
     }
     return true;
@@ -92,13 +93,14 @@ export const WPSRecoveryView: React.FC = () => {
   const handleOpenRecover = (rec: WPSRecoveryRecord) => {
     setSelectedRecord(rec);
     setRecoveryForm({
-      amount: formatOMR(rec.remainingAmount),
+      amount: formatOMR(rec.remainingBalance),
       recoveryDate: new Date().toISOString().split('T')[0],
+      recoveredFrom: rec.recoveredFrom || '',
       recoveryMode: 'Bank Transfer',
       referenceNumber: '',
       receiptAttachment: null,
       receiptFileName: null,
-      remarks: `WPS recovery for ${rec.month}`,
+      remarks: `WPS recovery for ${rec.payrollMonth}`,
     });
     setIsRecoverModalOpen(true);
   };
@@ -128,16 +130,19 @@ export const WPSRecoveryView: React.FC = () => {
       return;
     }
 
+    if (!recoveryForm.recoveredFrom.trim()) {
+      alert('Recovered From is required.');
+      return;
+    }
+
     try {
-      await apiRequest(`/api/wps/${selectedRecord.id}/recoveries`, {
+      await apiRequest('/api/wps/transactions', {
         method: 'POST',
         body: JSON.stringify({
-          amount: amt,
+          wpsRecoveryId: selectedRecord.id,
+          recoveryAmount: amt,
           recoveryDate: recoveryForm.recoveryDate,
-          recoveryMode: recoveryForm.recoveryMode,
-          referenceNumber: recoveryForm.referenceNumber,
-          receiptAttachment: recoveryForm.receiptAttachment,
-          receiptFileName: recoveryForm.receiptFileName,
+          recoveredFrom: recoveryForm.recoveredFrom,
           remarks: recoveryForm.remarks,
         }),
       });
@@ -149,19 +154,14 @@ export const WPSRecoveryView: React.FC = () => {
     }
   };
 
-  const handleOpenLogs = async (rec: WPSRecoveryRecord) => {
+  const handleOpenLogs = (rec: WPSRecoveryRecord) => {
     setSelectedRecord(rec);
-    try {
-      const data = await apiRequest(`/api/wps/${rec.id}/logs`);
-      setRecoveryLogs(data);
-      setIsLogsModalOpen(true);
-    } catch (err: any) {
-      alert(err.message);
-    }
+    setRecoveryLogs(rec.transactions || []);
+    setIsLogsModalOpen(true);
   };
 
   const handleExportWPS = () => {
-    window.location.href = `/api/wps/export/data?month=${monthFilter}`;
+    window.location.href = `/api/wps/export?month=${monthFilter}`;
   };
 
   return (
@@ -221,7 +221,7 @@ export const WPSRecoveryView: React.FC = () => {
             <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
               OMR {formatOMR(summary.totalRecoverable)}
             </strong>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">{summary.totalRecords} WPS Excess Instances</span>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">{(summary.outstandingCount||0)+(summary.partiallyRecoveredCount||0)+(summary.fullyRecoveredCount||0)} WPS Excess Instances</span>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
@@ -229,7 +229,7 @@ export const WPSRecoveryView: React.FC = () => {
             <strong className="block text-xl font-bold text-emerald-800 mt-1 font-mono">
               OMR {formatOMR(summary.totalRecovered)}
             </strong>
-            <span className="text-[11px] text-emerald-600 mt-0.5 block">{summary.recoveredCount} Fully Recovered</span>
+            <span className="text-[11px] text-emerald-600 mt-0.5 block">{summary.fullyRecoveredCount} Fully Recovered</span>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
@@ -237,7 +237,7 @@ export const WPSRecoveryView: React.FC = () => {
             <strong className="block text-xl font-bold text-amber-800 mt-1 font-mono">
               OMR {formatOMR(summary.totalRemaining)}
             </strong>
-            <span className="text-[11px] text-amber-600 mt-0.5 block">{summary.pendingCount} Pending Recovery</span>
+            <span className="text-[11px] text-amber-600 mt-0.5 block">{summary.outstandingCount} Pending Recovery</span>
           </div>
         </div>
       )}
@@ -262,9 +262,9 @@ export const WPSRecoveryView: React.FC = () => {
             className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-amber-500"
           >
             <option value="ALL">All Recovery Statuses</option>
-            <option value="Pending">Pending</option>
+            <option value="Outstanding">Outstanding</option>
             <option value="Partially Recovered">Partially Recovered</option>
-            <option value="Recovered">Recovered</option>
+            <option value="Fully Recovered">Fully Recovered</option>
           </select>
         </div>
       </div>
@@ -297,7 +297,7 @@ export const WPSRecoveryView: React.FC = () => {
               ) : (
                 filteredRecords.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-slate-800">{r.month}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-800">{r.payrollMonth}</td>
                     <td className="px-4 py-3">
                       <span className="font-mono font-bold text-blue-600 block">{r.employeeId}</span>
                       <span className="font-semibold text-slate-900">{r.employeeName}</span>
@@ -306,23 +306,23 @@ export const WPSRecoveryView: React.FC = () => {
                       OMR {formatOMR(r.wpsSalary)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-slate-600">
-                      OMR {formatOMR(r.actualNetSalary)}
+                      OMR {formatOMR(r.netSalary)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-amber-700">
-                      OMR {formatOMR(r.recoverableAmount)}
+                      OMR {formatOMR(r.totalRecoverable)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-emerald-700 font-semibold">
-                      OMR {formatOMR(r.recoveredAmount)}
+                      OMR {formatOMR(r.totalRecovered)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold">
-                      <span className={r.remainingAmount > 0 ? 'text-rose-600' : 'text-slate-400'}>
-                        OMR {formatOMR(r.remainingAmount)}
+                      <span className={r.remainingBalance > 0 ? 'text-rose-600' : 'text-slate-400'}>
+                        OMR {formatOMR(r.remainingBalance)}
                       </span>
                     </td>
-                    <td className="px-3 py-3 font-medium text-slate-700">{r.recoverFrom || 'DGO'}</td>
+                    <td className="px-3 py-3 font-medium text-slate-700">{r.recoveredFrom || 'DGO'}</td>
                     <td className="px-3 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        r.status === 'Recovered'
+                        r.status === 'Fully Recovered'
                           ? 'bg-emerald-100 text-emerald-800'
                           : r.status === 'Partially Recovered'
                           ? 'bg-amber-100 text-amber-800'
@@ -339,7 +339,7 @@ export const WPSRecoveryView: React.FC = () => {
                         >
                           Logs
                         </button>
-                        {canWrite && r.remainingAmount > 0 && (
+                        {canWrite && r.remainingBalance > 0 && (
                           <button
                             onClick={() => handleOpenRecover(r)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-amber-600 hover:bg-amber-500 rounded-md transition-colors shadow-2xs cursor-pointer"
@@ -368,7 +368,7 @@ export const WPSRecoveryView: React.FC = () => {
                   Record WPS Recovery: {selectedRecord.employeeId} - {selectedRecord.employeeName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Month: {selectedRecord.month} • Excess Recoverable: OMR {formatOMR(selectedRecord.recoverableAmount)} • Balance: OMR {formatOMR(selectedRecord.remainingAmount)}
+                  Month: {selectedRecord.payrollMonth} • Excess Recoverable: OMR {formatOMR(selectedRecord.totalRecoverable)} • Balance: OMR {formatOMR(selectedRecord.remainingBalance)}
                 </p>
               </div>
               <button
@@ -407,6 +407,20 @@ export const WPSRecoveryView: React.FC = () => {
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Recovered From <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={recoveryForm.recoveredFrom}
+                  onChange={(e) => setRecoveryForm({ ...recoveryForm, recoveredFrom: e.target.value })}
+                  placeholder="e.g. DGO, SMI, NC, Supplier"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -502,7 +516,7 @@ export const WPSRecoveryView: React.FC = () => {
                   WPS Recovery Transactions: {selectedRecord.employeeId} - {selectedRecord.employeeName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Month: {selectedRecord.month} • Recovered: OMR {formatOMR(selectedRecord.recoveredAmount)} of OMR {formatOMR(selectedRecord.recoverableAmount)}
+                  Month: {selectedRecord.payrollMonth} • Recovered: OMR {formatOMR(selectedRecord.totalRecovered)} of OMR {formatOMR(selectedRecord.totalRecoverable)}
                 </p>
               </div>
               <button
@@ -522,8 +536,8 @@ export const WPSRecoveryView: React.FC = () => {
                     <thead className="bg-slate-50 text-slate-500 font-semibold">
                       <tr>
                         <th className="px-3 py-2">Date</th>
-                        <th className="px-3 py-2">Mode</th>
-                        <th className="px-3 py-2">Reference</th>
+                        <th className="px-3 py-2">Recovered From</th>
+                        <th className="px-3 py-2">Remarks</th>
                         <th className="px-3 py-2 text-right">Amount (OMR)</th>
                         <th className="px-3 py-2 text-center">Proof</th>
                         <th className="px-3 py-2">Recorded By</th>
@@ -533,10 +547,10 @@ export const WPSRecoveryView: React.FC = () => {
                       {recoveryLogs.map((l) => (
                         <tr key={l.id}>
                           <td className="px-3 py-2">{formatDate(l.recoveryDate)}</td>
-                          <td className="px-3 py-2">{l.recoveryMode}</td>
-                          <td className="px-3 py-2 text-slate-500">{l.referenceNumber || '—'}</td>
+                          <td className="px-3 py-2">{l.recoveredFrom}</td>
+                          <td className="px-3 py-2 text-slate-500">{l.remarks || '—'}</td>
                           <td className="px-3 py-2 text-right font-mono font-bold text-amber-700">
-                            OMR {formatOMR(l.amount)}
+                            OMR {formatOMR(l.recoveryAmount)}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {l.receiptAttachment ? (
@@ -546,7 +560,7 @@ export const WPSRecoveryView: React.FC = () => {
                                     url: l.receiptAttachment!,
                                     name: l.receiptFileName || undefined,
                                     empName: selectedRecord.employeeName,
-                                    amount: l.amount,
+                                    amount: l.recoveryAmount,
                                   });
                                   setViewerOpen(true);
                                 }}
@@ -558,7 +572,7 @@ export const WPSRecoveryView: React.FC = () => {
                               '—'
                             )}
                           </td>
-                          <td className="px-3 py-2 text-slate-500">{l.createdByName}</td>
+                          <td className="px-3 py-2 text-slate-500">{l.createdBy}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -200,7 +200,10 @@ export interface PaymentLedgerRow {
   employeeCompany: EmployeeCompany;
   salaryPaidBy: SalaryPaidBy;
   wpsEmployee: WPSStatus;
-  paymentMethod?: PaymentMethod;
+  employeeType: EmployeeType;
+  designation: string;
+  paymentMethod: PaymentMethod;
+  payrollLineId: string;
   netSalaryOwed: number;
   totalPaid: number;
   remainingBalance: number;
@@ -208,7 +211,7 @@ export interface PaymentLedgerRow {
   receiptStatus: 'Attached' | 'Attachment Pending' | 'No Payments';
   lastPaymentDate?: string | null;
   transactionsCount: number;
-  months?: any[];
+  receipts: { receiptUrl: string; fileName?: string | null; amount: number }[];
 }
 
 export interface EmployeeSalaryPaymentSummary {
@@ -220,6 +223,9 @@ export interface EmployeeSalaryPaymentSummary {
   months: {
     payrollMonth: string;
     payrollLineId: string;
+    employeeType: EmployeeType;
+    designation: string;
+    paymentMethod: PaymentMethod;
     grossSalary: number;
     totalAdditions: number;
     totalDeductions: number;
@@ -306,6 +312,8 @@ export interface LoanRepayment {
   remarks?: string;
   createdByName?: string;
   createdBy?: string;
+  isReversed?: boolean;
+  reversedAt?: string | null;
   createdAt: string;
 }
 

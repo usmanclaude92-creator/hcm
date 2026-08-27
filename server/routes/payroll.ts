@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, requireWritePermission, AuthRequest } from '../auth.js';
+import { verifyAuth, requireWritePermission, requireRoles, AuthRequest } from '../auth.js';
 import type { MonthlyPayroll, PayrollLine, PayrollStatus, PaymentMethod } from '../../src/types/index';
 
 const router = Router();
@@ -259,6 +259,22 @@ router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, async (r
     const newOtherDed = otherDeductions !== undefined ? roundOMR(Number(otherDeductions)) : currentLine.otherDeductions;
     const newWpsSalary = wpsSalary !== undefined ? roundOMR(Number(wpsSalary)) : currentLine.wpsSalary;
 
+    const negativeFieldChecks: [string, number][] = [
+      ['Basic Salary / Wage Rate', newRate],
+      ['House Allowance', newHouse],
+      ['Transport Allowance', newTransport],
+      ['Bonus', newBonus],
+      ['Other Allowance', newOtherAdd],
+      ['Loan Recovery', newLoanRec],
+      ['Other Deductions', newOtherDed],
+      ['WPS Salary', newWpsSalary],
+    ];
+    for (const [label, value] of negativeFieldChecks) {
+      if (isNaN(value) || value < 0) {
+        return res.status(400).json({ error: `${label} cannot be negative.` });
+      }
+    }
+
     // Recalculate line
     let newGross = 0;
     if (currentLine.employeeType === 'Worker') {
@@ -312,7 +328,7 @@ router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, async (r
 });
 
 // POST /api/payroll/:month/finalize - Finalize payroll
-router.post('/:month/finalize', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.post('/:month/finalize', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.params;
     const user = req.user?.username || 'Admin';
@@ -336,7 +352,7 @@ router.post('/:month/finalize', verifyAuth, requireWritePermission, async (req: 
 });
 
 // POST /api/payroll/:month/revise - Request revision of finalized payroll
-router.post('/:month/revise', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.post('/:month/revise', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.params;
     const { reason } = req.body;

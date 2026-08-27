@@ -112,6 +112,9 @@ function getGroupedPaymentSummaries(filters: {
       summary.months.push({
         payrollMonth: payroll.payrollMonth,
         payrollLineId: line.id,
+        employeeType: line.employeeType,
+        designation: line.designation,
+        paymentMethod: line.paymentMethod,
         grossSalary: line.grossSalary,
         totalAdditions: line.totalAdditions,
         totalDeductions: line.totalDeductions,
@@ -643,11 +646,28 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
 
     let count = 0;
     const timestamp = new Date().toISOString();
+    const errors: string[] = [];
 
     for (const r of validRows) {
       const normId = normalizeEmployeeId(r.employeeId);
       const payroll = db.payroll.getByMonth(r.payrollMonth);
       const line = payroll?.lines?.find(l => normalizeEmployeeId(l.employeeId) === normId);
+
+      const numericAmount = roundOMR(Number(r.payAmount));
+      if (isNaN(numericAmount) || numericAmount <= 0) {
+        errors.push(`${normId} (${r.payrollMonth}): Pay Amount must be greater than zero.`);
+        continue;
+      }
+
+      if (line) {
+        const existingPayments = db.salaryPayments.getByEmployeeAndMonth(normId, r.payrollMonth);
+        const totalPaidBefore = roundOMR(existingPayments.reduce((s, p) => s + p.payAmount, 0));
+        const currentOutstanding = roundOMR(Math.max(0, line.netSalary - totalPaidBefore));
+        if (numericAmount > currentOutstanding) {
+          errors.push(`${normId} (${r.payrollMonth}): Amount OMR ${numericAmount.toFixed(3)} exceeds outstanding balance of OMR ${currentOutstanding.toFixed(3)}.`);
+          continue;
+        }
+      }
 
       const tx: SalaryPaymentTransaction = {
         id: crypto.randomUUID(),
@@ -656,7 +676,7 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
         payrollMonth: r.payrollMonth,
         payrollLineId: line ? line.id : '',
         paymentDate: r.paymentDate || timestamp.split('T')[0],
-        payAmount: roundOMR(Number(r.payAmount)),
+        payAmount: numericAmount,
         payTo: r.payTo || 'Employee',
         receiptFileName: r.receiptReference ? `Ref: ${r.receiptReference}` : null,
         receiptStatus: 'Attachment Pending',
@@ -682,8 +702,9 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
 
     res.json({
       success: true,
-      message: `Successfully recorded ${count} payment transactions.`,
+      message: `Successfully recorded ${count} payment transactions.${errors.length > 0 ? ` ${errors.length} row(s) skipped.` : ''}`,
       count,
+      errors,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to commit payments import.' });

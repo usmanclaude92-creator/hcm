@@ -111,7 +111,11 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
 // GET /api/wps/export - Export WPS Recovery report to Excel
 router.get('/export', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const list = db.wps.getAll();
+    const { month } = req.query;
+    let list = db.wps.getAll();
+    if (month && month !== 'ALL') {
+      list = list.filter(w => w.payrollMonth === month);
+    }
 
     const data = list.map((w, idx) => ({
       'Sr#': idx + 1,

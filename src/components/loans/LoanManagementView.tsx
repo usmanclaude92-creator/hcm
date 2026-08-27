@@ -95,7 +95,7 @@ export const LoanManagementView: React.FC = () => {
       return (
         l.employeeId.toLowerCase().includes(q) ||
         l.employeeName.toLowerCase().includes(q) ||
-        (l.purpose && l.purpose.toLowerCase().includes(q))
+        (l.remarks && l.remarks.toLowerCase().includes(q))
       );
     }
     return true;
@@ -131,8 +131,8 @@ export const LoanManagementView: React.FC = () => {
           employeeId: loanForm.employeeId,
           loanAmount: amt,
           loanDate: loanForm.loanDate,
-          monthlyDeduction: Number(loanForm.monthlyDeduction) || 0,
-          purpose: loanForm.purpose,
+          monthlyRecoveryAmount: Number(loanForm.monthlyDeduction) || 0,
+          remarks: loanForm.purpose,
         }),
       });
 
@@ -188,8 +188,8 @@ export const LoanManagementView: React.FC = () => {
       await apiRequest(`/api/loans/${selectedLoan.id}/repayments`, {
         method: 'POST',
         body: JSON.stringify({
-          amount: amt,
-          repaymentDate: repayForm.repaymentDate,
+          recoveryAmount: amt,
+          recoveryDate: repayForm.repaymentDate,
           repaymentMode: repayForm.repaymentMode,
           referenceNumber: repayForm.referenceNumber,
           receiptAttachment: repayForm.receiptAttachment,
@@ -205,19 +205,14 @@ export const LoanManagementView: React.FC = () => {
     }
   };
 
-  const handleOpenHistory = async (loan: EmployeeLoan) => {
+  const handleOpenHistory = (loan: EmployeeLoan) => {
     setSelectedLoan(loan);
-    try {
-      const data = await apiRequest(`/api/loans/${loan.id}/repayments`);
-      setRepaymentsList(data);
-      setIsHistoryModalOpen(true);
-    } catch (err: any) {
-      alert(err.message);
-    }
+    setRepaymentsList(loan.recoveries || []);
+    setIsHistoryModalOpen(true);
   };
 
   const handleExportLoans = () => {
-    window.location.href = '/api/loans/export/data';
+    window.location.href = '/api/loans/export';
   };
 
   return (
@@ -268,17 +263,17 @@ export const LoanManagementView: React.FC = () => {
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
             <span className="text-xs font-medium text-slate-500">Total Loan Principal Granted</span>
             <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
-              OMR {formatOMR(summary.totalPrincipal)}
+              OMR {formatOMR(summary.totalLoanAmount)}
             </strong>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">{summary.totalLoans} Total Loan Agreements</span>
+            <span className="text-[11px] text-slate-400 mt-0.5 block">{(summary.activeCount || 0) + (summary.completedCount || 0)} Total Loan Agreements</span>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
             <span className="text-xs font-semibold text-emerald-700">Total Principal Repaid</span>
             <strong className="block text-xl font-bold text-emerald-800 mt-1 font-mono">
-              OMR {formatOMR(summary.totalRepaid)}
+              OMR {formatOMR(summary.totalRecovered)}
             </strong>
-            <span className="text-[11px] text-emerald-600 mt-0.5 block">{summary.fullyRepaidCount} Loans Closed</span>
+            <span className="text-[11px] text-emerald-600 mt-0.5 block">{summary.completedCount} Loans Closed</span>
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-purple-200 bg-purple-50/30 shadow-xs">
@@ -286,7 +281,7 @@ export const LoanManagementView: React.FC = () => {
             <strong className="block text-xl font-bold text-purple-800 mt-1 font-mono">
               OMR {formatOMR(summary.totalOutstanding)}
             </strong>
-            <span className="text-[11px] text-purple-600 mt-0.5 block">{summary.activeLoansCount} Active Repayment Loans</span>
+            <span className="text-[11px] text-purple-600 mt-0.5 block">{summary.activeCount} Active Repayment Loans</span>
           </div>
         </div>
       )}
@@ -312,7 +307,7 @@ export const LoanManagementView: React.FC = () => {
           >
             <option value="ALL">All Loan Statuses</option>
             <option value="Active">Active Loans</option>
-            <option value="Fully Repaid">Fully Repaid</option>
+            <option value="Completed">Completed</option>
           </select>
         </div>
       </div>
@@ -353,22 +348,22 @@ export const LoanManagementView: React.FC = () => {
                       OMR {formatOMR(l.loanAmount)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-emerald-700">
-                      OMR {formatOMR(l.repaidAmount)}
+                      OMR {formatOMR(l.totalRecovered)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold">
-                      <span className={l.remainingBalance > 0 ? 'text-purple-700' : 'text-slate-400'}>
-                        OMR {formatOMR(l.remainingBalance)}
+                      <span className={l.outstandingBalance > 0 ? 'text-purple-700' : 'text-slate-400'}>
+                        OMR {formatOMR(l.outstandingBalance)}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-slate-600">
-                      {l.monthlyDeduction > 0 ? `OMR ${formatOMR(l.monthlyDeduction)}` : '—'}
+                      {l.monthlyRecoveryAmount > 0 ? `OMR ${formatOMR(l.monthlyRecoveryAmount)}` : '—'}
                     </td>
-                    <td className="px-3 py-3 text-slate-600 max-w-[180px] truncate" title={l.purpose}>
-                      {l.purpose || '—'}
+                    <td className="px-3 py-3 text-slate-600 max-w-[180px] truncate" title={l.remarks}>
+                      {l.remarks || '—'}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        l.status === 'Fully Repaid'
+                        l.status === 'Completed'
                           ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-purple-100 text-purple-800'
                       }`}>
@@ -383,7 +378,7 @@ export const LoanManagementView: React.FC = () => {
                         >
                           Repayments
                         </button>
-                        {canWrite && l.remainingBalance > 0 && (
+                        {canWrite && l.outstandingBalance > 0 && (
                           <button
                             onClick={() => handleOpenDirectRepay(l)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-md transition-colors shadow-2xs cursor-pointer"
@@ -525,7 +520,7 @@ export const LoanManagementView: React.FC = () => {
                   Record Direct Repayment: {selectedLoan.employeeId} - {selectedLoan.employeeName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Principal: OMR {formatOMR(selectedLoan.loanAmount)} • Remaining: OMR {formatOMR(selectedLoan.remainingBalance)}
+                  Principal: OMR {formatOMR(selectedLoan.loanAmount)} • Remaining: OMR {formatOMR(selectedLoan.outstandingBalance)}
                 </p>
               </div>
               <button
@@ -658,7 +653,7 @@ export const LoanManagementView: React.FC = () => {
                   Repayment Track Record: {selectedLoan.employeeId} - {selectedLoan.employeeName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Principal: OMR {formatOMR(selectedLoan.loanAmount)} • Repaid: OMR {formatOMR(selectedLoan.repaidAmount)} • Balance: OMR {formatOMR(selectedLoan.remainingBalance)}
+                  Principal: OMR {formatOMR(selectedLoan.loanAmount)} • Repaid: OMR {formatOMR(selectedLoan.totalRecovered)} • Balance: OMR {formatOMR(selectedLoan.outstandingBalance)}
                 </p>
               </div>
               <button
@@ -687,18 +682,19 @@ export const LoanManagementView: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {repaymentsList.map((r) => (
-                        <tr key={r.id}>
-                          <td className="px-3 py-2">{formatDate(r.repaymentDate)}</td>
+                        <tr key={r.id} className={r.isReversed ? 'opacity-50' : ''}>
+                          <td className="px-3 py-2">{formatDate(r.recoveryDate)}</td>
                           <td className="px-3 py-2">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              r.source === 'Payroll Deduction' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                              r.recoverySource === 'Payroll' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
                             }`}>
-                              {r.source}
+                              {r.recoverySource === 'Payroll' ? 'Payroll Deduction' : r.recoverySource}
                             </span>
+                            {r.isReversed && <span className="ml-1.5 text-rose-600 font-semibold text-[10px]">(Reversed)</span>}
                           </td>
                           <td className="px-3 py-2 text-slate-600">{r.payrollMonth || '—'}</td>
                           <td className="px-3 py-2 text-right font-mono font-bold text-purple-700">
-                            OMR {formatOMR(r.amount)}
+                            OMR {formatOMR(r.recoveryAmount)}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {r.receiptAttachment ? (
@@ -708,7 +704,7 @@ export const LoanManagementView: React.FC = () => {
                                     url: r.receiptAttachment!,
                                     name: r.receiptFileName || undefined,
                                     empName: selectedLoan.employeeName,
-                                    amount: r.amount,
+                                    amount: r.recoveryAmount,
                                   });
                                   setViewerOpen(true);
                                 }}
@@ -720,7 +716,7 @@ export const LoanManagementView: React.FC = () => {
                               '—'
                             )}
                           </td>
-                          <td className="px-3 py-2 text-slate-500">{r.createdByName}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.createdByName || r.createdBy}</td>
                         </tr>
                       ))}
                     </tbody>

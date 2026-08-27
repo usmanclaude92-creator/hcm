@@ -111,7 +111,20 @@ router.get('/payroll', verifyAuth, (req: AuthRequest, res: Response) => {
       return res.send(buffer);
     }
 
-    res.json(lines);
+    const totalGrossSalary = roundOMR(lines.reduce((s, l) => s + l.grossSalary, 0));
+    const totalAdditions = roundOMR(lines.reduce((s, l) => s + l.totalAdditions, 0));
+    const totalDeductions = roundOMR(lines.reduce((s, l) => s + l.totalDeductions, 0));
+    const totalNetSalary = roundOMR(lines.reduce((s, l) => s + l.netSalary, 0));
+    const matchingPayroll = month && month !== 'ALL' ? allPayrolls.find(p => p.payrollMonth === month) : undefined;
+
+    res.json({
+      totalGrossSalary,
+      totalAdditions,
+      totalDeductions,
+      totalNetSalary,
+      status: matchingPayroll?.status || 'Draft',
+      lines,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate payroll report' });
   }
@@ -205,7 +218,14 @@ router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
       return res.send(buffer);
     }
 
-    res.json(rows);
+    res.json({
+      summary: {
+        totalNetSalaryOwed: roundOMR(rows.reduce((s, r) => s + r.netSalary, 0)),
+        totalActuallyPaid: roundOMR(rows.reduce((s, r) => s + r.totalPaid, 0)),
+        totalRemainingBalance: roundOMR(rows.reduce((s, r) => s + r.outstanding, 0)),
+      },
+      ledger: rows,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate payments report' });
   }
@@ -244,7 +264,14 @@ router.get('/wps', verifyAuth, (req: AuthRequest, res: Response) => {
       return res.send(buffer);
     }
 
-    res.json(list);
+    res.json({
+      summary: {
+        totalRecoverable: roundOMR(list.reduce((s, w) => s + w.totalRecoverable, 0)),
+        totalRecovered: roundOMR(list.reduce((s, w) => s + w.totalRecovered, 0)),
+        totalRemaining: roundOMR(list.reduce((s, w) => s + w.remainingBalance, 0)),
+      },
+      records: list,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate WPS report' });
   }
@@ -281,7 +308,14 @@ router.get('/loans', verifyAuth, (req: AuthRequest, res: Response) => {
       return res.send(buffer);
     }
 
-    res.json(loans);
+    res.json({
+      summary: {
+        totalPrincipal: roundOMR(loans.reduce((s, l) => s + l.loanAmount, 0)),
+        totalRepaid: roundOMR(loans.reduce((s, l) => s + l.totalRecovered, 0)),
+        totalOutstanding: roundOMR(loans.reduce((s, l) => s + l.outstandingBalance, 0)),
+      },
+      loans,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate loans report' });
   }

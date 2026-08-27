@@ -56,6 +56,7 @@ export const SalaryPaymentsView: React.FC = () => {
   const [payForm, setPayForm] = useState({
     amountPaid: '0.000',
     paymentDate: new Date().toISOString().split('T')[0],
+    payTo: '',
     paymentMode: 'Bank Transfer' as PaymentMode,
     referenceNumber: '',
     bankName: 'Bank Muscat',
@@ -68,9 +69,64 @@ export const SalaryPaymentsView: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiRequest(`/api/payments?month=${month}`);
-      setLedger(data.ledger || []);
-      setSummary(data.summary || null);
+      const grouped = await apiRequest(`/api/payments/grouped?month=${month}`);
+
+      const rows: PaymentLedgerRow[] = [];
+      let totalNetSalaryOwed = 0;
+      let totalActuallyPaid = 0;
+      let totalRemainingBalance = 0;
+      let unpaidCount = 0;
+      let partiallyPaidCount = 0;
+      let fullyPaidCount = 0;
+
+      for (const emp of grouped) {
+        const m = emp.months?.[0];
+        if (!m) continue;
+
+        const lastPaymentDate = m.transactions.length > 0
+          ? m.transactions.reduce((latest: string | null, tx: any) => (!latest || tx.paymentDate > latest ? tx.paymentDate : latest), null)
+          : null;
+
+        rows.push({
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          employeeCompany: emp.employeeCompany,
+          salaryPaidBy: emp.salaryPaidBy,
+          wpsEmployee: emp.wpsEmployee,
+          employeeType: m.employeeType,
+          designation: m.designation,
+          paymentMethod: m.paymentMethod,
+          payrollLineId: m.payrollLineId,
+          netSalaryOwed: m.netSalary,
+          totalPaid: m.totalPaid,
+          remainingBalance: m.outstanding,
+          paymentStatus: m.status,
+          receiptStatus: m.receiptStatus,
+          lastPaymentDate,
+          transactionsCount: m.transactions.length,
+          receipts: m.transactions
+            .filter((tx: any) => tx.receiptUrl)
+            .map((tx: any) => ({ receiptUrl: tx.receiptUrl, fileName: tx.receiptFileName, amount: tx.payAmount })),
+        });
+
+        totalNetSalaryOwed += m.netSalary;
+        totalActuallyPaid += m.totalPaid;
+        totalRemainingBalance += m.outstanding;
+        if (m.status === 'Unpaid') unpaidCount++;
+        else if (m.status === 'Partially Paid') partiallyPaidCount++;
+        else if (m.status === 'Fully Paid') fullyPaidCount++;
+      }
+
+      setLedger(rows);
+      setSummary({
+        totalNetSalaryOwed,
+        totalActuallyPaid,
+        totalRemainingBalance,
+        totalEmployees: rows.length,
+        unpaidCount,
+        partiallyPaidCount,
+        fullyPaidCount,
+      });
     } catch (err: any) {
       setError(err.message || 'Failed to fetch payment ledger');
     } finally {
@@ -100,6 +156,7 @@ export const SalaryPaymentsView: React.FC = () => {
     setPayForm({
       amountPaid: formatOMR(row.remainingBalance > 0 ? row.remainingBalance : row.netSalaryOwed),
       paymentDate: new Date().toISOString().split('T')[0],
+      payTo: '',
       paymentMode: row.paymentMethod === 'WPS' ? 'WPS Transfer' : 'Bank Transfer',
       referenceNumber: '',
       bankName: 'Bank Muscat',
@@ -134,19 +191,22 @@ export const SalaryPaymentsView: React.FC = () => {
       alert('Payment amount must be greater than zero.');
       return;
     }
+    if (!payForm.payTo.trim()) {
+      alert('Pay To is required.');
+      return;
+    }
 
     try {
-      await apiRequest('/api/payments', {
+      await apiRequest('/api/payments/transactions', {
         method: 'POST',
         body: JSON.stringify({
           employeeId: selectedRow.employeeId,
           payrollMonth: month,
-          amountPaid: amt,
+          payrollLineId: selectedRow.payrollLineId,
+          payAmount: amt,
           paymentDate: payForm.paymentDate,
-          paymentMode: payForm.paymentMode,
-          referenceNumber: payForm.referenceNumber,
-          bankName: payForm.bankName,
-          receiptAttachment: payForm.receiptAttachment,
+          payTo: payForm.payTo,
+          receiptUrl: payForm.receiptAttachment,
           receiptFileName: payForm.receiptFileName,
           remarks: payForm.remarks,
         }),
@@ -162,7 +222,7 @@ export const SalaryPaymentsView: React.FC = () => {
   const handleOpenHistory = async (row: PaymentLedgerRow) => {
     setSelectedRow(row);
     try {
-      const data = await apiRequest(`/api/payments/${row.employeeId}?month=${month}`);
+      const data = await apiRequest(`/api/payments/transactions?employeeId=${row.employeeId}&month=${month}`);
       setSelectedEmployeeHistory(data);
       setIsHistoryModalOpen(true);
     } catch (err: any) {
@@ -171,10 +231,12 @@ export const SalaryPaymentsView: React.FC = () => {
   };
 
   const handleReversePayment = async (paymentId: string) => {
-    if (!confirm('Are you sure you want to reverse / void this salary payment transaction?')) return;
+    const reason = window.prompt('Reason for reversing this payment transaction (required):');
+    if (!reason || !reason.trim()) return;
     try {
-      await apiRequest(`/api/payments/${paymentId}`, {
-        method: 'DELETE',
+      await apiRequest(`/api/payments/transactions/${paymentId}/reverse`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reason.trim() }),
       });
       setIsHistoryModalOpen(false);
       fetchPayments();
@@ -547,6 +609,20 @@ export const SalaryPaymentsView: React.FC = () => {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Pay To <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={payForm.payTo}
+                  onChange={(e) => setPayForm({ ...payForm, payTo: e.target.value })}
+                  placeholder="e.g. Ahmed, Cash, Bank Transfer, Authorized Representative"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 {/* Mode */}
                 <div>
@@ -677,8 +753,8 @@ export const SalaryPaymentsView: React.FC = () => {
                     <thead className="bg-slate-50 text-slate-500 font-semibold">
                       <tr>
                         <th className="px-3 py-2">Date</th>
-                        <th className="px-3 py-2">Mode</th>
-                        <th className="px-3 py-2">Bank / Ref</th>
+                        <th className="px-3 py-2">Pay To</th>
+                        <th className="px-3 py-2">Remarks</th>
                         <th className="px-3 py-2 text-right">Amount (OMR)</th>
                         <th className="px-3 py-2 text-center">Receipt</th>
                         <th className="px-3 py-2">Disbursed By</th>
@@ -687,22 +763,25 @@ export const SalaryPaymentsView: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {selectedEmployeeHistory.map((p) => (
-                        <tr key={p.id}>
+                        <tr key={p.id} className={p.isReversed ? 'opacity-50' : ''}>
                           <td className="px-3 py-2">{formatDate(p.paymentDate)}</td>
-                          <td className="px-3 py-2">{p.paymentMode}</td>
-                          <td className="px-3 py-2 text-slate-500">{p.bankName} {p.referenceNumber ? `(${p.referenceNumber})` : ''}</td>
+                          <td className="px-3 py-2">{p.payTo}</td>
+                          <td className="px-3 py-2 text-slate-500">
+                            {p.remarks || '—'}
+                            {p.isReversed && <span className="ml-1.5 text-rose-600 font-semibold">(Reversed)</span>}
+                          </td>
                           <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">
-                            OMR {formatOMR(p.amountPaid)}
+                            OMR {formatOMR(p.payAmount)}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {p.receiptAttachment ? (
+                            {p.receiptUrl ? (
                               <button
                                 onClick={() => {
                                   setViewerData({
-                                    url: p.receiptAttachment!,
+                                    url: p.receiptUrl!,
                                     name: p.receiptFileName || undefined,
                                     empName: selectedRow.employeeName,
-                                    amount: p.amountPaid,
+                                    amount: p.payAmount,
                                   });
                                   setViewerOpen(true);
                                 }}
@@ -714,16 +793,18 @@ export const SalaryPaymentsView: React.FC = () => {
                               '—'
                             )}
                           </td>
-                          <td className="px-3 py-2 text-slate-500">{p.createdByName}</td>
+                          <td className="px-3 py-2 text-slate-500">{p.createdBy}</td>
                           {canWrite && (
                             <td className="px-3 py-2 text-right">
-                              <button
-                                onClick={() => handleReversePayment(p.id)}
-                                className="text-rose-600 hover:text-rose-800 font-semibold p-1 hover:bg-rose-50 rounded"
-                                title="Void / Reverse Transaction"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {!p.isReversed && (
+                                <button
+                                  onClick={() => handleReversePayment(p.id)}
+                                  className="text-rose-600 hover:text-rose-800 font-semibold p-1 hover:bg-rose-50 rounded"
+                                  title="Void / Reverse Transaction"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </td>
                           )}
                         </tr>

@@ -25,15 +25,23 @@ export const ReportsView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchReport = async () => {
+    // Project Labor & Costing isn't implemented server-side yet — show an empty state
+    // instead of hitting a route that doesn't exist.
+    if (activeTab === 'projects') {
+      setReportData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       let url = '';
-      if (activeTab === 'payroll') url = `/api/reports/payroll-summary?month=${month}`;
-      else if (activeTab === 'payments') url = `/api/reports/salary-payments?month=${month}`;
-      else if (activeTab === 'wps') url = `/api/reports/wps-recovery?month=${month}`;
-      else if (activeTab === 'projects') url = `/api/reports/project-labor-costing?month=${month}`;
-      else if (activeTab === 'loans') url = `/api/reports/loans-summary`;
+      if (activeTab === 'payroll') url = `/api/reports/payroll?month=${month}`;
+      else if (activeTab === 'payments') url = `/api/reports/payments?month=${month}`;
+      else if (activeTab === 'wps') url = `/api/reports/wps?month=${month}`;
+      else if (activeTab === 'loans') url = `/api/reports/loans`;
 
       const data = await apiRequest(url);
       setReportData(data);
@@ -49,12 +57,13 @@ export const ReportsView: React.FC = () => {
   }, [activeTab, month]);
 
   const handleExportExcel = () => {
+    if (activeTab === 'projects') return;
+
     let url = '';
-    if (activeTab === 'payroll') url = `/api/reports/payroll-summary/export?month=${month}`;
-    else if (activeTab === 'payments') url = `/api/reports/salary-payments/export?month=${month}`;
-    else if (activeTab === 'wps') url = `/api/reports/wps-recovery/export?month=${month}`;
-    else if (activeTab === 'projects') url = `/api/reports/project-labor-costing/export?month=${month}`;
-    else if (activeTab === 'loans') url = `/api/reports/loans-summary/export`;
+    if (activeTab === 'payroll') url = `/api/reports/payroll?month=${month}&exportFormat=excel`;
+    else if (activeTab === 'payments') url = `/api/reports/payments?month=${month}&exportFormat=excel`;
+    else if (activeTab === 'wps') url = `/api/reports/wps?month=${month}&exportFormat=excel`;
+    else if (activeTab === 'loans') url = `/api/reports/loans?exportFormat=excel`;
 
     window.location.href = url;
   };
@@ -98,13 +107,15 @@ export const ReportsView: React.FC = () => {
             Print Report
           </button>
 
-          <button
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            Export to Excel (.xlsx)
-          </button>
+          {activeTab !== 'projects' && (
+            <button
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Export to Excel (.xlsx)
+            </button>
+          )}
         </div>
       </div>
 
@@ -284,9 +295,9 @@ export const ReportsView: React.FC = () => {
                       <td className="px-4 py-2.5 font-mono font-bold text-blue-600">{r.employeeId}</td>
                       <td className="px-4 py-2.5 font-semibold text-slate-900">{r.employeeName}</td>
                       <td className="px-3 py-2.5">{r.employeeCompany}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold">OMR {formatOMR(r.netSalaryOwed)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold">OMR {formatOMR(r.netSalary)}</td>
                       <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-700">OMR {formatOMR(r.totalPaid)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-rose-600">OMR {formatOMR(r.remainingBalance)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-rose-600">OMR {formatOMR(r.outstanding)}</td>
                       <td className="px-3 py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           r.paymentStatus === 'Fully Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -345,16 +356,16 @@ export const ReportsView: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                   {reportData.records?.map((r: any) => (
                     <tr key={r.id}>
-                      <td className="px-4 py-2.5 font-semibold">{r.month}</td>
+                      <td className="px-4 py-2.5 font-semibold">{r.payrollMonth}</td>
                       <td className="px-4 py-2.5">
                         <span className="font-mono font-bold text-blue-600 block">{r.employeeId}</span>
                         <span>{r.employeeName}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono">OMR {formatOMR(r.wpsSalary)}</td>
-                      <td className="px-3 py-2.5 text-right font-mono">OMR {formatOMR(r.actualNetSalary)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-amber-700">OMR {formatOMR(r.recoverableAmount)}</td>
-                      <td className="px-3 py-2.5 text-right font-mono text-emerald-700">OMR {formatOMR(r.recoveredAmount)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-rose-600">OMR {formatOMR(r.remainingAmount)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono">OMR {formatOMR(r.netSalary)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-amber-700">OMR {formatOMR(r.totalRecoverable)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-emerald-700">OMR {formatOMR(r.totalRecovered)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-rose-600">OMR {formatOMR(r.remainingBalance)}</td>
                       <td className="px-3 py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           r.status === 'Recovered' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -371,40 +382,14 @@ export const ReportsView: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 4: Project Labor Costing */}
-      {activeTab === 'projects' && reportData && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-slate-50">
-              <h3 className="font-bold text-slate-900 text-sm">Site & Project Labor Cost Allocation — {month}</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Project Code</th>
-                    <th className="px-4 py-3">Project Name</th>
-                    <th className="px-3 py-3 text-right">Staff Days</th>
-                    <th className="px-3 py-3 text-right">Worker Hours</th>
-                    <th className="px-4 py-3 text-right font-bold text-indigo-900">Total Allocated Labor Cost (OMR)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {reportData.projects?.map((p: any) => (
-                    <tr key={p.projectCode}>
-                      <td className="px-4 py-2.5 font-mono font-bold text-indigo-700">{p.projectCode}</td>
-                      <td className="px-4 py-2.5 font-semibold text-slate-900">{p.projectName}</td>
-                      <td className="px-3 py-2.5 text-right font-mono">{p.totalStaffDays} days</td>
-                      <td className="px-3 py-2.5 text-right font-mono">{p.totalWorkerHours} hrs</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-indigo-800 text-sm">
-                        OMR {formatOMR(p.allocatedCost)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      {/* Tab 4: Project Labor Costing — not yet implemented */}
+      {activeTab === 'projects' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-10 text-center">
+          <FolderKanban className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-700">Project Labor & Costing isn't available yet</p>
+          <p className="text-xs text-slate-500 mt-1">
+            This report needs a cost-allocation design (pro-rating each employee's pay across the projects they worked on) that hasn't been built yet.
+          </p>
         </div>
       )}
 
@@ -454,8 +439,8 @@ export const ReportsView: React.FC = () => {
                       </td>
                       <td className="px-3 py-2.5">{formatDate(l.loanDate)}</td>
                       <td className="px-4 py-2.5 text-right font-mono font-bold">OMR {formatOMR(l.loanAmount)}</td>
-                      <td className="px-3 py-2.5 text-right font-mono text-emerald-700 font-semibold">OMR {formatOMR(l.repaidAmount)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-purple-800">OMR {formatOMR(l.remainingBalance)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-emerald-700 font-semibold">OMR {formatOMR(l.totalRecovered)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-bold text-purple-800">OMR {formatOMR(l.outstandingBalance)}</td>
                       <td className="px-3 py-2.5 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           l.status === 'Fully Repaid' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
