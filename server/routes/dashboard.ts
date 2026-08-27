@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { db, roundOMR } from '../db';
-import { verifyAuth, AuthRequest } from '../auth';
+import { db, roundOMR } from '../db.js';
+import { verifyAuth, AuthRequest } from '../auth.js';
 
 const router = Router();
 

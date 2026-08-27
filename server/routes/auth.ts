@@ -1,8 +1,8 @@
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { db } from '../db';
-import { generateToken, verifyAuth, requireRoles, AuthRequest } from '../auth';
+import { db } from '../db.js';
+import { generateToken, verifyAuth, requireRoles, AuthRequest } from '../auth.js';
 import type { User, UserRole } from '../../src/types/index';
 
 const router = Router();

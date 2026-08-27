@@ -1,18 +1,18 @@
 import express, { Express } from 'express';
 import path from 'path';
-import { db, POSTGRES_CONNECTION_STRING } from './db';
-import authRouter from './routes/auth';
-import employeesRouter from './routes/employees';
-import projectsRouter from './routes/projects';
-import attendanceRouter from './routes/attendance';
-import payrollRouter from './routes/payroll';
-import paymentsRouter from './routes/payments';
-import wpsRouter from './routes/wps';
-import loansRouter from './routes/loans';
-import dashboardRouter from './routes/dashboard';
-import reportsRouter from './routes/reports';
-import auditRouter from './routes/audit';
-import usersRouter from './routes/users';
+import { db, POSTGRES_CONNECTION_STRING } from './db.js';
+import authRouter from './routes/auth.js';
+import employeesRouter from './routes/employees.js';
+import projectsRouter from './routes/projects.js';
+import attendanceRouter from './routes/attendance.js';
+import payrollRouter from './routes/payroll.js';
+import paymentsRouter from './routes/payments.js';
+import wpsRouter from './routes/wps.js';
+import loansRouter from './routes/loans.js';
+import dashboardRouter from './routes/dashboard.js';
+import reportsRouter from './routes/reports.js';
+import auditRouter from './routes/audit.js';
+import usersRouter from './routes/users.js';
 
 // Builds the Express app and ensures the database is initialized. Shared by the
 // traditional long-running entrypoint (server.ts) and the Vercel serverless

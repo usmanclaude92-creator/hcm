@@ -1,8 +1,8 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
-import { db, normalizeEmployeeId } from '../db';
-import { verifyAuth, requireWritePermission, AuthRequest } from '../auth';
+import { db, normalizeEmployeeId } from '../db.js';
+import { verifyAuth, requireWritePermission, AuthRequest } from '../auth.js';
 import type { AttendanceRecord, EmployeeType } from '../../src/types/index';
 
 const router = Router();

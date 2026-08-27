@@ -10,7 +10,7 @@ function getApp(): Promise<Express> {
     // Dynamic import so a module-load failure anywhere in the transitive
     // chain (server/app -> db/routes -> deps) is catchable here, instead of
     // crashing the whole function before the handler body ever runs.
-    appPromise = import('../server/app')
+    appPromise = import('../server/app.js')
       .then((mod) => mod.createApp())
       .catch((err) => {
         appPromise = null;

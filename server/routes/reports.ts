@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import * as XLSX from 'xlsx';
-import { db, normalizeEmployeeId, roundOMR } from '../db';
-import { verifyAuth, AuthRequest } from '../auth';
+import { db, normalizeEmployeeId, roundOMR } from '../db.js';
+import { verifyAuth, AuthRequest } from '../auth.js';
 
 const router = Router();
 
