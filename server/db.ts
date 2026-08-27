@@ -14,6 +14,8 @@ import type {
   PayrollLine,
   PayrollRevision,
   SalaryPaymentTransaction,
+  PaymentPlan,
+  PaymentPlanLine,
   WPSRecovery,
   WPSRecoveryTransaction,
   EmployeeLoan,
@@ -35,6 +37,16 @@ export function normalizeEmployeeId(id: string): string {
   return id.trim().toUpperCase();
 }
 
+// Thrown by persist() when the app_state row's version doesn't match what was last
+// loaded — another serverless invocation wrote in between. Callers retry via
+// withOptimisticRetry() rather than silently clobbering the concurrent write.
+export class ConcurrencyConflictError extends Error {
+  constructor() {
+    super('The record changed concurrently; please retry.');
+    this.name = 'ConcurrencyConflictError';
+  }
+}
+
 interface DatabaseSchema {
   users: User[];
   employees: Employee[];
@@ -46,6 +58,8 @@ interface DatabaseSchema {
   payrollLines: PayrollLine[];
   payrollRevisions: PayrollRevision[];
   salaryPayments: SalaryPaymentTransaction[];
+  paymentPlans: PaymentPlan[];
+  paymentPlanLines: PaymentPlanLine[];
   wpsRecoveries: WPSRecovery[];
   wpsRecoveryTransactions: WPSRecoveryTransaction[];
   loans: EmployeeLoan[];
@@ -75,6 +89,8 @@ class DatabaseManager {
     payrollLines: [],
     payrollRevisions: [],
     salaryPayments: [],
+    paymentPlans: [],
+    paymentPlanLines: [],
     wpsRecoveries: [],
     wpsRecoveryTransactions: [],
     loans: [],
@@ -85,6 +101,7 @@ class DatabaseManager {
   private pgPool: pg.Pool | null = null;
   private isPostgresConnected: boolean = false;
   private isInitialized: boolean = false;
+  private stateVersion: number = 1;
 
   constructor() {
     // On a serverless deploy (a Postgres connection string is set) the filesystem is
@@ -198,6 +215,8 @@ class DatabaseManager {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
 
+        ALTER TABLE app_state ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+
         CREATE TABLE IF NOT EXISTS audit_logs (
           id VARCHAR(64) PRIMARY KEY,
           user_id VARCHAR(64),
@@ -231,6 +250,8 @@ class DatabaseManager {
       payrollLines: parsed.payrollLines || [],
       payrollRevisions: parsed.payrollRevisions || [],
       salaryPayments: parsed.salaryPayments || [],
+      paymentPlans: parsed.paymentPlans || [],
+      paymentPlanLines: parsed.paymentPlanLines || [],
       wpsRecoveries: parsed.wpsRecoveries || [],
       wpsRecoveryTransactions: parsed.wpsRecoveryTransactions || [],
       loans: parsed.loans || [],
@@ -256,9 +277,10 @@ class DatabaseManager {
   private async loadFromPostgres(): Promise<boolean> {
     if (!this.pgPool) return false;
     try {
-      const res = await this.pgPool.query('SELECT data FROM app_state WHERE id = $1', ['main']);
+      const res = await this.pgPool.query('SELECT data, version FROM app_state WHERE id = $1', ['main']);
       if (res.rows.length > 0 && res.rows[0].data) {
         this.applyParsedData(res.rows[0].data);
+        this.stateVersion = res.rows[0].version ?? 1;
         console.log(`Database loaded from PostgreSQL: ${this.inMemoryData.employees.length} employees, ${this.inMemoryData.payrolls.length} payrolls.`);
         return true;
       }
@@ -282,21 +304,60 @@ class DatabaseManager {
 
   // Single source of truth for durability: writes the whole in-memory dataset to
   // Postgres (serverless-safe) when connected, otherwise falls back to the local JSON file.
+  //
+  // The Postgres write is a conditional upsert keyed on `version`: it inserts the row if
+  // absent, or updates it only if the row's version still matches what we last loaded.
+  // If another concurrent invocation wrote in between, 0 rows are affected and we throw
+  // ConcurrencyConflictError instead of silently clobbering that write — see
+  // withOptimisticRetry(), which callers use to reload fresh state and retry the mutation.
   private async persist(): Promise<void> {
     if (this.isPostgresConnected && this.pgPool) {
+      const data = JSON.stringify(this.inMemoryData);
       try {
-        await this.pgPool.query(
-          `INSERT INTO app_state (id, data, updated_at) VALUES ($1, $2, NOW())
-           ON CONFLICT (id) DO UPDATE SET data = $2, updated_at = NOW()`,
-          ['main', JSON.stringify(this.inMemoryData)]
+        const res = await this.pgPool.query(
+          `INSERT INTO app_state (id, data, version, updated_at) VALUES ($1, $2, 1, NOW())
+           ON CONFLICT (id) DO UPDATE
+             SET data = $2, version = app_state.version + 1, updated_at = NOW()
+             WHERE app_state.version = $3
+           RETURNING version`,
+          ['main', data, this.stateVersion]
         );
+        if (res.rowCount === 0) {
+          await this.loadFromPostgres();
+          throw new ConcurrencyConflictError();
+        }
+        this.stateVersion = res.rows[0].version;
         return;
       } catch (e) {
+        if (e instanceof ConcurrencyConflictError) throw e;
         console.error('Error persisting database to PostgreSQL:', (e as Error).message);
         return;
       }
     }
     this.saveToDisk();
+  }
+
+  // Wraps a mutation that (a) reads current in-memory state, (b) mutates it, in a retry
+  // loop against ConcurrencyConflictError. On conflict, fresh state is loaded and `mutate`
+  // is re-run from scratch against it (never a blind retry of stale intent) before
+  // persisting again. `mutate` reports `changed: false` when it found nothing to do (e.g.
+  // record not found), in which case no write is attempted at all.
+  private async withOptimisticRetry<T>(
+    mutate: () => { changed: boolean; value: T },
+    maxRetries: number = 3
+  ): Promise<T> {
+    let attempt = 0;
+    for (;;) {
+      const { changed, value } = mutate();
+      if (!changed) return value;
+      try {
+        await this.persist();
+        return value;
+      } catch (e) {
+        if (!(e instanceof ConcurrencyConflictError) || attempt >= maxRetries) throw e;
+        attempt++;
+      }
+    }
   }
 
   public getStatus() {
@@ -940,6 +1001,8 @@ class DatabaseManager {
       payrollLines: initialPayrollLines,
       payrollRevisions: [],
       salaryPayments: initialPayments,
+      paymentPlans: [],
+      paymentPlanLines: [],
       wpsRecoveries: initialWpsRecoveries,
       wpsRecoveryTransactions: initialWpsRecoveries[0].transactions || [],
       loans: initialLoans,
@@ -994,6 +1057,12 @@ class DatabaseManager {
       },
       create: async (emp: Employee) => {
         emp.employeeId = normalizeEmployeeId(emp.employeeId);
+        // Enforced here (not just in the route handler) so the uniqueness
+        // invariant holds regardless of caller — the model layer is the
+        // closest equivalent to a DB unique constraint in this architecture.
+        if (this.inMemoryData.employees.some(e => normalizeEmployeeId(e.employeeId) === emp.employeeId)) {
+          throw new Error(`Employee ID '${emp.employeeId}' already exists in the system.`);
+        }
         emp.monthlySalaryOrRate = roundOMR(emp.monthlySalaryOrRate);
         emp.wpsSalary = roundOMR(emp.wpsSalary);
         emp.actualSalary = roundOMR(emp.actualSalary);
@@ -1343,43 +1412,108 @@ class DatabaseManager {
         const norm = normalizeEmployeeId(empId);
         return this.inMemoryData.salaryPayments.filter(p => normalizeEmployeeId(p.employeeId) === norm && p.payrollMonth === month && !p.isReversed);
       },
-      create: async (payment: SalaryPaymentTransaction) => {
-        payment.payAmount = roundOMR(payment.payAmount);
-        this.inMemoryData.salaryPayments.push(payment);
-        await this.persist();
-        return payment;
+      // `revalidate`, when given, is re-run against the CURRENT in-memory state on every
+      // retry attempt (not just once, upfront) — it should throw if the mutation is no
+      // longer valid (e.g. a concurrent payment already used up the outstanding balance).
+      // This is what actually closes the race, not just the version-conflict retry itself.
+      create: async (payment: SalaryPaymentTransaction, revalidate?: () => void) => {
+        return this.withOptimisticRetry(() => {
+          if (revalidate) revalidate();
+          payment.payAmount = roundOMR(payment.payAmount);
+          this.inMemoryData.salaryPayments.push(payment);
+          return { changed: true, value: payment };
+        });
       },
-      update: async (id: string, updates: Partial<SalaryPaymentTransaction>) => {
-        const index = this.inMemoryData.salaryPayments.findIndex(p => p.id === id);
-        if (index === -1) return null;
-        if (updates.payAmount !== undefined) {
-          updates.payAmount = roundOMR(updates.payAmount);
-        }
-        this.inMemoryData.salaryPayments[index] = {
-          ...this.inMemoryData.salaryPayments[index],
-          ...updates,
-          updatedAt: new Date().toISOString(),
-        };
-        await this.persist();
-        return this.inMemoryData.salaryPayments[index];
+      update: async (id: string, updates: Partial<SalaryPaymentTransaction>, revalidate?: () => void) => {
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.salaryPayments.findIndex(p => p.id === id);
+          if (index === -1) return { changed: false, value: null as SalaryPaymentTransaction | null };
+          if (revalidate) revalidate();
+          if (updates.payAmount !== undefined) {
+            updates.payAmount = roundOMR(updates.payAmount);
+          }
+          this.inMemoryData.salaryPayments[index] = {
+            ...this.inMemoryData.salaryPayments[index],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.salaryPayments[index] as SalaryPaymentTransaction | null };
+        });
       },
       reverse: async (id: string, reason: string, user: string) => {
-        const index = this.inMemoryData.salaryPayments.findIndex(p => p.id === id);
-        if (index === -1) return null;
-        const current = this.inMemoryData.salaryPayments[index];
-        if (current.isReversed) {
-          throw new Error('This payment transaction has already been reversed.');
-        }
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.salaryPayments.findIndex(p => p.id === id);
+          if (index === -1) return { changed: false, value: null as SalaryPaymentTransaction | null };
+          const current = this.inMemoryData.salaryPayments[index];
+          if (current.isReversed) {
+            throw new Error('This payment transaction has already been reversed.');
+          }
 
-        current.isReversed = true;
-        current.reversedAt = new Date().toISOString();
-        current.reversedBy = user;
-        current.reversalReason = reason;
-        current.updatedAt = new Date().toISOString();
+          current.isReversed = true;
+          current.reversedAt = new Date().toISOString();
+          current.reversedBy = user;
+          current.reversalReason = reason;
+          current.updatedAt = new Date().toISOString();
 
-        await this.persist();
-        return current;
+          return { changed: true, value: current as SalaryPaymentTransaction | null };
+        });
       }
+    };
+  }
+
+  // Payment Planning is an intentional "should pay" figure only -- upsert() never touches
+  // salaryPayments, and nothing here ever reads/writes totalPaid/outstanding/status.
+  public get paymentPlans() {
+    return {
+      getAll: () => [...this.inMemoryData.paymentPlans],
+      getByPayrollMonth: (month: string) => {
+        const plan = this.inMemoryData.paymentPlans.find(p => p.payrollMonth === month);
+        if (!plan) return null;
+        const lines = this.inMemoryData.paymentPlanLines.filter(l => l.planId === plan.id);
+        return { ...plan, lines };
+      },
+      upsert: async (
+        payrollMonth: string,
+        payrollId: string,
+        lines: Array<{ employeeId: string; employeeName: string; shouldPayAmount: number; remarks?: string }>,
+        user: string
+      ) => {
+        return this.withOptimisticRetry(() => {
+          const timestamp = new Date().toISOString();
+          let plan = this.inMemoryData.paymentPlans.find(p => p.payrollMonth === payrollMonth);
+          if (!plan) {
+            plan = {
+              id: crypto.randomUUID(),
+              payrollId,
+              payrollMonth,
+              createdBy: user,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            };
+            this.inMemoryData.paymentPlans.push(plan);
+          } else {
+            plan.updatedAt = timestamp;
+            plan.payrollId = payrollId;
+          }
+
+          // Full-replace this plan's lines with the new set (same pattern as payroll.saveDraft).
+          const planId = plan.id;
+          this.inMemoryData.paymentPlanLines = this.inMemoryData.paymentPlanLines.filter(l => l.planId !== planId);
+          const processedLines: PaymentPlanLine[] = lines.map(l => ({
+            id: crypto.randomUUID(),
+            planId,
+            employeeId: normalizeEmployeeId(l.employeeId),
+            employeeName: l.employeeName,
+            shouldPayAmount: roundOMR(l.shouldPayAmount),
+            remarks: l.remarks || '',
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          }));
+          this.inMemoryData.paymentPlanLines.push(...processedLines);
+
+          return { changed: true, value: { ...plan, lines: processedLines } };
+        });
+      },
     };
   }
 

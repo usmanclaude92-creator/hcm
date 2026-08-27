@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from './db.js';
 import type { UserRole } from '../src/types/index';
+import { roleHasPermission, type Permission } from '../src/permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -83,4 +84,16 @@ export function requireWritePermission(req: AuthRequest, res: Response, next: Ne
     return res.status(403).json({ error: 'Viewers have read-only access. Write operations are not permitted.' });
   }
   next();
+}
+
+export function requirePermission(permission: Permission) {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required.' });
+    }
+    if (roleHasPermission(req.user.role, permission)) {
+      return next();
+    }
+    return res.status(403).json({ error: `Access forbidden. Missing permission: ${permission}.` });
+  };
 }

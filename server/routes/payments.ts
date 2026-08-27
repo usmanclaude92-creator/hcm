@@ -1,8 +1,9 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
-import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, requireWritePermission, AuthRequest } from '../auth.js';
+import { db, normalizeEmployeeId, roundOMR, ConcurrencyConflictError } from '../db.js';
+import { verifyAuth, requirePermission, AuthRequest } from '../auth.js';
+import { decodeReceiptDataUrl, validateReceiptFile, uploadReceipt, getSignedReceiptUrl } from '../storage.js';
 import type {
   SalaryPaymentTransaction,
   PaymentStatus,
@@ -22,6 +23,7 @@ function getGroupedPaymentSummaries(filters: {
   company?: string;
   paidBy?: string;
   wps?: string;
+  wageType?: string;
   receiptStatus?: string;
 }) {
   const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized');
@@ -61,6 +63,9 @@ function getGroupedPaymentSummaries(filters: {
         continue;
       }
       if (filters.wps && filters.wps !== 'ALL' && line.wpsEmployee !== filters.wps) {
+        continue;
+      }
+      if (filters.wageType && filters.wageType !== 'ALL' && line.wageType !== filters.wageType) {
         continue;
       }
 
@@ -136,9 +141,9 @@ function getGroupedPaymentSummaries(filters: {
 }
 
 // GET /api/payments/summary - Overall stats for dashboard and payments overview
-router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
   try {
-    const { month, company, paidBy, status, search, wps, receiptStatus } = req.query;
+    const { month, company, paidBy, status, search, wps, wageType, receiptStatus } = req.query;
     const summaries = getGroupedPaymentSummaries({
       month: month as string,
       company: company as string,
@@ -146,6 +151,7 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
       status: status as string,
       search: search as string,
       wps: wps as string,
+      wageType: wageType as string,
       receiptStatus: receiptStatus as string,
     });
 
@@ -191,9 +197,9 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/payments/grouped - Grouped table view for Salary Payments
-router.get('/grouped', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
   try {
-    const { month, status, company, paidBy, search, wps, receiptStatus } = req.query;
+    const { month, status, company, paidBy, search, wps, wageType, receiptStatus } = req.query;
     const grouped = getGroupedPaymentSummaries({
       month: month as string,
       status: status as string,
@@ -201,6 +207,7 @@ router.get('/grouped', verifyAuth, (req: AuthRequest, res: Response) => {
       paidBy: paidBy as string,
       search: search as string,
       wps: wps as string,
+      wageType: wageType as string,
       receiptStatus: receiptStatus as string,
     });
 
@@ -214,7 +221,7 @@ router.get('/grouped', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/payments/transactions - List all raw payment transactions
-router.get('/transactions', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/transactions', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, month } = req.query;
     let transactions = db.salaryPayments.getAll();
@@ -236,7 +243,7 @@ router.get('/transactions', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // POST /api/payments/check-duplicate - Check for possible identical transaction
-router.post('/check-duplicate', verifyAuth, (req: AuthRequest, res: Response) => {
+router.post('/check-duplicate', verifyAuth, requirePermission('salary_payment.create'), (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, payrollMonth, paymentDate, payAmount, payTo } = req.body;
     const normId = normalizeEmployeeId(employeeId);
@@ -265,7 +272,7 @@ router.post('/check-duplicate', verifyAuth, (req: AuthRequest, res: Response) =>
 });
 
 // POST /api/payments/transactions - Pay Now: Create a new salary payment transaction
-router.post('/transactions', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.post('/transactions', verifyAuth, requirePermission('salary_payment.create'), async (req: AuthRequest, res: Response) => {
   try {
     const {
       employeeId,
@@ -274,7 +281,10 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
       paymentDate,
       payAmount,
       payTo,
-      receiptUrl,
+      paymentMode,
+      bankName,
+      referenceNumber,
+      receiptFileData,
       receiptFileName,
       remarks,
     } = req.body;
@@ -318,6 +328,16 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
       });
     }
 
+    let receiptStoragePath: string | null = null;
+    let uploadedReceiptFileName: string | null = null;
+    if (receiptFileData) {
+      const { buffer, mimeType } = decodeReceiptDataUrl(receiptFileData);
+      validateReceiptFile(mimeType, buffer.length);
+      const uploaded = await uploadReceipt(buffer, mimeType, normId, payrollMonth);
+      receiptStoragePath = uploaded.path;
+      uploadedReceiptFileName = uploaded.fileName;
+    }
+
     const timestamp = new Date().toISOString();
     const newTransaction: SalaryPaymentTransaction = {
       id: crypto.randomUUID(),
@@ -328,9 +348,12 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
       paymentDate: paymentDate || timestamp.split('T')[0],
       payAmount: numericAmount,
       payTo: String(payTo).trim(),
-      receiptUrl: receiptUrl || null,
-      receiptFileName: receiptFileName || (receiptUrl ? 'receipt_attachment' : null),
-      receiptStatus: receiptUrl ? 'Attached' : 'Attachment Pending',
+      paymentMode: paymentMode || undefined,
+      bankName: bankName ? String(bankName).trim() : undefined,
+      referenceNumber: referenceNumber ? String(referenceNumber).trim() : undefined,
+      receiptStoragePath,
+      receiptFileName: receiptFileName || uploadedReceiptFileName,
+      receiptStatus: receiptStoragePath ? 'Attached' : 'Attachment Pending',
       remarks: remarks ? String(remarks).trim() : '',
       createdBy: req.user?.username || 'Admin',
       isReversed: false,
@@ -338,7 +361,16 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
       updatedAt: timestamp,
     };
 
-    await db.salaryPayments.create(newTransaction);
+    await db.salaryPayments.create(newTransaction, () => {
+      const freshExisting = db.salaryPayments.getByEmployeeAndMonth(normId, payrollMonth);
+      const freshPaidBefore = roundOMR(freshExisting.reduce((s, p) => s + p.payAmount, 0));
+      const freshOutstanding = roundOMR(Math.max(0, line.netSalary - freshPaidBefore));
+      if (numericAmount > freshOutstanding) {
+        throw new Error(
+          `Payment amount OMR ${numericAmount.toFixed(3)} cannot exceed current outstanding salary of OMR ${freshOutstanding.toFixed(3)}.`
+        );
+      }
+    });
 
     const totalPaidAfter = roundOMR(totalPaidBefore + numericAmount);
     const outstandingAfter = roundOMR(Math.max(0, line.netSalary - totalPaidAfter));
@@ -362,15 +394,18 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
       }
     });
   } catch (err: any) {
+    if (err instanceof ConcurrencyConflictError) {
+      return res.status(409).json({ error: 'This record changed concurrently; please retry.' });
+    }
     res.status(500).json({ error: err.message || 'Failed to record payment' });
   }
 });
 
 // PUT /api/payments/transactions/:id - Edit an existing payment transaction
-router.put('/transactions/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.put('/transactions/:id', verifyAuth, requirePermission('salary_payment.edit'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { payAmount, payTo, paymentDate, receiptUrl, receiptFileName, remarks } = req.body;
+    const { payAmount, payTo, paymentDate, paymentMode, bankName, referenceNumber, receiptFileData, receiptFileName, remarks } = req.body;
 
     const existingTx = db.salaryPayments.getAll().find(t => t.id === id);
     if (!existingTx) {
@@ -382,6 +417,9 @@ router.put('/transactions/:id', verifyAuth, requireWritePermission, async (req: 
 
     const normId = normalizeEmployeeId(existingTx.employeeId);
     const payroll = db.payroll.getByMonth(existingTx.payrollMonth);
+    if (!payroll || payroll.status !== 'Finalized') {
+      return res.status(400).json({ error: `Payroll for ${existingTx.payrollMonth} is no longer Finalized and cannot receive payment edits.` });
+    }
     const line = payroll?.lines?.find(l => normalizeEmployeeId(l.employeeId) === normId);
     if (!line) {
       return res.status(404).json({ error: 'Associated payroll line not found.' });
@@ -407,16 +445,29 @@ router.put('/transactions/:id', verifyAuth, requireWritePermission, async (req: 
       payAmount: newAmount,
       payTo: payTo ? String(payTo).trim() : existingTx.payTo,
       paymentDate: paymentDate || existingTx.paymentDate,
+      paymentMode: paymentMode !== undefined ? paymentMode : existingTx.paymentMode,
+      bankName: bankName !== undefined ? String(bankName).trim() : existingTx.bankName,
+      referenceNumber: referenceNumber !== undefined ? String(referenceNumber).trim() : existingTx.referenceNumber,
       remarks: remarks !== undefined ? String(remarks).trim() : existingTx.remarks,
     };
 
-    if (receiptUrl !== undefined) {
-      updates.receiptUrl = receiptUrl || null;
-      updates.receiptFileName = receiptFileName || (receiptUrl ? 'receipt_attachment' : null);
-      updates.receiptStatus = receiptUrl ? 'Attached' : 'Attachment Pending';
+    if (receiptFileData) {
+      const { buffer, mimeType } = decodeReceiptDataUrl(receiptFileData);
+      validateReceiptFile(mimeType, buffer.length);
+      const uploaded = await uploadReceipt(buffer, mimeType, normId, existingTx.payrollMonth);
+      updates.receiptStoragePath = uploaded.path;
+      updates.receiptFileName = receiptFileName || uploaded.fileName;
+      updates.receiptStatus = 'Attached';
     }
 
-    const updated = await db.salaryPayments.update(id, updates);
+    const updated = await db.salaryPayments.update(id, updates, () => {
+      const freshOthers = db.salaryPayments.getByEmployeeAndMonth(normId, existingTx.payrollMonth).filter(p => p.id !== id);
+      const freshOtherPaidSum = roundOMR(freshOthers.reduce((s, p) => s + p.payAmount, 0));
+      const freshMaxAllowed = roundOMR(Math.max(0, line.netSalary - freshOtherPaidSum));
+      if (newAmount > freshMaxAllowed) {
+        throw new Error(`Updated amount OMR ${newAmount.toFixed(3)} exceeds allowable maximum of OMR ${freshMaxAllowed.toFixed(3)}.`);
+      }
+    });
 
     await db.audit.log({
       userId: req.user?.id,
@@ -430,12 +481,15 @@ router.put('/transactions/:id', verifyAuth, requireWritePermission, async (req: 
 
     res.json(updated);
   } catch (err: any) {
+    if (err instanceof ConcurrencyConflictError) {
+      return res.status(409).json({ error: 'This record changed concurrently; please retry.' });
+    }
     res.status(500).json({ error: err.message || 'Failed to update payment transaction' });
   }
 });
 
 // POST /api/payments/transactions/:id/reverse - Soft reversal of payment transaction
-router.post('/transactions/:id/reverse', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.post('/transactions/:id/reverse', verifyAuth, requirePermission('salary_payment.reverse'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -459,12 +513,33 @@ router.post('/transactions/:id/reverse', verifyAuth, requireWritePermission, asy
 
     res.json(reversed);
   } catch (err: any) {
+    if (err instanceof ConcurrencyConflictError) {
+      return res.status(409).json({ error: 'This record changed concurrently; please retry.' });
+    }
     res.status(400).json({ error: err.message || 'Failed to reverse payment transaction' });
   }
 });
 
+// GET /api/payments/receipts/:transactionId/signed-url - Short-lived access link for a receipt
+router.get('/receipts/:transactionId/signed-url', verifyAuth, requirePermission('salary_payment.view'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { transactionId } = req.params;
+    const tx = db.salaryPayments.getAll().find(t => t.id === transactionId);
+    if (!tx) {
+      return res.status(404).json({ error: 'Payment transaction not found.' });
+    }
+    if (!tx.receiptStoragePath) {
+      return res.status(404).json({ error: 'No receipt is attached to this payment.' });
+    }
+    const { url, expiresIn } = await getSignedReceiptUrl(tx.receiptStoragePath);
+    res.json({ url, expiresIn });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to generate receipt access link.' });
+  }
+});
+
 // GET /api/payments/export/template - Excel template for bulk payment import
-router.get('/export/template', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/export/template', verifyAuth, requirePermission('salary_payment.import'), (req: AuthRequest, res: Response) => {
   try {
     const headers = [
       'Employee ID',
@@ -508,7 +583,7 @@ router.get('/export/template', verifyAuth, (req: AuthRequest, res: Response) => 
 });
 
 // POST /api/payments/import/validate - Validate uploaded payment Excel
-router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/import/validate', verifyAuth, requirePermission('salary_payment.import'), (req: AuthRequest, res: Response) => {
   try {
     const { fileData } = req.body;
     if (!fileData) return res.status(400).json({ error: 'No Excel file provided.' });
@@ -632,7 +707,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
 });
 
 // POST /api/payments/import/confirm - Commit validated payment rows
-router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.post('/import/confirm', verifyAuth, requirePermission('salary_payment.import'), async (req: AuthRequest, res: Response) => {
   try {
     const { rows } = req.body;
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -712,9 +787,9 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
 });
 
 // GET /api/payments/export/data - Export payment report to Excel
-router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/export/data', verifyAuth, requirePermission('salary_payment.export'), (req: AuthRequest, res: Response) => {
   try {
-    const { month, company, paidBy, status, search, wps, receiptStatus } = req.query;
+    const { month, company, paidBy, status, search, wps, wageType, receiptStatus } = req.query;
     const summaries = getGroupedPaymentSummaries({
       month: month as string,
       company: company as string,
@@ -722,6 +797,7 @@ router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
       status: status as string,
       search: search as string,
       wps: wps as string,
+      wageType: wageType as string,
       receiptStatus: receiptStatus as string,
     });
 

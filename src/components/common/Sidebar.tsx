@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import type { Permission } from '../../permissions';
 import {
   LayoutDashboard,
   Users,
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Building,
   ChevronRight,
+  ClipboardList,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +32,7 @@ interface NavItem {
   badge?: string;
   adminOnly?: boolean;
   managerOnly?: boolean;
+  permission?: Permission;
 }
 
 interface NavSection {
@@ -43,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { user, isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager, hasPermission } = useAuth();
 
   const navigationSections: NavSection[] = [
     {
@@ -59,7 +62,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'FINANCIAL & PAYROLL',
       items: [
         { id: 'payroll', label: 'Monthly Payroll', icon: Calculator, badge: 'Finalize & Revise' },
-        { id: 'payments', label: 'Salary Payments', icon: CreditCard, badge: 'Receipts' },
+        { id: 'payments', label: 'Salary Payments', icon: CreditCard, badge: 'Receipts', permission: 'salary_payment.view' },
+        { id: 'payment-planning', label: 'Payment Planning', icon: ClipboardList, permission: 'payment_planning.view' },
         { id: 'wps', label: 'WPS Recovery', icon: RefreshCw },
         { id: 'loans', label: 'Loan Management', icon: Landmark },
       ],
@@ -108,6 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const visibleItems = section.items.filter(item => {
               if (item.adminOnly && !isAdmin) return false;
               if (item.managerOnly && !isManager) return false;
+              if (item.permission && !hasPermission(item.permission)) return false;
               return true;
             });
 

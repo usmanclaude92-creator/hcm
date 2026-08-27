@@ -133,7 +133,7 @@ router.get('/payroll', verifyAuth, (req: AuthRequest, res: Response) => {
 // GET /api/reports/payments - Salary payments report
 router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const { month, status, company, receiptStatus, exportFormat } = req.query;
+    const { month, status, company, paidBy, receiptStatus, exportFormat } = req.query;
 
     const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized');
     const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed);
@@ -148,6 +148,7 @@ router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
 
       for (const line of details.lines) {
         if (company && company !== 'ALL' && line.employeeCompany !== company) continue;
+        if (paidBy && paidBy !== 'ALL' && line.salaryPaidBy !== paidBy) continue;
 
         const normId = normalizeEmployeeId(line.employeeId);
         const linePayments = allPayments.filter(

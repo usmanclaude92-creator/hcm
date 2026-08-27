@@ -175,11 +175,13 @@ export interface SalaryPaymentTransaction {
   payAmount?: number;
   paidAmount?: number;
   paymentMode?: PaymentMode;
+  bankName?: string;
   payTo?: string;
   referenceNumber?: string;
   receiptUrl?: string | null;
   receiptAttachment?: string | null;
   receiptFileName?: string | null;
+  receiptStoragePath?: string | null;
   receiptStatus?: 'Attached' | 'Attachment Pending';
   remarks?: string;
   createdByName?: string;
@@ -239,6 +241,30 @@ export interface EmployeeSalaryPaymentSummary {
   totalNetSalary: number;
   totalPaid: number;
   totalOutstanding: number;
+}
+
+// Payment Planning: a purely intentional "should pay" figure per employee/payroll-month.
+// Never linked to actual payments -- saving a plan must never create a SalaryPaymentTransaction
+// or change totalPaid/outstanding/status anywhere.
+export interface PaymentPlanLine {
+  id: string;
+  planId: string;
+  employeeId: string;
+  employeeName: string;
+  shouldPayAmount: number;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaymentPlan {
+  id: string;
+  payrollId: string;
+  payrollMonth: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  lines?: PaymentPlanLine[];
 }
 
 export type WPSRecoveryStatus = 'Outstanding' | 'Pending' | 'Partially Recovered' | 'Fully Recovered' | 'Recovered';

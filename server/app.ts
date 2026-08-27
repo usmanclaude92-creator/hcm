@@ -7,6 +7,7 @@ import projectsRouter from './routes/projects.js';
 import attendanceRouter from './routes/attendance.js';
 import payrollRouter from './routes/payroll.js';
 import paymentsRouter from './routes/payments.js';
+import paymentPlanningRouter from './routes/paymentPlanning.js';
 import wpsRouter from './routes/wps.js';
 import loansRouter from './routes/loans.js';
 import dashboardRouter from './routes/dashboard.js';
@@ -31,6 +32,7 @@ export async function createApp(): Promise<Express> {
   app.use('/api/attendance', attendanceRouter);
   app.use('/api/payroll', payrollRouter);
   app.use('/api/payments', paymentsRouter);
+  app.use('/api/payment-planning', paymentPlanningRouter);
   app.use('/api/wps', wpsRouter);
   app.use('/api/loans', loansRouter);
   app.use('/api/dashboard', dashboardRouter);

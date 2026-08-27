@@ -9,6 +9,7 @@ import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
 import { PayrollView } from './components/payroll/PayrollView';
 import { SalaryPaymentsView } from './components/payments/SalaryPaymentsView';
+import { PaymentPlanningView } from './components/payments/PaymentPlanningView';
 import { WPSRecoveryView } from './components/wps/WPSRecoveryView';
 import { LoanManagementView } from './components/loans/LoanManagementView';
 import { ReportsView } from './components/reports/ReportsView';
@@ -49,6 +50,8 @@ const MainApp: React.FC = () => {
         return <PayrollView />;
       case 'payments':
         return <SalaryPaymentsView />;
+      case 'payment-planning':
+        return <PaymentPlanningView />;
       case 'wps':
         return <WPSRecoveryView />;
       case 'loans':

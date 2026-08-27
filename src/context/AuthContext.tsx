@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getStoredToken, getStoredUser, setStoredToken, removeStoredToken, apiRequest } from '../api/client';
 import type { User, UserRole } from '../types/index';
+import { roleHasPermission, type Permission } from '../permissions';
 
 interface AuthContextType {
   user: User | null;
@@ -13,6 +14,7 @@ interface AuthContextType {
   isManager: boolean;
   canWrite: boolean;
   isViewer: boolean;
+  hasPermission: (permission: Permission) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isManager = role === 'Administrator' || role === 'Payroll Manager';
   const canWrite = role === 'Administrator' || role === 'Payroll Manager' || role === 'Payroll User';
   const isViewer = role === 'Viewer';
+  const hasPermission = (permission: Permission) => roleHasPermission(role, permission);
 
   return (
     <AuthContext.Provider
@@ -103,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isManager,
         canWrite,
         isViewer,
+        hasPermission,
       }}
     >
       {children}
