@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
 import { verifyAuth, requireRoles, requireWritePermission, AuthRequest } from '../auth.js';
 import type { Employee, EmployeeType, NationalityType, WageType, EmployeeCompany, SalaryPaidBy, WPSStatus } from '../../src/types/index';
@@ -25,6 +26,49 @@ function isValidSalaryPaidBy(val: any): val is SalaryPaidBy {
 }
 function isValidWPSStatus(val: any): val is WPSStatus {
   return ['Yes', 'No'].includes(val);
+}
+function isValidDateString(val: any): boolean {
+  if (typeof val !== 'string' || !val.trim()) return false;
+  const d = new Date(val);
+  return !isNaN(d.getTime());
+}
+
+// Excel date cells arrive as native JS Date objects when the workbook is read with cellDates:true.
+// Normalize those (and passthrough strings) to the app's YYYY-MM-DD convention.
+function excelCellToDateString(val: any): string {
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(val || '').trim();
+}
+
+// Shared field-level validation used by both import/validate (preview) and import/confirm
+// (defense-in-depth re-check, since confirm's payload is client-supplied and must not be trusted blindly).
+function validateEmployeeFields(f: {
+  employeeId: string; employeeName: string; employeeType: string; nationalityType: string;
+  wageType: string; designation: string; employeeCompany: string; salaryPaidBy: string;
+  salary: any; wpsSalary: any; actualSalary: any; dateOfJoining: string; dateOfLeaving: string;
+}): string | null {
+  if (!f.employeeId) return 'Employee ID is required';
+  if (!f.employeeName) return 'Employee Name is required';
+  if (!isValidEmployeeType(f.employeeType)) return `Invalid Employee Type: '${f.employeeType}' (Must be Worker or Staff)`;
+  if (!isValidNationalityType(f.nationalityType)) return `Invalid Nationality Type: '${f.nationalityType}' (Must be Omani or Expat)`;
+  if (!isValidWageType(f.wageType)) return `Invalid Wage Type: '${f.wageType}' (Must be Per Hour or Fixed Monthly)`;
+  if (!f.designation) return 'Designation is required';
+  if (!isValidEmployeeCompany(f.employeeCompany)) return `Invalid Employee Company: '${f.employeeCompany}' (DGO, SMI, NC, Supplier, Azad)`;
+  if (!isValidSalaryPaidBy(f.salaryPaidBy)) return `Invalid Salary Paid By: '${f.salaryPaidBy}' (DGO, SMI, NC, Supplier)`;
+  if (isNaN(Number(f.salary)) || Number(f.salary) < 0) return 'Salary / Rate must be a non-negative number';
+  if (isNaN(Number(f.wpsSalary)) || Number(f.wpsSalary) < 0) return 'WPS Salary must be a non-negative number';
+  if (isNaN(Number(f.actualSalary)) || Number(f.actualSalary) < 0) return 'Actual Salary must be a non-negative number';
+  if (f.dateOfJoining && !isValidDateString(f.dateOfJoining)) return `Invalid Date of Joining: '${f.dateOfJoining}'`;
+  if (f.dateOfLeaving && !isValidDateString(f.dateOfLeaving)) return `Invalid Date of Leaving: '${f.dateOfLeaving}'`;
+  if (f.dateOfJoining && f.dateOfLeaving && isValidDateString(f.dateOfJoining) && isValidDateString(f.dateOfLeaving) && f.dateOfLeaving < f.dateOfJoining) {
+    return 'Date of Leaving cannot be before Date of Joining';
+  }
+  return null;
 }
 
 // GET /api/employees - List employees with filters
@@ -85,8 +129,9 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/employees/export/template - Generate blank Excel template for import
-router.get('/export/template', verifyAuth, (req: AuthRequest, res: Response) => {
+// GET /api/employees/export/template - Generate blank Excel template for import,
+// with real Excel dropdown (data validation) lists for fixed-choice columns.
+router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const headers = [
       'Employee ID',
@@ -106,46 +151,75 @@ router.get('/export/template', verifyAuth, (req: AuthRequest, res: Response) => 
       'Recover From',
     ];
 
-    const instructions = [
-      ['FIELD', 'ACCEPTED VALUES / FORMAT', 'REQUIRED?'],
-      ['Employee ID', 'Unique alphanumeric ID (e.g. EMP001)', 'Yes (Mandatory)'],
+    const colWidths = [15, 25, 15, 16, 16, 16, 16, 20, 18, 16, 26, 14, 14, 14, 18];
+
+    const workbook = new ExcelJS.Workbook();
+
+    const sheet = workbook.addWorksheet('Employee_Import_Template');
+    sheet.columns = headers.map((h, i) => ({ header: h, width: colWidths[i] }));
+    sheet.getRow(1).font = { bold: true };
+
+    // Real Excel dropdown validation for every data row (2-501), so the values
+    // in the spreadsheet are constrained at edit time, not just documented.
+    const LAST_ROW = 501;
+    const dropdowns: { col: string; values: string[]; allowBlank?: boolean }[] = [
+      { col: 'C', values: ['Worker', 'Staff'] },
+      { col: 'D', values: ['Omani', 'Expat'] },
+      { col: 'E', values: ['Per Hour', 'Fixed Monthly'] },
+      { col: 'I', values: ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'] },
+      { col: 'J', values: ['DGO', 'SMI', 'NC', 'Supplier'] },
+      { col: 'L', values: ['Yes', 'No'], allowBlank: true },
+    ];
+
+    for (const { col, values, allowBlank } of dropdowns) {
+      for (let row = 2; row <= LAST_ROW; row++) {
+        sheet.getCell(`${col}${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: allowBlank ?? false,
+          formulae: [`"${values.join(',')}"`],
+          showErrorMessage: true,
+          errorTitle: 'Invalid value',
+          error: `Must be one of: ${values.join(', ')}`,
+        };
+      }
+    }
+
+    // Date format hint for the two date columns
+    for (const col of ['F', 'G']) {
+      for (let row = 2; row <= LAST_ROW; row++) {
+        sheet.getCell(`${col}${row}`).numFmt = 'yyyy-mm-dd';
+      }
+    }
+
+    const instructionsSheet = workbook.addWorksheet('Instructions & Dropdowns');
+    instructionsSheet.columns = [
+      { header: 'FIELD', width: 25 },
+      { header: 'ACCEPTED VALUES / FORMAT', width: 50 },
+      { header: 'REQUIRED?', width: 18 },
+    ];
+    instructionsSheet.getRow(1).font = { bold: true };
+    instructionsSheet.addRows([
+      ['Employee ID', 'Unique alphanumeric ID (e.g. EMP001). Spaces/case are normalized automatically.', 'Yes (Mandatory)'],
       ['Employee Name', 'Full Name of Employee', 'Yes (Mandatory)'],
-      ['Employee Type', 'Worker, Staff', 'Yes (Mandatory)'],
-      ['Nationality Type', 'Omani, Expat', 'Yes (Mandatory)'],
-      ['Wage Type', 'Per Hour, Fixed Monthly', 'Yes (Mandatory)'],
+      ['Employee Type', 'Worker, Staff (dropdown enabled on the template sheet)', 'Yes (Mandatory)'],
+      ['Nationality Type', 'Omani, Expat (dropdown enabled)', 'Yes (Mandatory)'],
+      ['Wage Type', 'Per Hour, Fixed Monthly (dropdown enabled)', 'Yes (Mandatory)'],
       ['Date of Joining', 'YYYY-MM-DD (e.g. 2024-01-15)', 'Yes (Mandatory)'],
-      ['Date of Leaving', 'YYYY-MM-DD (Leave blank if active)', 'No (Optional)'],
+      ['Date of Leaving', 'YYYY-MM-DD (Leave blank if active). Cannot be before Date of Joining.', 'No (Optional)'],
       ['Designation', 'Job Title (e.g. Site Engineer, Mason)', 'Yes (Mandatory)'],
-      ['Employee Company', 'DGO, SMI, NC, Supplier, Azad', 'Yes (Mandatory)'],
-      ['Salary Paid By', 'DGO, SMI, NC, Supplier', 'Yes (Mandatory)'],
-      ['Monthly Salary / Wage Rate', 'OMR amount (e.g. 650.000 for Staff, 2.000 for Worker)', 'Yes (Mandatory)'],
-      ['WPS Employee', 'Yes, No', 'Yes (Mandatory)'],
-      ['WPS Salary', 'WPS registered salary amount (e.g. 700.000)', 'Optional (Default 0)'],
-      ['Actual Salary', 'Gross salary benchmark in OMR', 'Optional (Default 0)'],
+      ['Employee Company', 'DGO, SMI, NC, Supplier, Azad (dropdown enabled)', 'Yes (Mandatory)'],
+      ['Salary Paid By', 'DGO, SMI, NC, Supplier (dropdown enabled)', 'Yes (Mandatory)'],
+      ['Monthly Salary / Wage Rate', 'OMR amount, cannot be negative (e.g. 650.000 for Staff, 2.000 for Worker)', 'Yes (Mandatory)'],
+      ['WPS Employee', 'Yes, No (dropdown enabled)', 'Yes (Mandatory)'],
+      ['WPS Salary', 'WPS registered salary amount, cannot be negative (e.g. 700.000)', 'Optional (Default 0)'],
+      ['Actual Salary', 'Gross salary benchmark in OMR, cannot be negative', 'Optional (Default 0)'],
       ['Recover From', 'Company/Entity to recover excess WPS (e.g. DGO)', 'Optional'],
-    ];
+    ]);
 
-    const wb = XLSX.utils.book_new();
-
-    // Empty Template Sheet with Headers
-    const wsTemplate = XLSX.utils.aoa_to_sheet([headers]);
-    // Set column widths
-    wsTemplate['!cols'] = [
-      { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 16 }, { wch: 16 },
-      { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 16 },
-      { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }
-    ];
-    XLSX.utils.book_append_sheet(wb, wsTemplate, 'Employee_Import_Template');
-
-    // Instructions Sheet
-    const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
-    wsInstructions['!cols'] = [{ wch: 25 }, { wch: 50 }, { wch: 18 }];
-    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions & Dropdowns');
-
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="Employee_Import_Template.xlsx"');
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to generate template' });
   }
@@ -156,31 +230,34 @@ router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const employees = db.employees.getAll();
 
+    // Column names/order match the import template exactly, so an exported file can be
+    // re-imported unmodified. "Status" is appended as a bonus trailing column, not part of
+    // the A-O structure the import parser keys off of.
     const data = employees.map(e => ({
       'Employee ID': e.employeeId,
       'Employee Name': e.employeeName,
       'Employee Type': e.employeeType,
       'Nationality Type': e.nationalityType,
       'Wage Type': e.wageType,
-      'Status': e.isActive ? 'Active' : 'Inactive',
       'Date of Joining': e.dateOfJoining,
       'Date of Leaving': e.dateOfLeaving || '',
       'Designation': e.designation,
       'Employee Company': e.employeeCompany,
       'Salary Paid By': e.salaryPaidBy,
-      'Monthly Salary / Rate (OMR)': roundOMR(e.monthlySalaryOrRate).toFixed(3),
+      'Monthly Salary / Wage Rate': roundOMR(e.monthlySalaryOrRate).toFixed(3),
       'WPS Employee': e.wpsEmployee,
-      'WPS Salary (OMR)': roundOMR(e.wpsSalary).toFixed(3),
-      'Actual Gross Salary (OMR)': roundOMR(e.actualSalary).toFixed(3),
+      'WPS Salary': roundOMR(e.wpsSalary).toFixed(3),
+      'Actual Salary': roundOMR(e.actualSalary).toFixed(3),
       'Recover From': e.recoverFrom || '',
+      'Status': e.isActive ? 'Active' : 'Inactive',
     }));
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
       { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
-      { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 16 },
-      { wch: 16 }, { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 22 }, { wch: 16 }
+      { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 16 }, { wch: 16 },
+      { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Employee_Master');
 
@@ -273,6 +350,23 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     const numericSalary = Number(monthlySalaryOrRate);
     if (isNaN(numericSalary) || numericSalary < 0) {
       return res.status(400).json({ error: 'Monthly Salary / Wage Rate cannot be negative.' });
+    }
+    if (wpsSalary !== undefined && (isNaN(Number(wpsSalary)) || Number(wpsSalary) < 0)) {
+      return res.status(400).json({ error: 'WPS Salary cannot be negative.' });
+    }
+    if (actualSalary !== undefined && (isNaN(Number(actualSalary)) || Number(actualSalary) < 0)) {
+      return res.status(400).json({ error: 'Actual Salary cannot be negative.' });
+    }
+    if (dateOfJoining && !isValidDateString(dateOfJoining)) {
+      return res.status(400).json({ error: 'Date of Joining is not a valid date.' });
+    }
+    if (dateOfLeaving) {
+      if (!isValidDateString(dateOfLeaving)) {
+        return res.status(400).json({ error: 'Date of Leaving is not a valid date.' });
+      }
+      if (dateOfJoining && dateOfLeaving < dateOfJoining) {
+        return res.status(400).json({ error: 'Date of Leaving cannot be before Date of Joining.' });
+      }
     }
 
     const timestamp = new Date().toISOString();
@@ -416,7 +510,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
     }
 
     const buffer = Buffer.from(fileData.replace(/^data:.*?;base64,/, ''), 'base64');
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
     const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
@@ -441,8 +535,8 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       const rawType = String(row['Employee Type'] || row['Type'] || '').trim();
       const rawNat = String(row['Nationality Type'] || row['Nationality'] || '').trim();
       const rawWage = String(row['Wage Type'] || row['WageType'] || '').trim();
-      const rawDoj = String(row['Date of Joining'] || row['DOJ'] || '').trim();
-      const rawDol = String(row['Date of Leaving'] || row['DOL'] || '').trim();
+      const rawDoj = excelCellToDateString(row['Date of Joining'] || row['DOJ']);
+      const rawDol = excelCellToDateString(row['Date of Leaving'] || row['DOL']);
       const rawDesig = String(row['Designation'] || '').trim();
       const rawComp = String(row['Employee Company'] || row['Company'] || '').trim();
       const rawPaidBy = String(row['Salary Paid By'] || row['PaidBy'] || '').trim();
@@ -458,33 +552,25 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       let status: 'New' | 'Existing' | 'Duplicate' | 'Invalid' = 'New';
       let reason = 'Ready to import';
 
-      if (!normalizedId) {
+      const fieldError = validateEmployeeFields({
+        employeeId: normalizedId,
+        employeeName: rawName,
+        employeeType: rawType,
+        nationalityType: rawNat,
+        wageType: rawWage,
+        designation: rawDesig,
+        employeeCompany: rawComp,
+        salaryPaidBy: rawPaidBy,
+        salary: rawSalary,
+        wpsSalary: rawWpsSalary,
+        actualSalary: rawActual,
+        dateOfJoining: rawDoj,
+        dateOfLeaving: rawDol,
+      });
+
+      if (fieldError) {
         status = 'Invalid';
-        reason = 'Employee ID is required';
-      } else if (!rawName) {
-        status = 'Invalid';
-        reason = 'Employee Name is required';
-      } else if (!isValidEmployeeType(rawType)) {
-        status = 'Invalid';
-        reason = `Invalid Employee Type: '${rawType}' (Must be Worker or Staff)`;
-      } else if (!isValidNationalityType(rawNat)) {
-        status = 'Invalid';
-        reason = `Invalid Nationality Type: '${rawNat}' (Must be Omani or Expat)`;
-      } else if (!isValidWageType(rawWage)) {
-        status = 'Invalid';
-        reason = `Invalid Wage Type: '${rawWage}' (Must be Per Hour or Fixed Monthly)`;
-      } else if (!rawDesig) {
-        status = 'Invalid';
-        reason = 'Designation is required';
-      } else if (!isValidEmployeeCompany(rawComp)) {
-        status = 'Invalid';
-        reason = `Invalid Employee Company: '${rawComp}' (DGO, SMI, NC, Supplier, Azad)`;
-      } else if (!isValidSalaryPaidBy(rawPaidBy)) {
-        status = 'Invalid';
-        reason = `Invalid Salary Paid By: '${rawPaidBy}' (DGO, SMI, NC, Supplier)`;
-      } else if (isNaN(Number(rawSalary)) || Number(rawSalary) < 0) {
-        status = 'Invalid';
-        reason = 'Salary / Rate must be a non-negative number';
+        reason = fieldError;
       } else if (seenIdsInFile.has(normalizedId)) {
         status = 'Duplicate';
         reason = `Duplicate Employee ID '${normalizedId}' in spreadsheet`;
@@ -552,8 +638,34 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
     let skippedCount = 0;
     const timestamp = new Date().toISOString();
 
+    const errors: Array<{ rowNumber: number; employeeId: string; employeeName: string; errorType: string; description: string }> = [];
+
     for (const r of rows) {
       if (r.status === 'Invalid' || r.status === 'Duplicate') {
+        skippedCount++;
+        continue;
+      }
+
+      // Defense-in-depth: re-validate every row server-side, since this payload is client-supplied
+      // and must not be trusted purely on the say-so of an earlier /import/validate call.
+      const fieldError = validateEmployeeFields({
+        employeeId: normalizeEmployeeId(r.employeeId),
+        employeeName: r.employeeName,
+        employeeType: r.employeeType,
+        nationalityType: r.nationalityType,
+        wageType: r.wageType,
+        designation: r.designation,
+        employeeCompany: r.employeeCompany,
+        salaryPaidBy: r.salaryPaidBy,
+        salary: r.monthlySalaryOrRate,
+        wpsSalary: r.wpsSalary,
+        actualSalary: r.actualSalary,
+        dateOfJoining: r.dateOfJoining,
+        dateOfLeaving: r.dateOfLeaving,
+      });
+
+      if (fieldError) {
+        errors.push({ rowNumber: r.rowNumber, employeeId: r.employeeId, employeeName: r.employeeName, errorType: 'Invalid', description: fieldError });
         skippedCount++;
         continue;
       }
@@ -561,52 +673,57 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
       const normId = normalizeEmployeeId(r.employeeId);
       const existing = db.employees.findByEmployeeId(normId);
 
-      if (existing) {
-        if (updateExisting) {
-          await db.employees.update(existing.id, {
+      try {
+        if (existing) {
+          if (updateExisting) {
+            await db.employees.update(existing.id, {
+              employeeName: r.employeeName,
+              employeeType: r.employeeType,
+              nationalityType: r.nationalityType,
+              wageType: r.wageType,
+              dateOfJoining: r.dateOfJoining,
+              dateOfLeaving: r.dateOfLeaving,
+              designation: r.designation,
+              employeeCompany: r.employeeCompany,
+              salaryPaidBy: r.salaryPaidBy,
+              monthlySalaryOrRate: roundOMR(Number(r.monthlySalaryOrRate)),
+              wpsEmployee: r.wpsEmployee,
+              wpsSalary: roundOMR(Number(r.wpsSalary)),
+              actualSalary: roundOMR(Number(r.actualSalary)),
+              recoverFrom: r.recoverFrom,
+            }, req.user?.username);
+            updatedCount++;
+          } else {
+            skippedCount++;
+          }
+        } else {
+          const newEmp: Employee = {
+            id: crypto.randomUUID(),
+            employeeId: normId,
             employeeName: r.employeeName,
             employeeType: r.employeeType,
             nationalityType: r.nationalityType,
             wageType: r.wageType,
-            dateOfJoining: r.dateOfJoining,
-            dateOfLeaving: r.dateOfLeaving,
+            dateOfJoining: r.dateOfJoining || timestamp.split('T')[0],
+            dateOfLeaving: r.dateOfLeaving || null,
             designation: r.designation,
             employeeCompany: r.employeeCompany,
             salaryPaidBy: r.salaryPaidBy,
             monthlySalaryOrRate: roundOMR(Number(r.monthlySalaryOrRate)),
-            wpsEmployee: r.wpsEmployee,
-            wpsSalary: roundOMR(Number(r.wpsSalary)),
-            actualSalary: roundOMR(Number(r.actualSalary)),
-            recoverFrom: r.recoverFrom,
-          }, req.user?.username);
-          updatedCount++;
-        } else {
-          skippedCount++;
+            wpsEmployee: r.wpsEmployee === 'Yes' ? 'Yes' : 'No',
+            wpsSalary: roundOMR(Number(r.wpsSalary) || 0),
+            actualSalary: roundOMR(Number(r.actualSalary) || Number(r.monthlySalaryOrRate) || 0),
+            recoverFrom: r.recoverFrom || (r.wpsEmployee === 'Yes' ? r.employeeCompany : ''),
+            isActive: true,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          await db.employees.create(newEmp);
+          importedCount++;
         }
-      } else {
-        const newEmp: Employee = {
-          id: crypto.randomUUID(),
-          employeeId: normId,
-          employeeName: r.employeeName,
-          employeeType: r.employeeType,
-          nationalityType: r.nationalityType,
-          wageType: r.wageType,
-          dateOfJoining: r.dateOfJoining || timestamp.split('T')[0],
-          dateOfLeaving: r.dateOfLeaving || null,
-          designation: r.designation,
-          employeeCompany: r.employeeCompany,
-          salaryPaidBy: r.salaryPaidBy,
-          monthlySalaryOrRate: roundOMR(Number(r.monthlySalaryOrRate)),
-          wpsEmployee: r.wpsEmployee === 'Yes' ? 'Yes' : 'No',
-          wpsSalary: roundOMR(Number(r.wpsSalary) || 0),
-          actualSalary: roundOMR(Number(r.actualSalary) || Number(r.monthlySalaryOrRate) || 0),
-          recoverFrom: r.recoverFrom || (r.wpsEmployee === 'Yes' ? r.employeeCompany : ''),
-          isActive: true,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        };
-        await db.employees.create(newEmp);
-        importedCount++;
+      } catch (rowErr: any) {
+        errors.push({ rowNumber: r.rowNumber, employeeId: r.employeeId, employeeName: r.employeeName, errorType: 'Database Error', description: rowErr.message || 'Failed to save this row.' });
+        skippedCount++;
       }
     }
 
@@ -625,6 +742,7 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
       importedCount,
       updatedCount,
       skippedCount,
+      errors,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to commit employee import.' });

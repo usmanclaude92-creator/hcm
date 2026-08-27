@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { apiRequest, formatOMR, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -51,6 +52,7 @@ export const EmployeeMasterView: React.FC = () => {
   const [importPreview, setImportPreview] = useState<any>(null);
   const [updateExisting, setUpdateExisting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -228,16 +230,53 @@ export const EmployeeMasterView: React.FC = () => {
           updateExisting,
         }),
       });
-      alert(res.message);
-      setIsImportModalOpen(false);
-      setImportPreview(null);
-      setImportFile(null);
+      setImportResult(res);
       fetchEmployees();
     } catch (err: any) {
       alert(err.message || 'Import failed');
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleCloseImportModal = () => {
+    setIsImportModalOpen(false);
+    setImportPreview(null);
+    setImportFile(null);
+    setImportResult(null);
+    setUpdateExisting(false);
+  };
+
+  const handleDownloadErrorReport = () => {
+    if (!importPreview?.rows) return;
+    const errorMap = new Map<string, string>();
+    (importResult?.errors || []).forEach((e: any) => {
+      errorMap.set(String(e.rowNumber), e.description);
+    });
+
+    const skippedRows = importPreview.rows.filter((r: any) => {
+      if (r.status === 'Invalid' || r.status === 'Duplicate') return true;
+      if (r.status === 'Existing' && !updateExisting) return true;
+      return errorMap.has(String(r.rowNumber));
+    });
+
+    if (skippedRows.length === 0) {
+      alert('No errors to report — every row was imported or updated successfully.');
+      return;
+    }
+
+    const data = skippedRows.map((r: any) => ({
+      'Row #': r.rowNumber,
+      'Employee ID': r.employeeId,
+      'Employee Name': r.employeeName,
+      'Error Type': r.status,
+      'Description': errorMap.get(String(r.rowNumber)) || r.reason,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Import Errors');
+    XLSX.writeFile(wb, `Employee_Import_Errors_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
@@ -857,11 +896,7 @@ export const EmployeeMasterView: React.FC = () => {
                 <h3 className="font-bold text-slate-900 text-base">Bulk Employee Excel Import Wizard</h3>
               </div>
               <button
-                onClick={() => {
-                  setIsImportModalOpen(false);
-                  setImportPreview(null);
-                  setImportFile(null);
-                }}
+                onClick={handleCloseImportModal}
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
               >
                 <X className="w-5 h-5" />
@@ -869,7 +904,36 @@ export const EmployeeMasterView: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-5">
-              {!importPreview ? (
+              {importResult ? (
+                <div className="text-center py-6 space-y-4">
+                  <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto" />
+                  <h4 className="text-base font-bold text-slate-900">Employee Import Completed</h4>
+                  <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                      <span className="text-xs text-emerald-600 font-medium">Created</span>
+                      <strong className="block text-lg text-emerald-900">{importResult.importedCount}</strong>
+                    </div>
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                      <span className="text-xs text-blue-600 font-medium">Updated</span>
+                      <strong className="block text-lg text-blue-900">{importResult.updatedCount}</strong>
+                    </div>
+                    <div className="p-3 bg-slate-100 border border-slate-200 rounded-lg text-center">
+                      <span className="text-xs text-slate-600 font-medium">Skipped</span>
+                      <strong className="block text-lg text-slate-900">{importResult.skippedCount}</strong>
+                    </div>
+                  </div>
+                  {importResult.skippedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadErrorReport}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Import Error Report
+                    </button>
+                  )}
+                </div>
+              ) : !importPreview ? (
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors">
                   <FileSpreadsheet className="w-12 h-12 text-indigo-500 mx-auto mb-3" />
                   <p className="text-sm font-semibold text-slate-800">Select or Drag & Drop Excel Spreadsheet</p>
@@ -963,34 +1027,50 @@ export const EmployeeMasterView: React.FC = () => {
             </div>
 
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  setImportPreview(null);
-                  setImportFile(null);
-                }}
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900"
-              >
-                Reset Selection
-              </button>
-
-              <div className="flex items-center gap-2.5">
+              {importResult ? (
+                <span className="text-xs text-slate-500">{importResult.message}</span>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100"
+                  onClick={() => {
+                    setImportPreview(null);
+                    setImportFile(null);
+                  }}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                 >
-                  Cancel
+                  Reset Selection
                 </button>
-                {importPreview && (
+              )}
+
+              <div className="flex items-center gap-2.5">
+                {importResult ? (
                   <button
                     type="button"
-                    disabled={importing || (importPreview.summary.newCount === 0 && !updateExisting)}
-                    onClick={handleConfirmImport}
-                    className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    onClick={handleCloseImportModal}
+                    className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-colors cursor-pointer"
                   >
-                    {importing ? 'Committing Import...' : 'Confirm & Commit Import'}
+                    Close
                   </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCloseImportModal}
+                      className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100"
+                    >
+                      Cancel
+                    </button>
+                    {importPreview && (
+                      <button
+                        type="button"
+                        disabled={importing || (importPreview.summary.newCount === 0 && !updateExisting)}
+                        onClick={handleConfirmImport}
+                        className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {importing ? 'Committing Import...' : 'Confirm & Commit Import'}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
