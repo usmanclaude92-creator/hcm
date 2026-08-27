@@ -83,7 +83,7 @@ const MainApp: React.FC = () => {
           currentView={currentView}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto px-[2%] py-6 print:p-0">
           {renderView()}
         </main>
       </div>

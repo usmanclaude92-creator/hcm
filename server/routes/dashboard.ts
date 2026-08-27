@@ -38,13 +38,42 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 
     // Loan balances
     const loans = db.loans.getAll();
-    const totalOutstandingLoans = roundOMR(loans.filter(l => l.status === 'Active').reduce((s, l) => s + l.outstandingBalance, 0));
+    const activeLoans = loans.filter(l => l.status === 'Active');
+    const totalOutstandingLoans = roundOMR(activeLoans.reduce((s, l) => s + l.outstandingBalance, 0));
+    const totalActiveLoanPrincipal = roundOMR(activeLoans.reduce((s, l) => s + l.loanAmount, 0));
+    const totalLoanRecovered = roundOMR(activeLoans.reduce((s, l) => s + (l.totalRecovered || 0), 0));
+    const loanRecoveryPercentage = totalActiveLoanPrincipal > 0
+      ? roundOMR((totalLoanRecovered / totalActiveLoanPrincipal) * 100)
+      : 0;
+    const currentMonthStr = new Date().toISOString().slice(0, 7);
+    const monthlyLoanRecovery = roundOMR(
+      loans.reduce((sum, l) => {
+        const recoveriesThisMonth = (l.recoveries || []).filter(r => (r.recoveryDate || '').startsWith(currentMonthStr));
+        return sum + recoveriesThisMonth.reduce((s, r) => s + (r.recoveryAmount || 0), 0);
+      }, 0)
+    );
 
     // WPS Recoveries
     const wpsList = db.wps.getAll();
     const totalWpsRecoverable = roundOMR(wpsList.reduce((s, w) => s + w.totalRecoverable, 0));
     const totalWpsRecovered = roundOMR(wpsList.reduce((s, w) => s + w.totalRecovered, 0));
     const totalWpsRemaining = roundOMR(wpsList.reduce((s, w) => s + w.remainingBalance, 0));
+
+    // Workforce cost distribution by employee type, from the latest finalized payroll's lines
+    // (real per-line data, not a fabricated split).
+    const latestFinalizedDetails = allFinalizedPayrolls.length > 0
+      ? db.payroll.getByMonth(allFinalizedPayrolls[0].payrollMonth)
+      : null;
+    const workforceCostByCategory = ['Staff', 'Worker'].map(type => {
+      const lines = (latestFinalizedDetails?.lines || []).filter(l => l.employeeType === type);
+      const totalNetSalary = roundOMR(lines.reduce((s, l) => s + l.netSalary, 0));
+      return {
+        name: type,
+        count: lines.length,
+        totalNetSalary,
+        avgNetSalary: lines.length > 0 ? roundOMR(totalNetSalary / lines.length) : 0,
+      };
+    });
 
     // Monthly trends for last 6 months
     const monthlyTrends = payrolls.slice(0, 6).reverse().map(p => {
@@ -86,6 +115,16 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
         totalWpsRecovered,
         totalWpsRemaining,
       },
+      loanAnalytics: {
+        totalPrincipal: totalActiveLoanPrincipal,
+        totalRecovered: totalLoanRecovered,
+        outstandingBalance: totalOutstandingLoans,
+        activeLoanCount: activeLoans.length,
+        recoveryPercentage: loanRecoveryPercentage,
+        monthlyRecovery: monthlyLoanRecovery,
+      },
+      workforceCostByCategory,
+      workforceCostSourceMonth: latestFinalizedDetails?.payrollMonth || null,
       distribution: {
         employeeTypes: [
           { name: 'Staff', value: staff.length },

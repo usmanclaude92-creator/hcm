@@ -8,6 +8,7 @@ import {
   Landmark,
   Calculator,
   ArrowUpRight,
+  ArrowDownRight,
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
@@ -15,6 +16,8 @@ import {
   DollarSign,
   Briefcase,
   ArrowRight,
+  Wallet,
+  UserX,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -28,6 +31,27 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+
+function MonthOverMonthBadge({ current, previous }: { current?: number; previous?: number }) {
+  if (current === undefined || previous === undefined || !previous) return null;
+  const pct = ((current - previous) / previous) * 100;
+  const isUp = pct >= 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${isUp ? 'text-emerald-600' : 'text-rose-600'}`}>
+      {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {Math.abs(pct).toFixed(1)}% vs last month
+    </span>
+  );
+}
+
+function ProgressBar({ percentage, colorClass }: { percentage: number; colorClass: string }) {
+  const clamped = Math.min(100, Math.max(0, percentage || 0));
+  return (
+    <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+      <div className={`h-1.5 rounded-full transition-all duration-500 ${colorClass}`} style={{ width: `${clamped}%` }} />
+    </div>
+  );
+}
 
 interface DashboardViewProps {
   onNavigate: (view: string) => void;
@@ -77,10 +101,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     );
   }
 
-  const { counts, currentPayroll, finances, distribution, monthlyTrends } = data || {};
+  const { counts, currentPayroll, finances, loanAnalytics, workforceCostByCategory, distribution, monthlyTrends } = data || {};
+
+  // Derived executive indicators -- all computed from data already returned by /api/dashboard,
+  // nothing fabricated.
+  const prevMonthTrend = monthlyTrends?.[monthlyTrends.length - 2];
+  const currMonthTrend = monthlyTrends?.[monthlyTrends.length - 1];
+  const paidPercentage = finances?.totalFinalizedNetSalary > 0
+    ? (finances.totalActuallyPaid / finances.totalFinalizedNetSalary) * 100
+    : 0;
+  const wpsRecoveryPercentage = finances?.totalWpsRecoverable > 0
+    ? (finances.totalWpsRecovered / finances.totalWpsRecoverable) * 100
+    : 0;
+  const avgNetSalary = counts?.activeEmployees > 0 && currentPayroll?.netSalary
+    ? currentPayroll.netSalary / counts.activeEmployees
+    : 0;
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Top Banner: Financial Separation Rule Reminder */}
       <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -136,6 +174,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 {currentPayroll?.status || 'Draft'}
               </span>
             </div>
+            <div className="mt-1.5">
+              <MonthOverMonthBadge current={currMonthTrend?.netSalary} previous={prevMonthTrend?.netSalary} />
+            </div>
           </div>
         </div>
 
@@ -155,6 +196,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span>Unpaid Balance:</span>
               <span className="font-semibold text-rose-600">OMR {formatOMR(finances?.totalOutstandingSalary)}</span>
             </div>
+            <ProgressBar percentage={paidPercentage} colorClass="bg-emerald-500" />
+            <span className="text-[10px] text-slate-400 mt-1 block">{paidPercentage.toFixed(1)}% of finalized payroll paid</span>
           </div>
         </div>
 
@@ -174,6 +217,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span>Pending Recovery:</span>
               <span className="font-semibold text-slate-700">OMR {formatOMR(finances?.totalWpsRemaining)}</span>
             </div>
+            <ProgressBar percentage={wpsRecoveryPercentage} colorClass="bg-amber-500" />
+            <span className="text-[10px] text-slate-400 mt-1 block">{wpsRecoveryPercentage.toFixed(1)}% recovered</span>
           </div>
         </div>
 
@@ -189,9 +234,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <div className="text-2xl font-bold text-purple-600 tracking-tight">
               OMR {formatOMR(finances?.totalOutstandingLoans)}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-              <span>Recovered from monthly payroll deductions</span>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>Recovered:</span>
+              <span className="font-semibold text-emerald-600">OMR {formatOMR(loanAnalytics?.totalRecovered)}</span>
             </div>
+            <ProgressBar percentage={loanAnalytics?.recoveryPercentage} colorClass="bg-purple-500" />
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              {(loanAnalytics?.recoveryPercentage ?? 0).toFixed(1)}% recovered • {loanAnalytics?.activeLoanCount ?? 0} active loans
+            </span>
           </div>
         </div>
       </div>
@@ -221,6 +271,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <span className="px-3 py-1 bg-white border border-slate-200 rounded-md text-slate-700 font-medium">
             Expatriates: <strong className="text-slate-900">{counts?.expat}</strong>
           </span>
+          <span className="px-3 py-1 bg-white border border-slate-200 rounded-md text-slate-700 font-medium flex items-center gap-1">
+            <UserX className="w-3 h-3 text-slate-400" />
+            Inactive: <strong className="text-slate-500">{counts?.inactiveEmployees ?? 0}</strong>
+          </span>
+          <span className="px-3 py-1 bg-white border border-slate-200 rounded-md text-slate-700 font-medium flex items-center gap-1">
+            <Wallet className="w-3 h-3 text-slate-400" />
+            Avg. Net Salary: <strong className="text-slate-900">OMR {formatOMR(avgNetSalary)}</strong>
+          </span>
         </div>
       </div>
 
@@ -238,7 +296,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </span>
           </div>
 
-          <div className="h-64 w-full">
+          <div className="h-80 w-full">
             {monthlyTrends && monthlyTrends.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -269,7 +327,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <p className="text-xs text-slate-500">Staff vs. Worker Distribution</p>
           </div>
 
-          <div className="flex-1 h-52 w-full flex items-center justify-center">
+          <div className="flex-1 h-80 w-full flex items-center justify-center">
             {distribution?.employeeTypes && (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -279,8 +337,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={65}
-                    innerRadius={35}
+                    outerRadius={90}
+                    innerRadius={50}
                     paddingAngle={4}
                   >
                     <Cell fill="#3b82f6" />
@@ -305,6 +363,162 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span className="text-slate-600">Workers: {counts?.workers}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* WPS Analysis + Workforce Cost Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-amber-600" />
+                WPS Analysis
+              </h3>
+              <p className="text-xs text-slate-500">WPS Salary Liability vs. Recovery Progress</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="p-3 bg-slate-50 rounded-lg">
+              <span className="text-[11px] text-slate-500">WPS Salary (current month)</span>
+              <div className="text-base font-bold text-slate-900">OMR {formatOMR(currentPayroll?.wpsSalary)}</div>
+            </div>
+            <div className="p-3 bg-amber-50 rounded-lg">
+              <span className="text-[11px] text-amber-700">Total Recoverable</span>
+              <div className="text-base font-bold text-amber-800">OMR {formatOMR(finances?.totalWpsRecoverable)}</div>
+            </div>
+            <div className="p-3 bg-emerald-50 rounded-lg">
+              <span className="text-[11px] text-emerald-700">Recovered</span>
+              <div className="text-base font-bold text-emerald-800">OMR {formatOMR(finances?.totalWpsRecovered)}</div>
+            </div>
+            <div className="p-3 bg-rose-50 rounded-lg">
+              <span className="text-[11px] text-rose-700">Pending Recovery</span>
+              <div className="text-base font-bold text-rose-800">OMR {formatOMR(finances?.totalWpsRemaining)}</div>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+              <span>Recovery Progress</span>
+              <span className="font-semibold text-amber-700">{wpsRecoveryPercentage.toFixed(1)}%</span>
+            </div>
+            <ProgressBar percentage={wpsRecoveryPercentage} colorClass="bg-amber-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
+          <div className="mb-4">
+            <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-indigo-600" />
+              Workforce Cost Distribution
+            </h3>
+            <p className="text-xs text-slate-500">
+              Avg. Net Salary by Category {data?.workforceCostSourceMonth ? `(${data.workforceCostSourceMonth} Payroll)` : ''}
+            </p>
+          </div>
+          <div className="h-52 w-full">
+            {workforceCostByCategory && workforceCostByCategory.some((c: any) => c.count > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={workforceCostByCategory} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: '#334155' }} width={60} />
+                  <Tooltip
+                    formatter={(val: any, name: any) => [name === 'avgNetSalary' ? `OMR ${formatOMR(val)}` : val, name === 'avgNetSalary' ? 'Avg. Net Salary' : 'Employees']}
+                    contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                  />
+                  <Bar dataKey="avgNetSalary" name="Avg. Net Salary" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={28} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                No finalized payroll data available yet.
+              </div>
+            )}
+          </div>
+          <div className="border-t border-slate-100 pt-3 flex items-center justify-around text-xs">
+            {workforceCostByCategory?.map((c: any) => (
+              <div key={c.name} className="text-center">
+                <span className="text-slate-500">{c.name}</span>
+                <div className="font-semibold text-slate-800">{c.count} employees</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Loan & Recovery Analysis + Payroll Variance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
+          <div className="mb-4">
+            <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-1.5">
+              <Landmark className="w-4 h-4 text-purple-600" />
+              Loan &amp; Recovery Analysis
+            </h3>
+            <p className="text-xs text-slate-500">Active Employee Loans &amp; Monthly Recovery Progress</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="p-3 bg-slate-50 rounded-lg">
+              <span className="text-[11px] text-slate-500">Total Principal (Active)</span>
+              <div className="text-base font-bold text-slate-900">OMR {formatOMR(loanAnalytics?.totalPrincipal)}</div>
+            </div>
+            <div className="p-3 bg-emerald-50 rounded-lg">
+              <span className="text-[11px] text-emerald-700">Total Recovered</span>
+              <div className="text-base font-bold text-emerald-800">OMR {formatOMR(loanAnalytics?.totalRecovered)}</div>
+            </div>
+            <div className="p-3 bg-purple-50 rounded-lg">
+              <span className="text-[11px] text-purple-700">Outstanding Balance</span>
+              <div className="text-base font-bold text-purple-800">OMR {formatOMR(loanAnalytics?.outstandingBalance)}</div>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <span className="text-[11px] text-blue-700">This Month's Recovery</span>
+              <div className="text-base font-bold text-blue-800">OMR {formatOMR(loanAnalytics?.monthlyRecovery)}</div>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+              <span>Recovery Progress • {loanAnalytics?.activeLoanCount ?? 0} Active Loan(s)</span>
+              <span className="font-semibold text-purple-700">{(loanAnalytics?.recoveryPercentage ?? 0).toFixed(1)}%</span>
+            </div>
+            <ProgressBar percentage={loanAnalytics?.recoveryPercentage} colorClass="bg-purple-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
+          <div className="mb-4">
+            <h3 className="font-semibold text-slate-900 text-sm flex items-center gap-1.5">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+              Payroll Variance / Month-over-Month
+            </h3>
+            <p className="text-xs text-slate-500">Net Salary Owed vs. Actually Disbursed, by Month</p>
+          </div>
+          {monthlyTrends && monthlyTrends.length > 0 ? (
+            <div className="space-y-2">
+              {monthlyTrends.map((m: any, idx: number) => {
+                const prev = monthlyTrends[idx - 1];
+                const variance = m.netSalary - m.paidSalary;
+                return (
+                  <div key={m.month} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg text-xs">
+                    <div className="font-semibold text-slate-700 w-20">{m.month}</div>
+                    <div className="text-slate-500">
+                      Net: <span className="font-mono font-semibold text-slate-900">OMR {formatOMR(m.netSalary)}</span>
+                    </div>
+                    <div className="text-slate-500">
+                      Paid: <span className="font-mono font-semibold text-emerald-700">OMR {formatOMR(m.paidSalary)}</span>
+                    </div>
+                    <div className="text-slate-500">
+                      Variance: <span className="font-mono font-semibold text-rose-600">OMR {formatOMR(variance)}</span>
+                    </div>
+                    <div className="w-28 text-right">
+                      <MonthOverMonthBadge current={m.netSalary} previous={prev?.netSalary} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="h-32 flex items-center justify-center text-xs text-slate-400">
+              No monthly payroll trends available yet.
+            </div>
+          )}
         </div>
       </div>
 
