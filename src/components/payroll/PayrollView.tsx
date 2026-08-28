@@ -149,6 +149,23 @@ export const PayrollView: React.FC = () => {
         if (rs !== receiptStatusFilter) return false;
       }
       return true;
+    }).sort((a, b) => {
+      // Display priority: Company A-Z -> WPS Status (WPS employees first) ->
+      // Project A-Z -> Employee Type A-Z -> Employee Name A-Z (tie-breaker).
+      const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
+      if (companyCmp !== 0) return companyCmp;
+
+      const aWps = a.wpsEmployee === 'Yes' ? 0 : 1;
+      const bWps = b.wpsEmployee === 'Yes' ? 0 : 1;
+      if (aWps !== bWps) return aWps - bWps;
+
+      const projectCmp = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');
+      if (projectCmp !== 0) return projectCmp;
+
+      const typeCmp = (a.employeeType || '').localeCompare(b.employeeType || '');
+      if (typeCmp !== 0) return typeCmp;
+
+      return (a.employeeName || '').localeCompare(b.employeeName || '');
     });
   }, [lines, search, statusFilter, companyFilter, paidByFilter, wpsFilter, wageTypeFilter, receiptStatusFilter, employeeActiveMap, receiptStatusMap]);
 
@@ -508,8 +525,10 @@ export const PayrollView: React.FC = () => {
               <tr>
                 <th className="px-3 py-3">Sr#</th>
                 <th className="px-4 py-3">Employee</th>
-                <th className="px-3 py-3">Type</th>
-                <th className="px-3 py-3">Projects</th>
+                <th className="px-3 py-3">Company</th>
+                <th className="px-3 py-3 text-center">WPS Status</th>
+                <th className="px-3 py-3">Project</th>
+                <th className="px-3 py-3">Employee Type</th>
                 <th className="px-3 py-3 text-right">Worked</th>
                 <th className="px-3 py-3 text-right">Rate Used</th>
                 <th className="px-3 py-3 text-right">Gross (OMR)</th>
@@ -526,14 +545,14 @@ export const PayrollView: React.FC = () => {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {lines.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={15} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold">No payroll calculated yet for {month}.</p>
                     <p className="text-xs mt-1">Ensure attendance is recorded, then click "Calculate / Re-Run Payroll".</p>
                   </td>
                 </tr>
               ) : filteredLines.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={15} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold">No employees match the current filters.</p>
                     <button
                       type="button"
@@ -552,15 +571,25 @@ export const PayrollView: React.FC = () => {
                       <span className="font-mono font-bold text-blue-600 block">{line.employeeId}</span>
                       <span className="font-semibold text-slate-900">{line.employeeName}</span>
                     </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {line.employeeCompany}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                        line.wpsEmployee === 'Yes' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {line.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-slate-500 max-w-[150px] truncate" title={line.projectsSummary}>
+                      {line.projectsSummary}
+                    </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                         line.employeeType === 'Staff' ? 'bg-blue-50 text-blue-700' : 'bg-indigo-50 text-indigo-700'
                       }`}>
                         {line.employeeType}
                       </span>
-                    </td>
-                    <td className="px-3 py-3 text-slate-500 max-w-[150px] truncate" title={line.projectsSummary}>
-                      {line.projectsSummary}
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold">
                       {line.employeeType === 'Staff' ? `${line.daysWorked}d` : `${line.hoursWorked}h`}
