@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest, formatOMR, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -18,8 +18,11 @@ import {
   Info,
   DollarSign,
   ShieldAlert,
+  Search,
 } from 'lucide-react';
 import type { MonthlyPayroll, PayrollLine, PayrollRevision, PaymentMethod } from '../../types/index';
+
+type ReceiptStatus = 'Attached' | 'Attachment Pending' | 'No Payments';
 
 export const PayrollView: React.FC = () => {
   const { canWrite, isManager } = useAuth();
@@ -29,6 +32,21 @@ export const PayrollView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Search & Filter Controls -- purely a client-side view over the already-fetched
+  // `lines` for this month; never mutates payroll data or re-triggers calculation.
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | active | inactive (Employee Master status)
+  const [companyFilter, setCompanyFilter] = useState('ALL');
+  const [paidByFilter, setPaidByFilter] = useState('ALL');
+  const [wpsFilter, setWpsFilter] = useState('ALL'); // ALL | WPS | Non-WPS (line.paymentMethod)
+  const [wageTypeFilter, setWageTypeFilter] = useState('ALL');
+  const [receiptStatusFilter, setReceiptStatusFilter] = useState('ALL');
+  // Side data joined in purely for filtering -- Employee Master's live isActive flag,
+  // and Salary Payments' per-employee receipt status for this month. Read-only lookups;
+  // failure to load either just leaves those filters inert rather than breaking the page.
+  const [employeeActiveMap, setEmployeeActiveMap] = useState<Record<string, boolean>>({});
+  const [receiptStatusMap, setReceiptStatusMap] = useState<Record<string, ReceiptStatus>>({});
 
   // Line Editing Modal
   const [editingLine, setEditingLine] = useState<PayrollLine | null>(null);
@@ -74,6 +92,89 @@ export const PayrollView: React.FC = () => {
   useEffect(() => {
     fetchPayroll();
   }, [month]);
+
+  // Employee Master's active/inactive status -- fetched once, independent of month.
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest('/api/employees')
+      .then((data) => {
+        if (cancelled) return;
+        const map: Record<string, boolean> = {};
+        (Array.isArray(data) ? data : []).forEach((e: any) => {
+          map[e.employeeId] = e.isActive;
+        });
+        setEmployeeActiveMap(map);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Salary Payments' per-employee receipt status for this month -- a read-only join
+  // from a separate module, used only to power the Receipts filter here. Requires
+  // salary_payment.view; if unavailable, the filter simply has no effect.
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest(`/api/payments/grouped?month=${month}`)
+      .then((data) => {
+        if (cancelled) return;
+        const map: Record<string, ReceiptStatus> = {};
+        (Array.isArray(data) ? data : []).forEach((emp: any) => {
+          const monthEntry = (emp.months || []).find((m: any) => m.payrollMonth === month);
+          if (monthEntry) map[emp.employeeId] = monthEntry.receiptStatus;
+        });
+        setReceiptStatusMap(map);
+      })
+      .catch(() => setReceiptStatusMap({}));
+    return () => {
+      cancelled = true;
+    };
+  }, [month]);
+
+  const filteredLines = useMemo(() => {
+    return lines.filter((line) => {
+      if (search) {
+        const q = search.trim().toLowerCase();
+        if (!line.employeeId.toLowerCase().includes(q) && !line.employeeName.toLowerCase().includes(q)) return false;
+      }
+      if (statusFilter === 'active' && employeeActiveMap[line.employeeId] === false) return false;
+      if (statusFilter === 'inactive' && employeeActiveMap[line.employeeId] !== false) return false;
+      if (companyFilter !== 'ALL' && line.employeeCompany !== companyFilter) return false;
+      if (paidByFilter !== 'ALL' && line.salaryPaidBy !== paidByFilter) return false;
+      if (wpsFilter !== 'ALL' && line.paymentMethod !== wpsFilter) return false;
+      if (wageTypeFilter !== 'ALL' && line.wageType !== wageTypeFilter) return false;
+      if (receiptStatusFilter !== 'ALL') {
+        const rs = receiptStatusMap[line.employeeId] || 'No Payments';
+        if (rs !== receiptStatusFilter) return false;
+      }
+      return true;
+    });
+  }, [lines, search, statusFilter, companyFilter, paidByFilter, wpsFilter, wageTypeFilter, receiptStatusFilter, employeeActiveMap, receiptStatusMap]);
+
+  const filteredSummary = useMemo(() => ({
+    totalEmployees: filteredLines.length,
+    totalGrossSalary: filteredLines.reduce((s, l) => s + (Number(l.grossSalary) || 0), 0),
+    totalAdditions: filteredLines.reduce((s, l) => s + (Number(l.totalAdditions) || 0), 0),
+    totalDeductions: filteredLines.reduce((s, l) => s + (Number(l.totalDeductions) || 0), 0),
+    totalNetSalary: filteredLines.reduce((s, l) => s + (Number(l.netSalary) || 0), 0),
+    totalRecoverableSalary: filteredLines.reduce((s, l) => s + (Number(l.recoverableSalary) || 0), 0),
+  }), [filteredLines]);
+
+  const isFiltering = Boolean(
+    search || statusFilter !== 'ALL' || companyFilter !== 'ALL' || paidByFilter !== 'ALL' ||
+    wpsFilter !== 'ALL' || wageTypeFilter !== 'ALL' || receiptStatusFilter !== 'ALL'
+  );
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setStatusFilter('ALL');
+    setCompanyFilter('ALL');
+    setPaidByFilter('ALL');
+    setWpsFilter('ALL');
+    setWageTypeFilter('ALL');
+    setReceiptStatusFilter('ALL');
+  };
 
   const handleRunCalculation = async () => {
     try {
@@ -288,33 +389,114 @@ export const PayrollView: React.FC = () => {
         </div>
       )}
 
-      {/* Summary Metrics Bar */}
+      {/* Summary Metrics Bar -- reflects the currently filtered view, not just the
+          raw payroll totals; the underlying payroll figures are untouched. */}
       {payroll && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
             <span className="text-[11px] font-medium text-slate-500">Employees</span>
-            <strong className="block text-lg font-bold text-slate-900 mt-0.5">{payroll.totalEmployees}</strong>
+            <strong className="block text-lg font-bold text-slate-900 mt-0.5">{filteredSummary.totalEmployees}</strong>
           </div>
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
             <span className="text-[11px] font-medium text-slate-500">Gross Salary</span>
-            <strong className="block text-lg font-bold text-slate-900 mt-0.5">OMR {formatOMR(payroll.totalGrossSalary)}</strong>
+            <strong className="block text-lg font-bold text-slate-900 mt-0.5">OMR {formatOMR(filteredSummary.totalGrossSalary)}</strong>
           </div>
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
             <span className="text-[11px] font-medium text-slate-500">Total Additions</span>
-            <strong className="block text-lg font-bold text-emerald-600 mt-0.5">+OMR {formatOMR(payroll.totalAdditions)}</strong>
+            <strong className="block text-lg font-bold text-emerald-600 mt-0.5">+OMR {formatOMR(filteredSummary.totalAdditions)}</strong>
           </div>
           <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
             <span className="text-[11px] font-medium text-slate-500">Total Deductions</span>
-            <strong className="block text-lg font-bold text-rose-600 mt-0.5">-OMR {formatOMR(payroll.totalDeductions)}</strong>
+            <strong className="block text-lg font-bold text-rose-600 mt-0.5">-OMR {formatOMR(filteredSummary.totalDeductions)}</strong>
           </div>
           <div className="bg-white p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 shadow-xs">
             <span className="text-[11px] font-semibold text-blue-700">Net Salary (Owed)</span>
-            <strong className="block text-lg font-bold text-blue-900 mt-0.5">OMR {formatOMR(payroll.totalNetSalary)}</strong>
+            <strong className="block text-lg font-bold text-blue-900 mt-0.5">OMR {formatOMR(filteredSummary.totalNetSalary)}</strong>
           </div>
           <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 shadow-xs">
             <span className="text-[11px] font-semibold text-amber-700">WPS Recoverable</span>
-            <strong className="block text-lg font-bold text-amber-900 mt-0.5">OMR {formatOMR(payroll.totalRecoverableSalary)}</strong>
+            <strong className="block text-lg font-bold text-amber-900 mt-0.5">OMR {formatOMR(filteredSummary.totalRecoverableSalary)}</strong>
           </div>
+        </div>
+      )}
+
+      {/* Advanced Search & Filter Controls -- client-side view filtering only; never
+          alters payroll data, only which already-calculated rows are displayed. */}
+      {lines.length > 0 && (
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
+          <div className="relative w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search employee by ID or name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-9 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 flex-1 min-w-0">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">All Companies</option>
+                <option value="DGO">DGO</option>
+                <option value="SMI">SMI</option>
+                <option value="NC">NC</option>
+                <option value="Supplier">Supplier</option>
+                <option value="Azad">Azad</option>
+              </select>
+              <select value={paidByFilter} onChange={(e) => setPaidByFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">All Paid By</option>
+                <option value="DGO">DGO</option>
+                <option value="SMI">SMI</option>
+                <option value="NC">NC</option>
+                <option value="Supplier">Supplier</option>
+              </select>
+              <select value={wpsFilter} onChange={(e) => setWpsFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">WPS: All</option>
+                <option value="WPS">WPS</option>
+                <option value="Non-WPS">Non-WPS</option>
+              </select>
+              <select value={wageTypeFilter} onChange={(e) => setWageTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">All Wage Types</option>
+                <option value="Per Hour">Per Hour</option>
+                <option value="Fixed Monthly">Fixed Monthly</option>
+              </select>
+              <select value={receiptStatusFilter} onChange={(e) => setReceiptStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">All Receipts</option>
+                <option value="Attached">Attached</option>
+                <option value="Attachment Pending">Attachment Pending</option>
+                <option value="No Payments">No Payments</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              disabled={!isFiltering}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Filters
+            </button>
+          </div>
+          {isFiltering && (
+            <p className="text-[11px] text-slate-500">
+              Showing {filteredLines.length} of {lines.length} employee{lines.length === 1 ? '' : 's'} matching current filters.
+            </p>
+          )}
         </div>
       )}
 
@@ -349,8 +531,21 @@ export const PayrollView: React.FC = () => {
                     <p className="text-xs mt-1">Ensure attendance is recorded, then click "Calculate / Re-Run Payroll".</p>
                   </td>
                 </tr>
+              ) : filteredLines.length === 0 ? (
+                <tr>
+                  <td colSpan={13} className="px-6 py-12 text-center text-slate-400">
+                    <p className="text-sm font-semibold">No employees match the current filters.</p>
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="text-xs mt-1 text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  </td>
+                </tr>
               ) : (
-                lines.map((line, idx) => (
+                filteredLines.map((line, idx) => (
                   <tr key={line.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-3 py-3 font-mono text-slate-400">{idx + 1}</td>
                     <td className="px-4 py-3">

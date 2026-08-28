@@ -500,7 +500,9 @@ export const AttendanceView: React.FC = () => {
         </div>
       )}
 
-      {/* Main Attendance Table */}
+      {/* Main Attendance Table -- every field (Project, Hrs/Days, Overtime, Bonus,
+          Deductions) is its own column; an employee's project allocations become
+          aligned sub-rows sharing the employee-level columns via rowSpan. */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -509,8 +511,13 @@ export const AttendanceView: React.FC = () => {
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3">Type</th>
                 <th className="px-3 py-3">Designation</th>
-                <th className="px-3 py-3">Company / Paid By</th>
-                <th className="px-4 py-3 min-w-[320px]">Project Allocations & Worked Volume</th>
+                <th className="px-3 py-3">Company</th>
+                <th className="px-3 py-3">Pay By</th>
+                <th className="px-3 py-3 min-w-[180px]">Project</th>
+                <th className="px-3 py-3 text-right">Hrs / Days</th>
+                <th className="px-3 py-3 text-right">Overtime</th>
+                <th className="px-3 py-3 text-right">Bonus (OMR)</th>
+                <th className="px-3 py-3 text-right">Deductions (OMR)</th>
                 <th className="px-4 py-3 text-right">Total Worked</th>
                 {canWrite && <th className="px-3 py-3 text-right">Action</th>}
               </tr>
@@ -520,174 +527,223 @@ export const AttendanceView: React.FC = () => {
                 const totalDays = emp.records.reduce((s, r) => s + (Number(r.daysWorked) || 0), 0);
                 const totalHours = emp.records.reduce((s, r) => s + (Number(r.hoursWorked) || 0), 0);
                 const totalOvertime = emp.records.reduce((s, r) => s + (Number(r.overtimeHours) || 0), 0);
+                const groupRowSpan = Math.max(emp.records.length, 1);
 
-                return (
-                  <tr key={emp.employeeId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className="font-mono font-bold text-blue-600 block">{emp.employeeId}</span>
-                      <span className="font-semibold text-slate-900">{emp.employeeName}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        emp.employeeType === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
-                      }`}>
-                        {emp.employeeType}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      {emp.designation}
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      <span>{emp.employeeCompany}</span>
-                      <span className="block text-[10px] text-slate-400">Paid by: {emp.salaryPaidBy}</span>
-                    </td>
+                const employeeCell = (
+                  <td key="employee" rowSpan={groupRowSpan} className="px-4 py-3 align-top border-r border-slate-100">
+                    <span className="font-mono font-bold text-blue-600 block">{emp.employeeId}</span>
+                    <span className="font-semibold text-slate-900">{emp.employeeName}</span>
+                  </td>
+                );
+                const typeCell = (
+                  <td key="type" rowSpan={groupRowSpan} className="px-3 py-3 align-top border-r border-slate-100">
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      emp.employeeType === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                    }`}>
+                      {emp.employeeType}
+                    </span>
+                  </td>
+                );
+                const designationCell = (
+                  <td key="designation" rowSpan={groupRowSpan} className="px-3 py-3 align-top text-slate-600 border-r border-slate-100">
+                    {emp.designation}
+                  </td>
+                );
+                const companyCell = (
+                  <td key="company" rowSpan={groupRowSpan} className="px-3 py-3 align-top text-slate-600 border-r border-slate-100">
+                    {emp.employeeCompany}
+                  </td>
+                );
+                const payByCell = (
+                  <td key="payBy" rowSpan={groupRowSpan} className="px-3 py-3 align-top text-slate-600 border-r border-slate-100">
+                    {emp.salaryPaidBy}
+                  </td>
+                );
+                const totalWorkedCell = (
+                  <td key="totalWorked" rowSpan={groupRowSpan} className="px-4 py-3 text-right align-top border-l border-slate-100">
+                    {emp.employeeType === 'Staff' ? (
+                      <div>
+                        <strong className={`font-mono text-sm ${totalDays > 30 ? 'text-rose-600 font-bold' : 'text-slate-900'}`}>
+                          {totalDays} / 30
+                        </strong>
+                        <span className="block text-[10px] text-slate-500">Days Total</span>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong className="font-mono text-sm text-indigo-700">
+                          {totalHours} hrs
+                        </strong>
+                        <span className="block text-[10px] text-slate-500">Hours Total</span>
+                      </div>
+                    )}
+                    {totalOvertime > 0 && <span className="block text-[10px] text-amber-600 mt-0.5">+{totalOvertime} OT hrs</span>}
+                  </td>
+                );
 
-                    {/* Project Allocations Input Rows */}
-                    <td className="px-4 py-2">
-                      <div className="space-y-1.5">
-                        {emp.records.length === 0 ? (
-                          <div className="text-[11px] text-slate-400 italic py-1">
-                            No project allocated yet. Click '+ Add Project' to assign.
+                if (emp.records.length === 0) {
+                  return (
+                    <tr key={emp.employeeId} className="hover:bg-slate-50/70 transition-colors">
+                      {employeeCell}
+                      {typeCell}
+                      {designationCell}
+                      {companyCell}
+                      {payByCell}
+                      <td colSpan={4} className="px-4 py-3 text-[11px] text-slate-400 italic">
+                        No project allocated yet. Click '+ Project' to assign.
+                      </td>
+                      {totalWorkedCell}
+                      {canWrite && (
+                        <td className="px-3 py-3 text-right align-top">
+                          {!isReadOnly && (
+                            <button
+                              onClick={() => handleAddProjectRow(empIdx)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Project
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                }
+
+                return emp.records.map((rec, recIdx) => {
+                  const isFirst = recIdx === 0;
+                  const isLast = recIdx === emp.records.length - 1;
+                  return (
+                    <tr
+                      key={`${emp.employeeId}-${recIdx}`}
+                      className={`hover:bg-slate-50/70 transition-colors ${isLast ? 'border-b-2 border-slate-300' : ''}`}
+                    >
+                      {isFirst && employeeCell}
+                      {isFirst && typeCell}
+                      {isFirst && designationCell}
+                      {isFirst && companyCell}
+                      {isFirst && payByCell}
+
+                      {/* Project */}
+                      <td className="px-3 py-2">
+                        <select
+                          disabled={isReadOnly}
+                          value={rec.projectId}
+                          onChange={(e) => handleRecordChange(empIdx, recIdx, 'projectId', e.target.value)}
+                          className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-800 font-semibold focus:ring-1 focus:ring-indigo-500"
+                        >
+                          {allProjects.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.projectCode} - {p.projectName}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Hrs / Days */}
+                      <td className="px-3 py-2 text-right">
+                        {emp.employeeType === 'Staff' ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <input
+                              type="number"
+                              min="0"
+                              max="30"
+                              step="0.5"
+                              disabled={isReadOnly}
+                              value={rec.daysWorked}
+                              onChange={(e) => handleRecordChange(empIdx, recIdx, 'daysWorked', e.target.value)}
+                              className="w-16 px-2 py-1 bg-white border border-slate-200 rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <span className="text-[10px] text-slate-500">days</span>
                           </div>
                         ) : (
-                          emp.records.map((rec, recIdx) => (
-                            <div key={recIdx} className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 flex-wrap">
-                              <select
-                                disabled={isReadOnly}
-                                value={rec.projectId}
-                                onChange={(e) => handleRecordChange(empIdx, recIdx, 'projectId', e.target.value)}
-                                className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-800 font-semibold focus:ring-1 focus:ring-indigo-500"
-                              >
-                                {allProjects.map(p => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.projectCode} - {p.projectName}
-                                  </option>
-                                ))}
-                              </select>
-
-                              {emp.employeeType === 'Staff' ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="30"
-                                    step="0.5"
-                                    disabled={isReadOnly}
-                                    value={rec.daysWorked}
-                                    onChange={(e) => handleRecordChange(empIdx, recIdx, 'daysWorked', e.target.value)}
-                                    placeholder="Days"
-                                    className="w-16 px-2 py-1 bg-white border border-slate-200 rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500"
-                                  />
-                                  <span className="text-[10px] text-slate-500">days</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    disabled={isReadOnly}
-                                    value={rec.hoursWorked}
-                                    onChange={(e) => handleRecordChange(empIdx, recIdx, 'hoursWorked', e.target.value)}
-                                    placeholder="Hours"
-                                    className="w-20 px-2 py-1 bg-white border border-slate-200 rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500"
-                                  />
-                                  <span className="text-[10px] text-slate-500">hrs</span>
-                                </div>
-                              )}
-
-                              <div className="flex items-center gap-1" title="Overtime Hours">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.5"
-                                  disabled={isReadOnly}
-                                  value={rec.overtimeHours}
-                                  onChange={(e) => handleRecordChange(empIdx, recIdx, 'overtimeHours', e.target.value)}
-                                  placeholder="OT"
-                                  className="w-14 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-center font-bold text-amber-700 focus:ring-1 focus:ring-amber-500"
-                                />
-                                <span className="text-[10px] text-amber-600">OT</span>
-                              </div>
-
-                              <div className="flex items-center gap-1" title="Bonus (OMR)">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.001"
-                                  disabled={isReadOnly}
-                                  value={rec.bonus}
-                                  onChange={(e) => handleRecordChange(empIdx, recIdx, 'bonus', e.target.value)}
-                                  placeholder="Bonus"
-                                  className="w-16 px-2 py-1 bg-white border border-emerald-200 rounded text-xs text-center font-bold text-emerald-700 focus:ring-1 focus:ring-emerald-500"
-                                />
-                                <span className="text-[10px] text-emerald-600">Bns</span>
-                              </div>
-
-                              <div className="flex items-center gap-1" title="Deductions (OMR)">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="0.001"
-                                  disabled={isReadOnly}
-                                  value={rec.deduction}
-                                  onChange={(e) => handleRecordChange(empIdx, recIdx, 'deduction', e.target.value)}
-                                  placeholder="Ded"
-                                  className="w-16 px-2 py-1 bg-white border border-rose-200 rounded text-xs text-center font-bold text-rose-700 focus:ring-1 focus:ring-rose-500"
-                                />
-                                <span className="text-[10px] text-rose-600">Ded</span>
-                              </div>
-
-                              {!isReadOnly && (
-                                <button
-                                  onClick={() => handleRemoveProjectRow(empIdx, recIdx)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Total Worked */}
-                    <td className="px-4 py-3 text-right">
-                      {emp.employeeType === 'Staff' ? (
-                        <div>
-                          <strong className={`font-mono text-sm ${totalDays > 30 ? 'text-rose-600 font-bold' : 'text-slate-900'}`}>
-                            {totalDays} / 30
-                          </strong>
-                          <span className="block text-[10px] text-slate-500">Days Total</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <strong className="font-mono text-sm text-indigo-700">
-                            {totalHours} hrs
-                          </strong>
-                          <span className="block text-[10px] text-slate-500">Hours Total</span>
-                        </div>
-                      )}
-                      {totalOvertime > 0 && <span className="block text-[10px] text-amber-600 mt-0.5">+{totalOvertime} OT hrs</span>}
-                    </td>
-
-                    {/* Action */}
-                    {canWrite && (
-                      <td className="px-3 py-3 text-right">
-                        {!isReadOnly && (
-                          <button
-                            onClick={() => handleAddProjectRow(empIdx)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                            Project
-                          </button>
+                          <div className="flex items-center gap-1 justify-end">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              disabled={isReadOnly}
+                              value={rec.hoursWorked}
+                              onChange={(e) => handleRecordChange(empIdx, recIdx, 'hoursWorked', e.target.value)}
+                              className="w-16 px-2 py-1 bg-white border border-slate-200 rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <span className="text-[10px] text-slate-500">hrs</span>
+                          </div>
                         )}
                       </td>
-                    )}
-                  </tr>
-                );
+
+                      {/* Overtime */}
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          disabled={isReadOnly}
+                          value={rec.overtimeHours}
+                          onChange={(e) => handleRecordChange(empIdx, recIdx, 'overtimeHours', e.target.value)}
+                          title="Overtime Hours"
+                          className="w-16 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-center font-bold text-amber-700 focus:ring-1 focus:ring-amber-500"
+                        />
+                      </td>
+
+                      {/* Bonus */}
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          disabled={isReadOnly}
+                          value={rec.bonus}
+                          onChange={(e) => handleRecordChange(empIdx, recIdx, 'bonus', e.target.value)}
+                          title="Bonus (OMR)"
+                          className="w-20 px-2 py-1 bg-white border border-emerald-200 rounded text-xs text-center font-bold text-emerald-700 focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </td>
+
+                      {/* Deductions */}
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          disabled={isReadOnly}
+                          value={rec.deduction}
+                          onChange={(e) => handleRecordChange(empIdx, recIdx, 'deduction', e.target.value)}
+                          title="Deductions (OMR)"
+                          className="w-20 px-2 py-1 bg-white border border-rose-200 rounded text-xs text-center font-bold text-rose-700 focus:ring-1 focus:ring-rose-500"
+                        />
+                      </td>
+
+                      {isFirst && totalWorkedCell}
+
+                      {/* Action -- remove this specific allocation, and (on the group's
+                          last row) add another project allocation for this employee. */}
+                      {canWrite && (
+                        <td className="px-3 py-2 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {!isReadOnly && (
+                              <button
+                                onClick={() => handleRemoveProjectRow(empIdx, recIdx)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                title="Remove this project allocation"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {isLast && !isReadOnly && (
+                              <button
+                                onClick={() => handleAddProjectRow(empIdx)}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Project
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                });
               })}
             </tbody>
           </table>
