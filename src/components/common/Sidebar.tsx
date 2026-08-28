@@ -18,6 +18,7 @@ import {
   ClipboardList,
   Clock,
   UploadCloud,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -76,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'INTELLIGENCE & AUDIT',
       items: [
         { id: 'reports', label: 'Reports Center', icon: FileBarChart },
+        { id: 'salary-payroll-report', label: 'Salary & Payroll Report', icon: FileSpreadsheet },
         { id: 'audit', label: 'Audit Trail', icon: History, managerOnly: true },
         { id: 'users', label: 'User Administration', icon: ShieldCheck, adminOnly: true },
       ],

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiRequest, formatOMR } from '../../api/client';
+import { PaymentLiabilityAnalytics } from './PaymentLiabilityAnalytics';
 import {
   Users,
   Building,
@@ -572,6 +573,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
         </div>
       </div>
+
+      {/* Payment Planning & Salary Liability Analytics -- a separate, read-only executive
+          section over the Payment Planning dataset; the Payment Planning Sheet itself
+          stays a focused operational page. */}
+      <PaymentLiabilityAnalytics onNavigateToPlanning={() => onNavigate('payment-planning')} />
     </div>
   );
 };

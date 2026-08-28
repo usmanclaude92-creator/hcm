@@ -15,6 +15,7 @@ import { PaymentPlanningView } from './components/payments/PaymentPlanningView';
 import { WPSRecoveryView } from './components/wps/WPSRecoveryView';
 import { LoanManagementView } from './components/loans/LoanManagementView';
 import { ReportsView } from './components/reports/ReportsView';
+import { SalaryPayrollReportView } from './components/reports/SalaryPayrollReportView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
 import { UserManagementView } from './components/users/UserManagementView';
 
@@ -64,6 +65,8 @@ const MainApp: React.FC = () => {
         return <LoanManagementView />;
       case 'reports':
         return <ReportsView />;
+      case 'salary-payroll-report':
+        return <SalaryPayrollReportView />;
       case 'audit':
         return <AuditLogsView />;
       case 'users':

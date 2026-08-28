@@ -47,13 +47,7 @@ interface PlanRow {
 }
 
 interface Props {
-  rows: PlanRow[];
-  filteredRows: PlanRow[];
-  totalOutstanding: number;
-  totalPlanned: number;
-  coveragePercent: number;
-  onCompanyClick: (company: string) => void;
-  onMonthClick: (month: string) => void;
+  onNavigateToPlanning: () => void;
 }
 
 // Copied verbatim from DashboardView.tsx's local (unexported) ProgressBar, to stay
@@ -74,23 +68,14 @@ function ProgressBar({ percentage, colorClass }: { percentage: number; colorClas
 const CRITICAL_MONTHS_THRESHOLD = 3;
 const ATTENTION_MONTHS_THRESHOLD = 2;
 
-const scrollToEmployee = (employeeId: string) => {
-  const el = document.getElementById(`payment-planning-emp-${employeeId}`);
-  if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  el.classList.add('bg-indigo-100');
-  setTimeout(() => el.classList.remove('bg-indigo-100'), 1800);
-};
-
-export const PaymentPlanningAnalytics: React.FC<Props> = ({
-  rows,
-  filteredRows,
-  totalOutstanding,
-  totalPlanned,
-  coveragePercent,
-  onCompanyClick,
-  onMonthClick,
-}) => {
+// This is a read-only Executive Dashboard view over the full, unfiltered Payment
+// Planning dataset -- there is no operational table on this page to filter or scroll
+// into, so every breakdown here reflects everything, and row clicks navigate to the
+// Payment Planning Sheet itself rather than filtering in place.
+export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlanning }) => {
+  const [rows, setRows] = useState<PlanRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [wpsItems, setWpsItems] = useState<any[] | null>(null);
   const [wpsFailed, setWpsFailed] = useState(false);
   const [trendMode, setTrendMode] = useState<'amount' | 'count'>('amount');
@@ -98,6 +83,16 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
 
   useEffect(() => {
     let cancelled = false;
+    apiRequest('/api/payment-planning')
+      .then((res) => {
+        if (!cancelled) setRows(res.rows || []);
+      })
+      .catch((err: any) => {
+        if (!cancelled) setError(err.message || 'Failed to fetch payment planning data');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     apiRequest('/api/wps')
       .then((res) => {
         if (!cancelled) setWpsItems(res.items || []);
@@ -110,11 +105,15 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
     };
   }, []);
 
-  // Chronological month order from the FULL dataset -- aging distance must be measured
-  // against real history, not whatever months happen to be currently filtered in.
+  // Chronological month order from the full dataset -- aging distance must be measured
+  // against real history.
   const allMonthsSorted = useMemo(() => Array.from(new Set(rows.map((r) => r.payrollMonth))).sort(), [rows]);
   const latestKnownMonth = allMonthsSorted[allMonthsSorted.length - 1];
   const monthIndex = (m: string) => allMonthsSorted.indexOf(m);
+
+  const totalOutstanding = useMemo(() => rows.reduce((sum, r) => sum + (Number(r.outstanding) || 0), 0), [rows]);
+  const totalPlanned = useMemo(() => rows.reduce((sum, r) => sum + (Number(r.shouldPayAmount) || 0), 0), [rows]);
+  const coveragePercent = totalOutstanding > 0 ? (totalPlanned / totalOutstanding) * 100 : 0;
 
   // Salary Outstanding Aging -- also serves as the "Payment Delay" view, since this
   // system has no day-level due-date data, only month payroll cycles.
@@ -128,7 +127,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
     ];
     if (!latestKnownMonth) return buckets.map((b) => ({ name: b.name, amount: 0, employees: 0 }));
     const latestIdx = monthIndex(latestKnownMonth);
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       if (r.outstanding <= 0) return;
       const behind = Math.max(0, latestIdx - monthIndex(r.payrollMonth));
       const bucket = buckets[Math.min(behind, 4)];
@@ -136,12 +135,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
       bucket.employees.add(r.employeeId);
     });
     return buckets.map((b) => ({ name: b.name, amount: b.amount, employees: b.employees.size }));
-  }, [filteredRows, latestKnownMonth]);
+  }, [rows, latestKnownMonth]);
 
   // Monthly Outstanding Trend
   const monthlyTrend = useMemo(() => {
     const map = new Map<string, { month: string; netSalary: number; totalPaid: number; outstanding: number; shouldPay: number; employees: Set<string> }>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       if (!map.has(r.payrollMonth)) {
         map.set(r.payrollMonth, { month: r.payrollMonth, netSalary: 0, totalPaid: 0, outstanding: 0, shouldPay: 0, employees: new Set() });
       }
@@ -162,12 +161,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
         shouldPay: m.shouldPay,
         employeeCount: m.employees.size,
       }));
-  }, [filteredRows]);
+  }, [rows]);
 
   // Company-Wise Liability
   const companyBreakdown = useMemo(() => {
     const map = new Map<string, { company: string; employees: Set<string>; outstanding: number; planned: number }>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       if (!map.has(r.employeeCompany)) map.set(r.employeeCompany, { company: r.employeeCompany, employees: new Set(), outstanding: 0, planned: 0 });
       const c = map.get(r.employeeCompany)!;
       c.employees.add(r.employeeId);
@@ -177,12 +176,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
     return Array.from(map.values())
       .map((c) => ({ company: c.company, employees: c.employees.size, outstanding: c.outstanding, planned: c.planned, pending: c.outstanding - c.planned }))
       .sort((a, b) => b.outstanding - a.outstanding);
-  }, [filteredRows]);
+  }, [rows]);
 
   // Pay-By Analysis
   const payByBreakdown = useMemo(() => {
     const map = new Map<string, { payBy: string; employees: Set<string>; outstanding: number; planned: number }>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       if (!map.has(r.salaryPaidBy)) map.set(r.salaryPaidBy, { payBy: r.salaryPaidBy, employees: new Set(), outstanding: 0, planned: 0 });
       const c = map.get(r.salaryPaidBy)!;
       c.employees.add(r.employeeId);
@@ -192,12 +191,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
     return Array.from(map.values())
       .map((c) => ({ payBy: c.payBy, employees: c.employees.size, outstanding: c.outstanding, planned: c.planned, pending: c.outstanding - c.planned }))
       .sort((a, b) => b.outstanding - a.outstanding);
-  }, [filteredRows]);
+  }, [rows]);
 
   // Staff vs Worker Analysis
   const employeeTypeBreakdown = useMemo(() => {
     const map = new Map<string, { type: string; employees: Set<string>; outstanding: number; planned: number }>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       const type = r.employeeType || 'Unknown';
       if (!map.has(type)) map.set(type, { type, employees: new Set(), outstanding: 0, planned: 0 });
       const c = map.get(type)!;
@@ -216,13 +215,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
         avgOutstanding: count > 0 ? c.outstanding / count : 0,
       };
     });
-  }, [filteredRows]);
+  }, [rows]);
 
-  // WPS Analysis -- filtered down to the (employeeId, payrollMonth) keys currently in
-  // view, so it stays filter-aware without recomputing WPS's own recovery math.
+  // WPS Analysis
   const wpsAnalysis = useMemo(() => {
     if (!wpsItems) return null;
-    const keys = new Set(filteredRows.map((r) => `${r.employeeId}_${r.payrollMonth}`));
+    const keys = new Set(rows.map((r) => `${r.employeeId}_${r.payrollMonth}`));
     const relevant = wpsItems.filter((w: any) => keys.has(`${w.employeeId}_${w.payrollMonth}`));
     const recoverable = relevant.reduce((s: number, w: any) => s + (w.totalRecoverable || 0), 0);
     const recovered = relevant.reduce((s: number, w: any) => s + (w.totalRecovered || 0), 0);
@@ -236,15 +234,15 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
       exceptions,
       coverage: recoverable > 0 ? (recovered / recoverable) * 100 : 0,
     };
-  }, [wpsItems, filteredRows]);
+  }, [wpsItems, rows]);
 
   // Last Payment Analysis
   const lastPaymentAnalysis = useMemo(() => {
-    const latest = filteredRows.reduce((max: string | null, r) => (!max || r.payrollMonth > max ? r.payrollMonth : max), null as string | null);
+    const latest = rows.reduce((max: string | null, r) => (!max || r.payrollMonth > max ? r.payrollMonth : max), null as string | null);
     if (!latest) return null;
-    const cycleRows = filteredRows.filter((r) => r.payrollMonth === latest);
+    const cycleRows = rows.filter((r) => r.payrollMonth === latest);
     const now = Date.now();
-    const daysSince = filteredRows.filter((r) => r.lastPaymentDate).map((r) => (now - new Date(r.lastPaymentDate!).getTime()) / 86400000);
+    const daysSince = rows.filter((r) => r.lastPaymentDate).map((r) => (now - new Date(r.lastPaymentDate!).getTime()) / 86400000);
     return {
       month: latest,
       totalPaid: cycleRows.reduce((s, r) => s + r.totalPaid, 0),
@@ -253,14 +251,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
       unpaid: cycleRows.filter((r) => r.status === 'Unpaid').length,
       avgDaysSincePayment: daysSince.length > 0 ? daysSince.reduce((a, b) => a + b, 0) / daysSince.length : null,
     };
-  }, [filteredRows]);
+  }, [rows]);
 
-  // Top 10 Outstanding Employees -- oldest-unpaid detail is looked up from the FULL
-  // rows set (a factual, filter-independent property), even though which employees
-  // appear here at all is governed by filteredRows.
+  // Top 10 Outstanding Employees
   const topOutstandingEmployees = useMemo(() => {
     const byEmp = new Map<string, { employeeId: string; employeeName: string; employeeCompany: string; totalOutstanding: number }>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, { employeeId: r.employeeId, employeeName: r.employeeName, employeeCompany: r.employeeCompany, totalOutstanding: 0 });
       byEmp.get(r.employeeId)!.totalOutstanding += r.outstanding;
     });
@@ -277,13 +273,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
           oldestPlanned: oldestRow?.shouldPayAmount || 0,
         };
       });
-  }, [filteredRows, rows]);
+  }, [rows]);
 
-  // Payment Attention Required -- reuses AttendanceView's toggle-tile -> expandable
-  // list pattern rather than inventing new collapsible styling.
+  // Payment Attention Required
   const paymentAttention = useMemo(() => {
     const byEmp = new Map<string, PlanRow[]>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, []);
       byEmp.get(r.employeeId)!.push(r);
     });
@@ -303,12 +298,12 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
       }
     });
     return items.sort((a, b) => a.order - b.order);
-  }, [filteredRows]);
+  }, [rows]);
 
   // Oldest Unpaid Month Distribution
   const oldestUnpaidDistribution = useMemo(() => {
     const map = new Map<string, { month: string; employees: number; amount: number }>();
-    filteredRows
+    rows
       .filter((r) => r.isOldestUnpaid)
       .forEach((r) => {
         if (!map.has(r.payrollMonth)) map.set(r.payrollMonth, { month: r.payrollMonth, employees: 0, amount: 0 });
@@ -317,26 +312,53 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
         m.amount += r.outstanding;
       });
     return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
-  }, [filteredRows]);
+  }, [rows]);
 
   // Planned Payment by Month -- grouped by every row's own month, not just the
   // oldest-unpaid one, since Should Pay is editable on any unpaid/partial row.
   const plannedByMonth = useMemo(() => {
     const map = new Map<string, number>();
-    filteredRows.forEach((r) => {
+    rows.forEach((r) => {
       map.set(r.payrollMonth, (map.get(r.payrollMonth) || 0) + r.shouldPayAmount);
     });
     return Array.from(map.entries())
       .map(([month, amount]) => ({ month, amount }))
       .sort((a, b) => a.month.localeCompare(b.month))
       .filter((m) => m.amount > 0);
-  }, [filteredRows]);
+  }, [rows]);
 
   const remainingPending = totalOutstanding - totalPlanned;
   const barMax = Math.max(totalOutstanding, totalPlanned, Math.abs(remainingPending), 1);
 
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl p-8 border border-slate-200 shadow-xs flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium text-slate-500">Loading payment liability analytics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm flex items-center gap-3">
+        <AlertTriangle className="w-5 h-5 shrink-0" />
+        <span>{error}</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-slate-900 tracking-tight">Payment Planning &amp; Salary Liability Analytics</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Executive, read-only view over the full Payment Planning dataset — derived entirely from existing planning/WPS data, no separate calculation engine
+        </p>
+      </div>
+
       {/* Row: Monthly Outstanding Trend + Payment Plan Coverage */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
@@ -386,7 +408,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">No data matches the current filters.</div>
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">No payment planning data available yet.</div>
             )}
           </div>
         </div>
@@ -431,7 +453,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">No outstanding balances in the current filters.</div>
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">No outstanding balances currently.</div>
             )}
           </div>
         </div>
@@ -444,18 +466,14 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
           <p className="text-xs text-slate-500 mb-3">Employees whose earliest outstanding month falls in each period</p>
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {oldestUnpaidDistribution.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">No oldest-unpaid rows in the current filters.</p>
+              <p className="text-xs text-slate-400 italic">No oldest-unpaid rows currently.</p>
             ) : (
               oldestUnpaidDistribution.map((m) => (
-                <button
-                  key={m.month}
-                  onClick={() => onMonthClick(m.month)}
-                  className="w-full flex items-center justify-between p-2 bg-slate-50 hover:bg-purple-50 rounded-lg text-xs transition-colors cursor-pointer text-left"
-                >
+                <div key={m.month} className="w-full flex items-center justify-between p-2 bg-slate-50 rounded-lg text-xs">
                   <span className="font-semibold text-slate-700">{m.month}</span>
                   <span className="text-slate-500">{m.employees} emp</span>
                   <span className="font-mono font-bold text-purple-700">OMR {formatOMR(m.amount)}</span>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -469,7 +487,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
             <Building2 className="w-4 h-4 text-rose-600" />
             Outstanding by Company
           </h3>
-          <p className="text-xs text-slate-500 mb-4">Ranked by outstanding salary liability — click a row to filter</p>
+          <p className="text-xs text-slate-500 mb-4">Ranked by outstanding salary liability</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
@@ -483,11 +501,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {companyBreakdown.map((c) => (
-                  <tr
-                    key={c.company}
-                    onClick={() => onCompanyClick(c.company)}
-                    className="hover:bg-rose-50/50 cursor-pointer transition-colors"
-                  >
+                  <tr key={c.company}>
                     <td className="py-2 pr-2 font-semibold text-slate-800">{c.company}</td>
                     <td className="py-2 pr-2 text-right">{c.employees}</td>
                     <td className="py-2 pr-2 text-right font-mono font-bold text-rose-700">OMR {formatOMR(c.outstanding)}</td>
@@ -522,7 +536,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-xs text-slate-400">No outstanding balances in view.</div>
+              <div className="text-xs text-slate-400">No outstanding balances currently.</div>
             )}
           </div>
           <div className="border-t border-slate-100 pt-3 space-y-1.5 text-xs">
@@ -543,9 +557,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
             <Scale className="w-4 h-4 text-slate-600" />
             Planned vs Outstanding
           </h3>
-          <p className="text-xs text-slate-500 mb-4">
-            Remaining Pending here (Outstanding − Planned) is a different figure from the "Pending of Last Months" tile above
-          </p>
+          <p className="text-xs text-slate-500 mb-4">Remaining Pending here is Outstanding minus Planned</p>
           <div className="space-y-3">
             {[
               { label: 'Outstanding', value: totalOutstanding, color: 'bg-rose-500' },
@@ -573,7 +585,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
             <RefreshCw className="w-4 h-4 text-amber-600" />
             WPS Analysis
           </h3>
-          <p className="text-xs text-slate-500 mb-4">From the existing WPS recovery data, scoped to current filters</p>
+          <p className="text-xs text-slate-500 mb-4">From the existing WPS recovery data</p>
           {wpsFailed ? (
             <p className="text-xs text-slate-400 italic">WPS data unavailable right now.</p>
           ) : !wpsAnalysis ? (
@@ -614,9 +626,9 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
             <Layers className="w-4 h-4 text-blue-600" />
             Last Payment Performance
           </h3>
-          <p className="text-xs text-slate-500 mb-4">Most recent payroll cycle in the current filters</p>
+          <p className="text-xs text-slate-500 mb-4">Most recent payroll cycle</p>
           {!lastPaymentAnalysis ? (
-            <p className="text-xs text-slate-400 italic">No data in the current filters.</p>
+            <p className="text-xs text-slate-400 italic">No payment planning data available.</p>
           ) : (
             <div className="space-y-2 text-[11px]">
               <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
@@ -653,7 +665,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
             <Trophy className="w-4 h-4 text-amber-600" />
             Top 10 Employees by Outstanding Salary
           </h3>
-          <p className="text-xs text-slate-500 mb-4">Click a row to jump to that employee in the planning table below</p>
+          <p className="text-xs text-slate-500 mb-4">Click a row to open the Payment Planning Sheet</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
@@ -667,10 +679,10 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {topOutstandingEmployees.length === 0 ? (
-                  <tr><td colSpan={5} className="py-6 text-center text-slate-400">No outstanding balances in the current filters.</td></tr>
+                  <tr><td colSpan={5} className="py-6 text-center text-slate-400">No outstanding balances currently.</td></tr>
                 ) : (
                   topOutstandingEmployees.map((e) => (
-                    <tr key={e.employeeId} onClick={() => scrollToEmployee(e.employeeId)} className="hover:bg-amber-50/50 cursor-pointer transition-colors">
+                    <tr key={e.employeeId} onClick={onNavigateToPlanning} className="hover:bg-amber-50/50 cursor-pointer transition-colors">
                       <td className="py-2 pr-2">
                         <span className="font-mono font-bold text-blue-600 block">{e.employeeId}</span>
                         <span className="text-slate-700">{e.employeeName}</span>
@@ -765,7 +777,7 @@ export const PaymentPlanningAnalytics: React.FC<Props> = ({
           <p className="text-xs text-slate-500 mb-4">How the current plan is spread across payroll months</p>
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {plannedByMonth.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">No planned payments in the current filters.</p>
+              <p className="text-xs text-slate-400 italic">No planned payments currently.</p>
             ) : (
               plannedByMonth.map((m) => (
                 <div key={m.month} className="flex items-center justify-between p-2 bg-indigo-50/50 rounded-lg text-xs">
