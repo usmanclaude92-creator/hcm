@@ -7,6 +7,8 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
 import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
+import { TimesheetView } from './components/timesheets/TimesheetView';
+import { CifUploadView } from './components/cif/CifUploadView';
 import { PayrollView } from './components/payroll/PayrollView';
 import { SalaryPaymentsView } from './components/payments/SalaryPaymentsView';
 import { PaymentPlanningView } from './components/payments/PaymentPlanningView';
@@ -46,6 +48,10 @@ const MainApp: React.FC = () => {
         return <ProjectMasterView />;
       case 'attendance':
         return <AttendanceView />;
+      case 'timesheets':
+        return <TimesheetView />;
+      case 'cif':
+        return <CifUploadView />;
       case 'payroll':
         return <PayrollView />;
       case 'payments':

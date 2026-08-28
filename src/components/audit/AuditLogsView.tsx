@@ -103,6 +103,8 @@ export const AuditLogsView: React.FC = () => {
             <option value="PAYMENTS">Salary Payments</option>
             <option value="WPS">WPS Recovery</option>
             <option value="LOANS">Loan Management</option>
+            <option value="Timesheet">Timesheet</option>
+            <option value="CIF">CIF</option>
           </select>
         </div>
       </div>
@@ -154,6 +156,20 @@ export const AuditLogsView: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       <p className="text-xs">{log.description}</p>
+                      {(log.previousValue !== undefined || log.newValue !== undefined) && (
+                        <div className="mt-1 flex items-center gap-2 text-[10px] font-mono">
+                          {log.previousValue !== undefined && (
+                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200">
+                              was: {JSON.stringify(log.previousValue)}
+                            </span>
+                          )}
+                          {log.newValue !== undefined && (
+                            <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200">
+                              now: {JSON.stringify(log.newValue)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {log.recordId && (
                         <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
                           Record ID: {log.recordId}

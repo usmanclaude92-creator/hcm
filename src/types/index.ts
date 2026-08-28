@@ -70,6 +70,9 @@ export interface Project {
   startDate?: string | null;
   endDate?: string | null;
   remarks?: string;
+  // Undefined/empty = unrestricted (every existing project keeps its current unrestricted
+  // behavior). When populated, only employees from a listed company may be allocated here.
+  allowedCompanies?: EmployeeCompany[];
   createdAt: string;
   updatedAt: string;
 }
@@ -85,8 +88,110 @@ export interface AttendanceRecord {
   projectName?: string;
   daysWorked: number;
   hoursWorked: number;
+  // Capture-only fields (do NOT feed payroll's gross/net calculation) -- reporting and
+  // project-cost-analysis inputs only.
+  overtimeHours?: number;
+  bonus?: number;
+  deduction?: number;
+  attendanceMonthId?: string;
+  company?: EmployeeCompany;
+  payrollType?: string;
+  payBy?: SalaryPaidBy;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type AttendanceStatus = 'Draft' | 'Submitted' | 'Approved' | 'Finalized';
+
+// One row per calendar month -- the atomic unit attendance status/workflow applies to,
+// mirroring MonthlyPayroll's parent/lines split. Informational only: payroll reads
+// AttendanceRecord[] directly regardless of this status.
+export interface AttendanceMonth {
+  id: string;
+  payrollMonth: string;
+  status: AttendanceStatus;
+  submittedBy?: string | null;
+  submittedAt?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  finalizedBy?: string | null;
+  finalizedAt?: string | null;
+  revertedBy?: string | null;
+  revertedAt?: string | null;
+  revertReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TimesheetApprovalStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
+
+// Independent, per-entry record (NOT a month-batch-replace like AttendanceRecord) -- an
+// employee can have many rows across different dates/projects; edits to one entry must
+// never affect any other. Does not feed payroll math; coexists with Attendance's day/hour
+// totals for granular per-day/per-task labor tracking and project-cost analytics.
+export interface TimesheetEntry {
+  id: string;
+  employeeId: string;
+  employeeName?: string;
+  date: string;
+  payrollMonth: string;
+  company: EmployeeCompany;
+  projectId: string;
+  projectCode: string;
+  projectName?: string;
+  taskActivity: string;
+  normalHours: number;
+  overtimeHours: number;
+  remarks?: string;
+  approvalStatus: TimesheetApprovalStatus;
+  isVoided?: boolean;
+  voidReason?: string | null;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CifBatchStatus = 'Uploaded' | 'Validated' | 'Previewed' | 'Processed' | 'Reconciled' | 'Complete';
+export type CifRecordStatus = 'Valid' | 'Invalid' | 'Duplicate';
+
+// Modeled deliberately on Attendance's own pattern (generic accountReference/amount fields),
+// not a specific bank's regulatory WPS/SIF column spec, per explicit product decision.
+export interface CifBatch {
+  id: string;
+  company: EmployeeCompany;
+  payrollMonth: string;
+  payrollType: string;
+  cifFileType: string;
+  status: CifBatchStatus;
+  uploadedBy: string;
+  uploadedAt: string;
+  validatedAt?: string | null;
+  processedAt?: string | null;
+  processedBy?: string | null;
+  payrollTotal?: number;
+  cifTotal?: number;
+  variance?: number;
+  validCount?: number;
+  invalidCount?: number;
+  duplicateCount?: number;
+  overrideUsed?: boolean;
+  overrideReason?: string | null;
+  overrideBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CifRecord {
+  id: string;
+  batchId: string;
+  employeeId: string;
+  employeeName?: string;
+  accountReference: string;
+  amount: number;
+  reference?: string;
+  status: CifRecordStatus;
+  reason?: string;
+  createdAt: string;
 }
 
 export type PayrollStatus = 'Draft' | 'Finalized' | 'In Revision';
@@ -375,6 +480,8 @@ export interface AuditLog {
   module: string;
   recordId?: string;
   description: string;
+  previousValue?: any;
+  newValue?: any;
   ipAddress?: string;
   timestamp: string;
 }

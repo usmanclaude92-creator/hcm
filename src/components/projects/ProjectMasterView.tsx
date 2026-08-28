@@ -12,7 +12,9 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import type { Project } from '../../types/index';
+import type { Project, EmployeeCompany } from '../../types/index';
+
+const ALL_COMPANIES: EmployeeCompany[] = ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'];
 
 export const ProjectMasterView: React.FC = () => {
   const { canWrite } = useAuth();
@@ -32,6 +34,7 @@ export const ProjectMasterView: React.FC = () => {
     startDate: '',
     endDate: '',
     remarks: '',
+    allowedCompanies: [] as EmployeeCompany[],
   });
 
   const fetchProjects = async () => {
@@ -64,6 +67,7 @@ export const ProjectMasterView: React.FC = () => {
       startDate: new Date().toISOString().split('T')[0],
       endDate: '',
       remarks: '',
+      allowedCompanies: [],
     });
     setIsModalOpen(true);
   };
@@ -77,8 +81,18 @@ export const ProjectMasterView: React.FC = () => {
       startDate: proj.startDate || '',
       endDate: proj.endDate || '',
       remarks: proj.remarks || '',
+      allowedCompanies: proj.allowedCompanies || [],
     });
     setIsModalOpen(true);
+  };
+
+  const toggleAllowedCompany = (company: EmployeeCompany) => {
+    setFormData(prev => ({
+      ...prev,
+      allowedCompanies: prev.allowedCompanies.includes(company)
+        ? prev.allowedCompanies.filter(c => c !== company)
+        : [...prev.allowedCompanies, company],
+    }));
   };
 
   const handleSaveProject = async (e: React.FormEvent) => {
@@ -187,6 +201,9 @@ export const ProjectMasterView: React.FC = () => {
               <h3 className="font-bold text-slate-900 text-base mt-3">{proj.projectName}</h3>
               <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                 {proj.remarks || 'No remarks provided.'}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1.5">
+                {proj.allowedCompanies?.length ? `Restricted to: ${proj.allowedCompanies.join(', ')}` : 'Unrestricted -- any company'}
               </p>
             </div>
 
@@ -301,6 +318,35 @@ export const ProjectMasterView: React.FC = () => {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Allowed Companies (leave all unchecked = unrestricted)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_COMPANIES.map(company => (
+                    <label
+                      key={company}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                        formData.allowedCompanies.includes(company)
+                          ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.allowedCompanies.includes(company)}
+                        onChange={() => toggleAllowedCompany(company)}
+                        className="w-3.5 h-3.5"
+                      />
+                      {company}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Only employees from a checked company may be allocated attendance/timesheet hours on this project.
+                </p>
               </div>
 
               <div>

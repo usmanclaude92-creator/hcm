@@ -10,6 +10,10 @@ import type {
   SalaryHistory,
   Project,
   AttendanceRecord,
+  AttendanceMonth,
+  TimesheetEntry,
+  CifBatch,
+  CifRecord,
   MonthlyPayroll,
   PayrollLine,
   PayrollRevision,
@@ -54,6 +58,10 @@ interface DatabaseSchema {
   salaryHistory: SalaryHistory[];
   projects: Project[];
   attendance: AttendanceRecord[];
+  attendanceMonths: AttendanceMonth[];
+  timesheets: TimesheetEntry[];
+  cifBatches: CifBatch[];
+  cifRecords: CifRecord[];
   payrolls: MonthlyPayroll[];
   payrollLines: PayrollLine[];
   payrollRevisions: PayrollRevision[];
@@ -85,6 +93,10 @@ class DatabaseManager {
     salaryHistory: [],
     projects: [],
     attendance: [],
+    attendanceMonths: [],
+    timesheets: [],
+    cifBatches: [],
+    cifRecords: [],
     payrolls: [],
     payrollLines: [],
     payrollRevisions: [],
@@ -246,6 +258,10 @@ class DatabaseManager {
       salaryHistory: parsed.salaryHistory || [],
       projects: parsed.projects || [],
       attendance: parsed.attendance || [],
+      attendanceMonths: parsed.attendanceMonths || [],
+      timesheets: parsed.timesheets || [],
+      cifBatches: parsed.cifBatches || [],
+      cifRecords: parsed.cifRecords || [],
       payrolls: parsed.payrolls || [],
       payrollLines: parsed.payrollLines || [],
       payrollRevisions: parsed.payrollRevisions || [],
@@ -997,6 +1013,10 @@ class DatabaseManager {
       salaryHistory: initialSalaryHistory,
       projects: initialProjects,
       attendance: initialAttendance,
+      attendanceMonths: [],
+      timesheets: [],
+      cifBatches: [],
+      cifRecords: [],
       payrolls: initialPayrolls,
       payrollLines: initialPayrollLines,
       payrollRevisions: [],
@@ -1180,6 +1200,222 @@ class DatabaseManager {
         await this.persist();
         return this.inMemoryData.attendance.filter(a => a.payrollMonth === month);
       }
+    };
+  }
+
+  // One row per calendar month -- the atomic unit the attendance workflow status applies
+  // to (mirrors MonthlyPayroll's parent/lines split). Informational only: payroll.ts keeps
+  // reading db.attendance.getByMonth() directly regardless of this status.
+  public get attendanceMonths() {
+    return {
+      getAll: () => [...this.inMemoryData.attendanceMonths],
+      getByMonth: (month: string) => this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month) || null,
+      getOrCreate: async (month: string) => {
+        const existing = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+        if (existing) return existing;
+        return this.withOptimisticRetry(() => {
+          const already = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+          if (already) return { changed: false, value: already };
+          const timestamp = new Date().toISOString();
+          const created: AttendanceMonth = {
+            id: crypto.randomUUID(),
+            payrollMonth: month,
+            status: 'Draft',
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          this.inMemoryData.attendanceMonths.push(created);
+          return { changed: true, value: created as AttendanceMonth };
+        });
+      },
+      submit: async (month: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          let record = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+          if (!record) {
+            const timestamp = new Date().toISOString();
+            record = { id: crypto.randomUUID(), payrollMonth: month, status: 'Draft', createdAt: timestamp, updatedAt: timestamp };
+            this.inMemoryData.attendanceMonths.push(record);
+          }
+          if (record.status !== 'Draft') {
+            throw new Error(`Attendance for ${month} is already ${record.status}; cannot submit.`);
+          }
+          record.status = 'Submitted';
+          record.submittedBy = user;
+          record.submittedAt = new Date().toISOString();
+          record.updatedAt = record.submittedAt;
+          return { changed: true, value: record as AttendanceMonth };
+        });
+      },
+      approve: async (month: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          const record = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+          if (!record) throw new Error(`No attendance submission found for ${month}.`);
+          if (record.status !== 'Submitted') {
+            throw new Error(`Attendance for ${month} is ${record.status}, not Submitted; cannot approve.`);
+          }
+          record.status = 'Approved';
+          record.approvedBy = user;
+          record.approvedAt = new Date().toISOString();
+          record.updatedAt = record.approvedAt;
+          return { changed: true, value: record as AttendanceMonth };
+        });
+      },
+      finalize: async (month: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          const record = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+          if (!record) throw new Error(`No attendance submission found for ${month}.`);
+          if (record.status !== 'Approved') {
+            throw new Error(`Attendance for ${month} is ${record.status}, not Approved; cannot finalize.`);
+          }
+          record.status = 'Finalized';
+          record.finalizedBy = user;
+          record.finalizedAt = new Date().toISOString();
+          record.updatedAt = record.finalizedAt;
+          return { changed: true, value: record as AttendanceMonth };
+        });
+      },
+      revert: async (month: string, reason: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          const record = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+          if (!record) throw new Error(`No attendance submission found for ${month}.`);
+          if (record.status !== 'Finalized') {
+            throw new Error(`Attendance for ${month} is not Finalized; nothing to revert.`);
+          }
+          record.status = 'Approved';
+          record.revertedBy = user;
+          record.revertedAt = new Date().toISOString();
+          record.revertReason = reason;
+          record.updatedAt = record.revertedAt;
+          return { changed: true, value: record as AttendanceMonth };
+        });
+      },
+    };
+  }
+
+  // Independent per-entry records (NOT a month-batch-replace like AttendanceRecord) --
+  // editing/voiding one entry never touches any other. Does not feed payroll math; coexists
+  // with Attendance's day/hour totals for granular per-day/per-task labor tracking.
+  public get timesheets() {
+    return {
+      getAll: () => [...this.inMemoryData.timesheets],
+      getByMonth: (month: string) => this.inMemoryData.timesheets.filter(t => t.payrollMonth === month && !t.isVoided),
+      getByEmployeeAndMonth: (empId: string, month: string) => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.timesheets.filter(
+          t => normalizeEmployeeId(t.employeeId) === norm && t.payrollMonth === month && !t.isVoided
+        );
+      },
+      getByProject: (projectId: string, month?: string) =>
+        this.inMemoryData.timesheets.filter(
+          t => t.projectId === projectId && !t.isVoided && (!month || t.payrollMonth === month)
+        ),
+      create: async (entry: TimesheetEntry) => {
+        return this.withOptimisticRetry(() => {
+          this.inMemoryData.timesheets.push(entry);
+          return { changed: true, value: entry };
+        });
+      },
+      update: async (id: string, updates: Partial<TimesheetEntry>) => {
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
+          if (index === -1) return { changed: false, value: null as TimesheetEntry | null };
+          this.inMemoryData.timesheets[index] = {
+            ...this.inMemoryData.timesheets[index],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.timesheets[index] as TimesheetEntry | null };
+        });
+      },
+      voidEntry: async (id: string, reason: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
+          if (index === -1) return { changed: false, value: null as TimesheetEntry | null };
+          const entry = this.inMemoryData.timesheets[index];
+          if (entry.isVoided) throw new Error('This timesheet entry has already been voided.');
+          entry.isVoided = true;
+          entry.voidReason = reason;
+          entry.updatedAt = new Date().toISOString();
+          return { changed: true, value: entry as TimesheetEntry | null };
+        });
+      },
+      importBatch: async (entries: TimesheetEntry[]) => {
+        return this.withOptimisticRetry(() => {
+          this.inMemoryData.timesheets.push(...entries);
+          return { changed: true, value: entries };
+        });
+      },
+      setApprovalStatus: async (id: string, status: TimesheetEntry['approvalStatus'], user: string) => {
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
+          if (index === -1) return { changed: false, value: null as TimesheetEntry | null };
+          const entry = this.inMemoryData.timesheets[index];
+          entry.approvalStatus = status;
+          entry.updatedAt = new Date().toISOString();
+          return { changed: true, value: entry as TimesheetEntry | null };
+        });
+      },
+    };
+  }
+
+  // Modeled on Attendance's own template/validate/preview/confirm pattern -- generic
+  // accountReference/amount fields, not a specific bank's regulatory column spec.
+  public get cif() {
+    return {
+      getBatches: (filters?: { company?: string; payrollMonth?: string }) => {
+        let batches = [...this.inMemoryData.cifBatches];
+        if (filters?.company) batches = batches.filter(b => b.company === filters.company);
+        if (filters?.payrollMonth) batches = batches.filter(b => b.payrollMonth === filters.payrollMonth);
+        return batches.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+      },
+      getBatch: (id: string) => this.inMemoryData.cifBatches.find(b => b.id === id) || null,
+      getRecordsByBatch: (batchId: string) => this.inMemoryData.cifRecords.filter(r => r.batchId === batchId),
+      createBatch: async (batch: CifBatch, records: CifRecord[]) => {
+        return this.withOptimisticRetry(() => {
+          this.inMemoryData.cifBatches.push(batch);
+          this.inMemoryData.cifRecords.push(...records);
+          return { changed: true, value: batch };
+        });
+      },
+      updateBatch: async (id: string, updates: Partial<CifBatch>) => {
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.cifBatches.findIndex(b => b.id === id);
+          if (index === -1) return { changed: false, value: null as CifBatch | null };
+          this.inMemoryData.cifBatches[index] = {
+            ...this.inMemoryData.cifBatches[index],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.cifBatches[index] as CifBatch | null };
+        });
+      },
+      process: async (batchId: string, user: string, override?: { reason: string }) => {
+        return this.withOptimisticRetry(() => {
+          const index = this.inMemoryData.cifBatches.findIndex(b => b.id === batchId);
+          if (index === -1) return { changed: false, value: null as CifBatch | null };
+          const batch = this.inMemoryData.cifBatches[index];
+          if (batch.status !== 'Validated' && batch.status !== 'Previewed' && batch.status !== 'Reconciled') {
+            throw new Error(`CIF batch is ${batch.status}; must be validated/previewed before processing.`);
+          }
+          const hasCriticalErrors = (batch.invalidCount || 0) > 0 || (batch.duplicateCount || 0) > 0;
+          const varianceExceedsTolerance = Math.abs(batch.variance || 0) > 0.001;
+          if ((hasCriticalErrors || varianceExceedsTolerance) && !override?.reason) {
+            throw new Error(
+              'Cannot process: critical reconciliation errors exist (invalid/duplicate records or a payroll/CIF variance). Provide an override reason to proceed.'
+            );
+          }
+          batch.status = 'Processed';
+          batch.processedBy = user;
+          batch.processedAt = new Date().toISOString();
+          batch.updatedAt = batch.processedAt;
+          if (override?.reason) {
+            batch.overrideUsed = true;
+            batch.overrideReason = override.reason;
+            batch.overrideBy = user;
+          }
+          return { changed: true, value: batch as CifBatch | null };
+        });
+      },
     };
   }
 

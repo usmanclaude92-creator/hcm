@@ -1,9 +1,9 @@
 import type { UserRole } from './types/index';
 
-// Granular permission strings for the Salary Payment / Payment Planning module.
-// Still driven by the existing 4-role model (no user-manageable permission-assignment
-// UI) -- this just names the checks more precisely than the coarse canWrite/isAdmin
-// flags used elsewhere in the app.
+// Granular permission strings for the Salary Payment / Payment Planning / Attendance /
+// Timesheet / CIF modules. Still driven by the existing 4-role model (no user-manageable
+// permission-assignment UI) -- this just names the checks more precisely than the coarse
+// canWrite/isAdmin flags used elsewhere in the app.
 export type Permission =
   | 'salary_payment.view'
   | 'salary_payment.create'
@@ -13,7 +13,25 @@ export type Permission =
   | 'salary_payment.export'
   | 'payment_planning.view'
   | 'payment_planning.edit'
-  | 'payment_planning.export';
+  | 'payment_planning.export'
+  | 'attendance.view'
+  | 'attendance.create'
+  | 'attendance.import'
+  | 'attendance.export'
+  | 'attendance.submit'
+  | 'attendance.approve'
+  | 'attendance.finalize'
+  | 'attendance.revert'
+  | 'timesheet.view'
+  | 'timesheet.create'
+  | 'timesheet.edit'
+  | 'timesheet.import'
+  | 'timesheet.export'
+  | 'timesheet.approve'
+  | 'cif.view'
+  | 'cif.upload'
+  | 'cif.process'
+  | 'cif.export';
 
 const ALL_PERMISSIONS: Permission[] = [
   'salary_payment.view',
@@ -25,6 +43,24 @@ const ALL_PERMISSIONS: Permission[] = [
   'payment_planning.view',
   'payment_planning.edit',
   'payment_planning.export',
+  'attendance.view',
+  'attendance.create',
+  'attendance.import',
+  'attendance.export',
+  'attendance.submit',
+  'attendance.approve',
+  'attendance.finalize',
+  'attendance.revert',
+  'timesheet.view',
+  'timesheet.create',
+  'timesheet.edit',
+  'timesheet.import',
+  'timesheet.export',
+  'timesheet.approve',
+  'cif.view',
+  'cif.upload',
+  'cif.process',
+  'cif.export',
 ];
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -37,12 +73,31 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'payment_planning.view',
     'payment_planning.edit',
     'payment_planning.export',
+    'attendance.view',
+    'attendance.create',
+    'attendance.import',
+    'attendance.export',
+    'attendance.submit',
+    'timesheet.view',
+    'timesheet.create',
+    'timesheet.edit',
+    'timesheet.import',
+    'timesheet.export',
+    'cif.view',
+    'cif.upload',
+    'cif.export',
   ],
   Viewer: [
     'salary_payment.view',
     'salary_payment.export',
     'payment_planning.view',
     'payment_planning.export',
+    'attendance.view',
+    'attendance.export',
+    'timesheet.view',
+    'timesheet.export',
+    'cif.view',
+    'cif.export',
   ],
 };
 

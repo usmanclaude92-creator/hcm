@@ -35,7 +35,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 // POST /api/projects - Create project
 router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
-    const { projectCode, projectName, status, startDate, endDate, remarks } = req.body;
+    const { projectCode, projectName, status, startDate, endDate, remarks, allowedCompanies } = req.body;
 
     if (!projectCode || !projectName) {
       return res.status(400).json({ error: 'Project Code and Project Name are mandatory.' });
@@ -56,6 +56,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       startDate: startDate || null,
       endDate: endDate || null,
       remarks: remarks ? remarks.trim() : '',
+      allowedCompanies: Array.isArray(allowedCompanies) && allowedCompanies.length > 0 ? allowedCompanies : undefined,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -85,7 +86,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     const project = db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
-    const { projectCode, projectName, status, startDate, endDate, remarks } = req.body;
+    const { projectCode, projectName, status, startDate, endDate, remarks, allowedCompanies } = req.body;
 
     if (projectCode) {
       const normCode = projectCode.trim().toUpperCase();
@@ -102,6 +103,9 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (startDate !== undefined) updates.startDate = startDate || null;
     if (endDate !== undefined) updates.endDate = endDate || null;
     if (remarks !== undefined) updates.remarks = remarks.trim();
+    if (allowedCompanies !== undefined) {
+      updates.allowedCompanies = Array.isArray(allowedCompanies) && allowedCompanies.length > 0 ? allowedCompanies : undefined;
+    }
 
     const updated = await db.projects.update(id, updates);
 

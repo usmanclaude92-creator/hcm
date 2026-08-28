@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { apiRequest, formatOMR } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -16,8 +17,13 @@ import {
   Users,
   Clock,
   Calendar,
+  Send,
+  ThumbsUp,
+  Lock,
+  RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
-import type { Project } from '../../types/index';
+import type { Project, AttendanceStatus } from '../../types/index';
 
 interface AttendanceGroup {
   employeeId: string;
@@ -30,6 +36,9 @@ interface AttendanceGroup {
   wageType: string;
   totalDays: number;
   totalHours: number;
+  totalOvertimeHours: number;
+  totalBonus: number;
+  totalDeduction: number;
   records: {
     id?: string;
     projectId: string;
@@ -37,31 +46,56 @@ interface AttendanceGroup {
     projectName: string;
     daysWorked: number;
     hoursWorked: number;
+    overtimeHours: number;
+    bonus: number;
+    deduction: number;
   }[];
 }
 
+const STATUS_FLOW: AttendanceStatus[] = ['Draft', 'Submitted', 'Approved', 'Finalized'];
+const STATUS_BADGE_CLASS: Record<AttendanceStatus, string> = {
+  Draft: 'bg-slate-100 text-slate-700 border-slate-300',
+  Submitted: 'bg-amber-100 text-amber-800 border-amber-300',
+  Approved: 'bg-blue-100 text-blue-800 border-blue-300',
+  Finalized: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+};
+
 export const AttendanceView: React.FC = () => {
-  const { canWrite } = useAuth();
+  const { canWrite, hasPermission } = useAuth();
   const [month, setMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [grouped, setGrouped] = useState<AttendanceGroup[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [monthStatus, setMonthStatus] = useState<{ status: AttendanceStatus } | null>(null);
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [showExceptions, setShowExceptions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [workflowBusy, setWorkflowBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
+  const [revertReason, setRevertReason] = useState('');
 
   // Import Modal
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importPreview, setImportPreview] = useState<any>(null);
   const [importing, setImporting] = useState(false);
 
+  const isFinalized = monthStatus?.status === 'Finalized';
+  const isReadOnly = isFinalized || !canWrite;
+
   const fetchAttendance = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiRequest(`/api/attendance?month=${month}`);
+      const [data, dash] = await Promise.all([
+        apiRequest(`/api/attendance?month=${month}`),
+        apiRequest(`/api/attendance/${month}/dashboard`),
+      ]);
       setGrouped(data.grouped || []);
       setAllProjects(data.allProjects || []);
+      setMonthStatus(data.monthStatus || null);
+      setDashboard(dash);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch attendance');
     } finally {
@@ -71,7 +105,42 @@ export const AttendanceView: React.FC = () => {
 
   useEffect(() => {
     fetchAttendance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
+
+  const handleWorkflowAction = async (action: 'submit' | 'approve' | 'finalize') => {
+    try {
+      setWorkflowBusy(true);
+      setError(null);
+      await apiRequest(`/api/attendance/${month}/${action}`, { method: 'POST' });
+      setSuccessMsg(`Attendance for ${month} moved to the next workflow stage.`);
+      fetchAttendance();
+    } catch (err: any) {
+      setError(err.message || `Failed to ${action} attendance`);
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
+
+  const handleConfirmRevert = async () => {
+    if (!revertReason.trim()) return;
+    try {
+      setWorkflowBusy(true);
+      setError(null);
+      await apiRequest(`/api/attendance/${month}/revert`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: revertReason.trim() }),
+      });
+      setIsRevertModalOpen(false);
+      setRevertReason('');
+      setSuccessMsg(`Attendance for ${month} reverted to Approved.`);
+      fetchAttendance();
+    } catch (err: any) {
+      setError(err.message || 'Failed to revert attendance');
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
 
   const handleAddProjectRow = (empIndex: number) => {
     if (allProjects.length === 0) {
@@ -84,8 +153,11 @@ export const AttendanceView: React.FC = () => {
       projectId: defaultProj.id,
       projectCode: defaultProj.projectCode,
       projectName: defaultProj.projectName,
-      daysWorked: updated[empIndex].employeeType === 'Staff' ? 0 : 0,
-      hoursWorked: updated[empIndex].employeeType === 'Worker' ? 0 : 0,
+      daysWorked: 0,
+      hoursWorked: 0,
+      overtimeHours: 0,
+      bonus: 0,
+      deduction: 0,
     });
     setGrouped(updated);
   };
@@ -99,7 +171,7 @@ export const AttendanceView: React.FC = () => {
   const handleRecordChange = (
     empIndex: number,
     recIndex: number,
-    field: 'projectId' | 'daysWorked' | 'hoursWorked',
+    field: 'projectId' | 'daysWorked' | 'hoursWorked' | 'overtimeHours' | 'bonus' | 'deduction',
     value: any
   ) => {
     const updated = [...grouped];
@@ -112,10 +184,8 @@ export const AttendanceView: React.FC = () => {
         rec.projectCode = proj.projectCode;
         rec.projectName = proj.projectName;
       }
-    } else if (field === 'daysWorked') {
-      rec.daysWorked = Math.max(0, Number(value) || 0);
-    } else if (field === 'hoursWorked') {
-      rec.hoursWorked = Math.max(0, Number(value) || 0);
+    } else {
+      rec[field] = Math.max(0, Number(value) || 0);
     }
 
     setGrouped(updated);
@@ -141,6 +211,9 @@ export const AttendanceView: React.FC = () => {
             projectId: r.projectId,
             daysWorked: r.daysWorked,
             hoursWorked: r.hoursWorked,
+            overtimeHours: r.overtimeHours,
+            bonus: r.bonus,
+            deduction: r.deduction,
           });
         }
       }
@@ -184,6 +257,26 @@ export const AttendanceView: React.FC = () => {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleDownloadErrorReport = () => {
+    if (!importPreview?.rows) return;
+    const invalidRows = importPreview.rows.filter((r: any) => r.status === 'Invalid');
+    if (invalidRows.length === 0) {
+      alert('No invalid rows to report -- every row validated successfully.');
+      return;
+    }
+    const data = invalidRows.map((r: any) => ({
+      'Row #': r.rowNumber,
+      'Employee ID': r.employeeId,
+      'Employee Name': r.employeeName,
+      'Project Code': r.projectCode,
+      'Reason': r.reason,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Import Errors');
+    XLSX.writeFile(wb, `Attendance_Import_Errors_${month}.xlsx`);
   };
 
   const handleConfirmImport = async () => {
@@ -242,7 +335,7 @@ export const AttendanceView: React.FC = () => {
             Attendance Template
           </button>
 
-          {canWrite && (
+          {canWrite && !isFinalized && (
             <>
               <button
                 onClick={() => setIsImportModalOpen(true)}
@@ -264,6 +357,134 @@ export const AttendanceView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Workflow Status Bar */}
+      {monthStatus && (
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">Attendance Status:</span>
+            <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold border ${STATUS_BADGE_CLASS[monthStatus.status]}`}>
+              {monthStatus.status}
+            </span>
+            <div className="hidden sm:flex items-center gap-1 ml-2">
+              {STATUS_FLOW.map((s, i) => (
+                <React.Fragment key={s}>
+                  {i > 0 && <span className="text-slate-300">→</span>}
+                  <span className={`text-[10px] ${s === monthStatus.status ? 'font-bold text-slate-800' : 'text-slate-400'}`}>{s}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {monthStatus.status === 'Draft' && hasPermission('attendance.submit') && (
+              <button
+                onClick={() => handleWorkflowAction('submit')}
+                disabled={workflowBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" /> Submit for Approval
+              </button>
+            )}
+            {monthStatus.status === 'Submitted' && hasPermission('attendance.approve') && (
+              <button
+                onClick={() => handleWorkflowAction('approve')}
+                disabled={workflowBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+              >
+                <ThumbsUp className="w-3.5 h-3.5" /> Approve
+              </button>
+            )}
+            {monthStatus.status === 'Approved' && hasPermission('attendance.finalize') && (
+              <button
+                onClick={() => handleWorkflowAction('finalize')}
+                disabled={workflowBusy}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+              >
+                <Lock className="w-3.5 h-3.5" /> Finalize Attendance
+              </button>
+            )}
+            {monthStatus.status === 'Finalized' && hasPermission('attendance.revert') && (
+              <button
+                onClick={() => setIsRevertModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Revert
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Summary + Exceptions */}
+      {dashboard && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+              <span className="text-[10px] font-medium text-slate-500">Employees</span>
+              <div className="text-lg font-bold text-slate-900">{dashboard.totalEmployees}</div>
+              <span className="text-[10px] text-slate-400">{dashboard.totalStaff} Staff • {dashboard.totalWorkers} Workers</span>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+              <span className="text-[10px] font-medium text-slate-500">Total Days</span>
+              <div className="text-lg font-bold text-slate-900">{dashboard.totalDays}</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+              <span className="text-[10px] font-medium text-slate-500">Total Hours</span>
+              <div className="text-lg font-bold text-slate-900">{dashboard.totalHours}</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
+              <span className="text-[10px] font-medium text-amber-700">Overtime Hours</span>
+              <div className="text-lg font-bold text-amber-800">{dashboard.totalOvertimeHours}</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
+              <span className="text-[10px] font-medium text-emerald-700">Completion</span>
+              <div className="text-lg font-bold text-emerald-800">{dashboard.completionPercentage}%</div>
+            </div>
+            <button
+              onClick={() => setShowExceptions(!showExceptions)}
+              className={`p-3 rounded-xl border shadow-xs text-left transition-colors cursor-pointer ${
+                dashboard.exceptions.length > 0 ? 'bg-rose-50 border-rose-200 hover:bg-rose-100' : 'bg-white border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span className={`text-[10px] font-medium ${dashboard.exceptions.length > 0 ? 'text-rose-700' : 'text-slate-500'}`}>Exceptions</span>
+              <div className={`text-lg font-bold ${dashboard.exceptions.length > 0 ? 'text-rose-800' : 'text-slate-900'}`}>{dashboard.exceptions.length}</div>
+            </button>
+          </div>
+
+          {showExceptions && dashboard.exceptions.length > 0 && (
+            <div className="bg-white rounded-xl border border-rose-200 shadow-xs p-4 space-y-2">
+              <h3 className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> Exceptions & Alerts ({dashboard.exceptions.length})
+              </h3>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {dashboard.exceptions.map((exc: any, idx: number) => (
+                  <div key={idx} className="flex items-start gap-2 p-2 bg-rose-50/50 rounded-lg text-[11px]">
+                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-semibold shrink-0">{exc.type}</span>
+                    <span className="text-slate-600">{exc.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {dashboard.projectAllocation?.length > 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
+              <h3 className="text-xs font-bold text-slate-800 mb-2">Project Allocation</h3>
+              <div className="space-y-1.5">
+                {dashboard.projectAllocation.map((p: any) => (
+                  <div key={p.projectCode} className="flex items-center gap-2 text-[11px]">
+                    <span className="w-24 font-mono font-semibold text-slate-700 shrink-0">{p.projectCode}</span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div className="h-2 bg-indigo-500 rounded-full" style={{ width: `${p.percentage}%` }} />
+                    </div>
+                    <span className="w-12 text-right font-semibold text-slate-600">{p.percentage}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
@@ -298,6 +519,7 @@ export const AttendanceView: React.FC = () => {
               {grouped.map((emp, empIdx) => {
                 const totalDays = emp.records.reduce((s, r) => s + (Number(r.daysWorked) || 0), 0);
                 const totalHours = emp.records.reduce((s, r) => s + (Number(r.hoursWorked) || 0), 0);
+                const totalOvertime = emp.records.reduce((s, r) => s + (Number(r.overtimeHours) || 0), 0);
 
                 return (
                   <tr key={emp.employeeId} className="hover:bg-slate-50/70 transition-colors">
@@ -329,9 +551,9 @@ export const AttendanceView: React.FC = () => {
                           </div>
                         ) : (
                           emp.records.map((rec, recIdx) => (
-                            <div key={recIdx} className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                            <div key={recIdx} className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 flex-wrap">
                               <select
-                                disabled={!canWrite}
+                                disabled={isReadOnly}
                                 value={rec.projectId}
                                 onChange={(e) => handleRecordChange(empIdx, recIdx, 'projectId', e.target.value)}
                                 className="px-2 py-1 bg-white border border-slate-200 rounded text-xs text-slate-800 font-semibold focus:ring-1 focus:ring-indigo-500"
@@ -350,7 +572,7 @@ export const AttendanceView: React.FC = () => {
                                     min="0"
                                     max="30"
                                     step="0.5"
-                                    disabled={!canWrite}
+                                    disabled={isReadOnly}
                                     value={rec.daysWorked}
                                     onChange={(e) => handleRecordChange(empIdx, recIdx, 'daysWorked', e.target.value)}
                                     placeholder="Days"
@@ -364,7 +586,7 @@ export const AttendanceView: React.FC = () => {
                                     type="number"
                                     min="0"
                                     step="1"
-                                    disabled={!canWrite}
+                                    disabled={isReadOnly}
                                     value={rec.hoursWorked}
                                     onChange={(e) => handleRecordChange(empIdx, recIdx, 'hoursWorked', e.target.value)}
                                     placeholder="Hours"
@@ -374,7 +596,49 @@ export const AttendanceView: React.FC = () => {
                                 </div>
                               )}
 
-                              {canWrite && (
+                              <div className="flex items-center gap-1" title="Overtime Hours">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.5"
+                                  disabled={isReadOnly}
+                                  value={rec.overtimeHours}
+                                  onChange={(e) => handleRecordChange(empIdx, recIdx, 'overtimeHours', e.target.value)}
+                                  placeholder="OT"
+                                  className="w-14 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-center font-bold text-amber-700 focus:ring-1 focus:ring-amber-500"
+                                />
+                                <span className="text-[10px] text-amber-600">OT</span>
+                              </div>
+
+                              <div className="flex items-center gap-1" title="Bonus (OMR)">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.001"
+                                  disabled={isReadOnly}
+                                  value={rec.bonus}
+                                  onChange={(e) => handleRecordChange(empIdx, recIdx, 'bonus', e.target.value)}
+                                  placeholder="Bonus"
+                                  className="w-16 px-2 py-1 bg-white border border-emerald-200 rounded text-xs text-center font-bold text-emerald-700 focus:ring-1 focus:ring-emerald-500"
+                                />
+                                <span className="text-[10px] text-emerald-600">Bns</span>
+                              </div>
+
+                              <div className="flex items-center gap-1" title="Deductions (OMR)">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.001"
+                                  disabled={isReadOnly}
+                                  value={rec.deduction}
+                                  onChange={(e) => handleRecordChange(empIdx, recIdx, 'deduction', e.target.value)}
+                                  placeholder="Ded"
+                                  className="w-16 px-2 py-1 bg-white border border-rose-200 rounded text-xs text-center font-bold text-rose-700 focus:ring-1 focus:ring-rose-500"
+                                />
+                                <span className="text-[10px] text-rose-600">Ded</span>
+                              </div>
+
+                              {!isReadOnly && (
                                 <button
                                   onClick={() => handleRemoveProjectRow(empIdx, recIdx)}
                                   className="p-1 text-slate-400 hover:text-rose-600 rounded"
@@ -405,18 +669,21 @@ export const AttendanceView: React.FC = () => {
                           <span className="block text-[10px] text-slate-500">Hours Total</span>
                         </div>
                       )}
+                      {totalOvertime > 0 && <span className="block text-[10px] text-amber-600 mt-0.5">+{totalOvertime} OT hrs</span>}
                     </td>
 
                     {/* Action */}
                     {canWrite && (
                       <td className="px-3 py-3 text-right">
-                        <button
-                          onClick={() => handleAddProjectRow(empIdx)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Project
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => handleAddProjectRow(empIdx)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Project
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -452,7 +719,7 @@ export const AttendanceView: React.FC = () => {
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors">
                   <FileSpreadsheet className="w-10 h-10 text-indigo-500 mx-auto mb-2" />
                   <p className="text-sm font-semibold text-slate-800">Upload Filled Attendance Template for {month}</p>
-                  <p className="text-xs text-slate-500 mt-1">Columns: Employee ID, Project Code, Days Worked, Hours Worked</p>
+                  <p className="text-xs text-slate-500 mt-1">Columns: Company, Payroll Type, Employee ID, Employee Name, Employee Type, Designation, Project Code, Days Worked, Hours Worked, Overtime Hours, Bonus, Deductions, Pay By</p>
                   <input
                     type="file"
                     accept=".xlsx,.xls"
@@ -476,9 +743,13 @@ export const AttendanceView: React.FC = () => {
                         <tr>
                           <th className="px-3 py-2">Row</th>
                           <th className="px-3 py-2">Employee ID</th>
+                          <th className="px-3 py-2">Company</th>
                           <th className="px-3 py-2">Project</th>
                           <th className="px-3 py-2">Days</th>
                           <th className="px-3 py-2">Hours</th>
+                          <th className="px-3 py-2">OT</th>
+                          <th className="px-3 py-2">Bonus</th>
+                          <th className="px-3 py-2">Ded.</th>
                           <th className="px-3 py-2">Status</th>
                           <th className="px-3 py-2">Reason</th>
                         </tr>
@@ -488,9 +759,13 @@ export const AttendanceView: React.FC = () => {
                           <tr key={idx} className={r.status === 'Invalid' ? 'bg-rose-50/50' : ''}>
                             <td className="px-3 py-2 text-slate-400 font-mono">{r.rowNumber}</td>
                             <td className="px-3 py-2 font-mono font-bold">{r.employeeId}</td>
+                            <td className="px-3 py-2">{r.company}</td>
                             <td className="px-3 py-2">{r.projectCode}</td>
                             <td className="px-3 py-2">{r.daysWorked}</td>
                             <td className="px-3 py-2">{r.hoursWorked}</td>
+                            <td className="px-3 py-2">{r.overtimeHours}</td>
+                            <td className="px-3 py-2">{r.bonus}</td>
+                            <td className="px-3 py-2">{r.deduction}</td>
                             <td className="px-3 py-2 font-bold">{r.status}</td>
                             <td className="px-3 py-2 text-slate-500 text-[11px]">{r.reason}</td>
                           </tr>
@@ -513,6 +788,15 @@ export const AttendanceView: React.FC = () => {
               >
                 Cancel
               </button>
+              {importPreview && importPreview.summary.invalidCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDownloadErrorReport}
+                  className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                >
+                  Download Error Report
+                </button>
+              )}
               {importPreview && (
                 <button
                   type="button"
@@ -523,6 +807,59 @@ export const AttendanceView: React.FC = () => {
                   {importing ? 'Importing...' : 'Commit Attendance'}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revert Confirmation Modal */}
+      {isRevertModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-rose-50">
+              <h3 className="font-bold text-rose-900 text-base flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> Revert Finalized Attendance
+              </h3>
+              <button
+                onClick={() => setIsRevertModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-xs text-slate-600">
+                This reverts attendance for {month} from Finalized back to Approved so corrections can be made.
+                This action is recorded permanently in the audit trail. A reason is required.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Revert Reason <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={revertReason}
+                  onChange={(e) => setRevertReason(e.target.value)}
+                  placeholder="e.g. Correcting a data-entry mistake for EMP003..."
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2.5">
+              <button
+                onClick={() => setIsRevertModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRevert}
+                disabled={workflowBusy || !revertReason.trim()}
+                className="px-5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-lg shadow-sm disabled:opacity-50"
+              >
+                Confirm Revert
+              </button>
             </div>
           </div>
         </div>

@@ -570,50 +570,58 @@ export const SalaryPaymentsView: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
+                <th className="px-3 py-3">Company</th>
+                <th className="px-3 py-3">Pay By</th>
+                <th className="px-3 py-3 text-center">WPS Status</th>
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3">Month</th>
-                <th className="px-3 py-3">Type</th>
-                <th className="px-3 py-3">Company / Paid By</th>
-                <th className="px-4 py-3 text-right">Net Owed (OMR)</th>
-                <th className="px-4 py-3 text-right">Actually Disbursed</th>
+                <th className="px-4 py-3 text-right">Net Salary (OMR)</th>
+                <th className="px-4 py-3 text-right">Disbursed (OMR)</th>
                 <th className="px-4 py-3 text-right">Remaining Balance</th>
                 <th className="px-3 py-3 text-center">Status</th>
                 <th className="px-3 py-3 text-center">Receipts</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-3 py-3 text-center">History</th>
+                <th className="px-3 py-3 text-center">Action</th>
+                <th className="px-4 py-3">Remarks</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {loading ? (
-                <tr><td colSpan={10} className="px-6 py-10 text-center text-slate-400">Loading payment ledger...</td></tr>
+                <tr><td colSpan={13} className="px-6 py-10 text-center text-slate-400">Loading payment ledger...</td></tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-10 text-center text-slate-400">
+                  <td colSpan={13} className="px-6 py-10 text-center text-slate-400">
                     No salary records match the selected filters.
                   </td>
                 </tr>
               ) : (
                 rows.map((row, idx) => {
                   const receiptedTx = row.transactions.filter((tx: any) => tx.receiptStoragePath);
+                  const activeTx = row.transactions.filter((tx: any) => !tx.isReversed);
+                  const latestTx = activeTx.reduce(
+                    (latest: any, tx: any) => (!latest || tx.paymentDate > latest.paymentDate ? tx : latest),
+                    null as any
+                  );
                   return (
                     <tr key={`${row.employeeId}_${row.payrollMonth}_${idx}`} className="hover:bg-slate-50/70 transition-colors">
                       {row.isFirstOfGroup && (
-                        <td className="px-4 py-3 align-top" rowSpan={row.groupSize}>
-                          <span className="font-mono font-bold text-blue-600 block">{row.employeeId}</span>
-                          <span className="font-semibold text-slate-900">{row.employeeName}</span>
-                        </td>
+                        <>
+                          <td className="px-3 py-3 text-slate-600 align-top" rowSpan={row.groupSize}>{row.employeeCompany}</td>
+                          <td className="px-3 py-3 text-slate-600 align-top" rowSpan={row.groupSize}>{row.salaryPaidBy}</td>
+                          <td className="px-3 py-3 text-center align-top" rowSpan={row.groupSize}>
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              row.wpsEmployee === 'Yes' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {row.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 align-top" rowSpan={row.groupSize}>
+                            <span className="font-mono font-bold text-blue-600 block">{row.employeeId}</span>
+                            <span className="font-semibold text-slate-900">{row.employeeName}</span>
+                          </td>
+                        </>
                       )}
                       <td className="px-3 py-3 font-mono text-slate-600">{row.payrollMonth}</td>
-                      <td className="px-3 py-3">
-                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                          row.employeeType === 'Staff' ? 'bg-blue-50 text-blue-700' : 'bg-indigo-50 text-indigo-700'
-                        }`}>
-                          {row.employeeType}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-slate-600">
-                        <span>{row.employeeCompany}</span>
-                        <span className="block text-[10px] text-slate-400">by {row.salaryPaidBy}</span>
-                      </td>
                       <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
                         OMR {formatOMR(row.netSalary)}
                       </td>
@@ -654,27 +662,29 @@ export const SalaryPaymentsView: React.FC = () => {
                           <span className="text-[11px] text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleOpenHistory(row)}
-                            title="View Payment Transactions"
-                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          {canCreate && row.outstanding > 0 && (
-                            <button
-                              onClick={() => handleOpenPay(row)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors shadow-2xs cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Pay Now
-                            </button>
-                          )}
-                        </div>
+                      <td className="px-3 py-3 text-center">
+                        <button
+                          onClick={() => handleOpenHistory(row)}
+                          title="View Payment Transactions"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                       </td>
+                      <td className="px-3 py-3 text-center">
+                        {canCreate && row.outstanding > 0 ? (
+                          <button
+                            onClick={() => handleOpenPay(row)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-md transition-colors shadow-2xs cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Pay Now
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">{latestTx?.remarks || '—'}</td>
                     </tr>
                   );
                 })

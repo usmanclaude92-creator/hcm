@@ -322,4 +322,93 @@ router.get('/loans', verifyAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /api/reports/project-costing - Per-project labor & cost analysis (Attendance + Timesheet)
+router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { month, projectId } = req.query as { month?: string; projectId?: string };
+    if (!month) return res.status(400).json({ error: 'month is required (YYYY-MM)' });
+
+    const projects = db.projects.getAll().filter(p => !projectId || p.id === projectId);
+    const attendanceRecords = db.attendance.getByMonth(month);
+    const timesheetEntries = db.timesheets.getByMonth(month);
+    const employees = db.employees.getAll();
+    const employeeById = new Map(employees.map(e => [normalizeEmployeeId(e.employeeId), e]));
+
+    const rows = projects.map(project => {
+      const attForProject = attendanceRecords.filter(a =>
+        a.projectId === project.id || a.projectCode === project.projectCode
+      );
+      const tsForProject = timesheetEntries.filter(t =>
+        t.projectId === project.id || t.projectCode === project.projectCode
+      );
+
+      const employeeIds = new Set<string>([
+        ...attForProject.map(a => normalizeEmployeeId(a.employeeId)),
+        ...tsForProject.map(t => normalizeEmployeeId(t.employeeId)),
+      ]);
+
+      let totalDays = 0;
+      let totalHours = 0;
+      let totalOvertimeHours = 0;
+      let totalBonus = 0;
+      let totalDeduction = 0;
+      let estimatedCost = 0;
+
+      for (const empId of employeeIds) {
+        const emp = employeeById.get(empId);
+        const empAttendance = attForProject.filter(a => normalizeEmployeeId(a.employeeId) === empId);
+        const empTimesheet = tsForProject.filter(t => normalizeEmployeeId(t.employeeId) === empId);
+
+        const days = empAttendance.reduce((s, a) => s + (Number(a.daysWorked) || 0), 0);
+        const hours = empAttendance.reduce((s, a) => s + (Number(a.hoursWorked) || 0), 0)
+          + empTimesheet.reduce((s, t) => s + (Number(t.normalHours) || 0), 0);
+        const overtime = empAttendance.reduce((s, a) => s + (Number(a.overtimeHours) || 0), 0)
+          + empTimesheet.reduce((s, t) => s + (Number(t.overtimeHours) || 0), 0);
+        const bonus = empAttendance.reduce((s, a) => s + (Number(a.bonus) || 0), 0);
+        const deduction = empAttendance.reduce((s, a) => s + (Number(a.deduction) || 0), 0);
+
+        totalDays += days;
+        totalHours += hours;
+        totalOvertimeHours += overtime;
+        totalBonus += bonus;
+        totalDeduction += deduction;
+
+        if (emp) {
+          const rate = roundOMR(Number(emp.monthlySalaryOrRate) || 0);
+          estimatedCost += emp.employeeType === 'Worker'
+            ? roundOMR(hours * rate)
+            : roundOMR((rate / 30) * Math.min(days, 30));
+        }
+      }
+
+      return {
+        projectId: project.id,
+        projectCode: project.projectCode,
+        projectName: project.projectName,
+        status: project.status,
+        employeeCount: employeeIds.size,
+        totalDays: roundOMR(totalDays),
+        totalHours: roundOMR(totalHours),
+        totalOvertimeHours: roundOMR(totalOvertimeHours),
+        totalBonus: roundOMR(totalBonus),
+        totalDeduction: roundOMR(totalDeduction),
+        estimatedCost: roundOMR(estimatedCost),
+        timesheetEntryCount: tsForProject.length,
+      };
+    });
+
+    res.json({
+      month,
+      summary: {
+        totalProjects: rows.length,
+        totalEstimatedCost: roundOMR(rows.reduce((s, r) => s + r.estimatedCost, 0)),
+        totalEmployeeAllocations: rows.reduce((s, r) => s + r.employeeCount, 0),
+      },
+      projects: rows,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to generate project costing report' });
+  }
+});
+
 export default router;

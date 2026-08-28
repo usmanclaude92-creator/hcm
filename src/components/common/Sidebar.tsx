@@ -16,6 +16,8 @@ import {
   Building,
   ChevronRight,
   ClipboardList,
+  Clock,
+  UploadCloud,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -55,7 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
         { id: 'employees', label: 'Employee Master', icon: Users },
         { id: 'projects', label: 'Project Master', icon: FolderKanban },
-        { id: 'attendance', label: 'Attendance Ledger', icon: CalendarCheck },
+        { id: 'attendance', label: 'Attendance Ledger', icon: CalendarCheck, permission: 'attendance.view' },
+        { id: 'timesheets', label: 'Timesheet Management', icon: Clock, permission: 'timesheet.view' },
       ],
     },
     {
@@ -66,6 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'payment-planning', label: 'Payment Planning', icon: ClipboardList, permission: 'payment_planning.view' },
         { id: 'wps', label: 'WPS Recovery', icon: RefreshCw },
         { id: 'loans', label: 'Loan Management', icon: Landmark },
+        { id: 'cif', label: 'CIF Upload & Processing', icon: UploadCloud, permission: 'cif.view' },
       ],
     },
     {
