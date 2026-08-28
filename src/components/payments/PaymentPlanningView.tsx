@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { apiRequest, formatOMR, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDropdown';
+import { PaymentPlanningAnalytics } from './PaymentPlanningAnalytics';
 import {
   ClipboardList,
   Search,
@@ -37,6 +38,10 @@ const STATUS_OPTIONS: MultiSelectOption[] = [
   { value: 'Partially Paid', label: 'Partially Paid' },
   { value: 'Fully Paid', label: 'Fully Paid' },
 ];
+const EMPLOYEE_TYPE_OPTIONS: MultiSelectOption[] = [
+  { value: 'Staff', label: 'Staff' },
+  { value: 'Worker', label: 'Worker' },
+];
 
 // Omits the filter from the PDF summary line when every option is selected (equivalent
 // to "no restriction" -- matches the table/tile filtering semantics below).
@@ -64,6 +69,7 @@ interface PlanRow {
   shouldPayAmount: number;
   remarks: string;
   isOldestUnpaid: boolean;
+  employeeType: string;
 }
 
 export const PaymentPlanningView: React.FC = () => {
@@ -84,6 +90,7 @@ export const PaymentPlanningView: React.FC = () => {
   const [paidByFilter, setPaidByFilter] = useState<string[]>(PAID_BY_OPTIONS.map(o => o.value));
   const [wpsFilter, setWpsFilter] = useState<string[]>(WPS_OPTIONS.map(o => o.value));
   const [statusFilter, setStatusFilter] = useState<string[]>(STATUS_OPTIONS.map(o => o.value));
+  const [employeeTypeFilter, setEmployeeTypeFilter] = useState<string[]>(EMPLOYEE_TYPE_OPTIONS.map(o => o.value));
 
   const canEdit = hasPermission('payment_planning.edit');
   const canExport = hasPermission('payment_planning.export');
@@ -133,13 +140,24 @@ export const PaymentPlanningView: React.FC = () => {
       if (!paidByFilter.includes(r.salaryPaidBy)) return false;
       if (!wpsFilter.includes(r.wpsEmployee)) return false;
       if (!statusFilter.includes(r.status)) return false;
+      if (!employeeTypeFilter.includes(r.employeeType)) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!r.employeeId.toLowerCase().includes(q) && !r.employeeName.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [rows, monthFilter, companyFilter, paidByFilter, wpsFilter, statusFilter, search]);
+  }, [rows, monthFilter, companyFilter, paidByFilter, wpsFilter, statusFilter, employeeTypeFilter, search]);
+
+  // Period presets: a convenience layer on top of the existing Month multi-select --
+  // not a second filtering mechanism. availableMonths is already sorted ascending.
+  const applyPeriodPreset = (count: number | 'all') => {
+    if (count === 'all') {
+      setMonthFilter(availableMonths);
+    } else {
+      setMonthFilter(availableMonths.slice(-count));
+    }
+  };
 
   // Live, client-side only -- all four tiles recompute on every edit and every filter
   // change, no round-trip. Total of Last Unpaid Months is a fixed, factual figure (does
@@ -157,6 +175,47 @@ export const PaymentPlanningView: React.FC = () => {
     [filteredRows]
   );
   const pendingOfLastMonths = totalLastUnpaidMonths - totalShouldPay;
+
+  // Only assert one specific month in Tile 2's subtitle when every oldest-unpaid row in
+  // the current filtered set actually shares it -- otherwise the generic subtitle stays,
+  // since different employees can have different oldest-unpaid months.
+  const oldestUnpaidMonths = useMemo(
+    () => Array.from(new Set(filteredRows.filter(r => r.isOldestUnpaid).map(r => r.payrollMonth))),
+    [filteredRows]
+  );
+  const singleOldestUnpaidMonth = oldestUnpaidMonths.length === 1 ? oldestUnpaidMonths[0] : null;
+
+  const latestMonthInView = useMemo(() => {
+    return filteredRows.reduce((max: string | null, r) => (!max || r.payrollMonth > max ? r.payrollMonth : max), null as string | null);
+  }, [filteredRows]);
+  const lastMonthPaidTotal = useMemo(
+    () => filteredRows.filter(r => r.payrollMonth === latestMonthInView).reduce((sum, r) => sum + (Number(r.totalPaid) || 0), 0),
+    [filteredRows, latestMonthInView]
+  );
+
+  const employeesAwaitingPayment = useMemo(() => {
+    const byEmp = new Map<string, PlanRow[]>();
+    filteredRows.forEach(r => {
+      if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, []);
+      byEmp.get(r.employeeId)!.push(r);
+    });
+    let fullyUnpaid = 0;
+    let hasPartial = 0;
+    byEmp.forEach(empRows => {
+      const awaiting = empRows.filter(r => r.status !== 'Fully Paid');
+      if (awaiting.length === 0) return;
+      if (awaiting.some(r => r.status === 'Partially Paid')) hasPartial++;
+      else fullyUnpaid++;
+    });
+    return { total: fullyUnpaid + hasPartial, fullyUnpaid, hasPartial };
+  }, [filteredRows]);
+
+  const employeesWithOutstanding = useMemo(
+    () => new Set(filteredRows.filter(r => r.outstanding > 0).map(r => r.employeeId)).size,
+    [filteredRows]
+  );
+  const averageOutstandingPerEmployee = employeesWithOutstanding > 0 ? totalOutstandingSalaries / employeesWithOutstanding : 0;
+  const paymentCoveragePercent = totalOutstandingSalaries > 0 ? (totalShouldPay / totalOutstandingSalaries) * 100 : 0;
 
   const handleShouldPayChange = (row: PlanRow, value: string) => {
     if (row.status === 'Fully Paid') return; // guard: never editable for a fully paid row
@@ -311,7 +370,7 @@ export const PaymentPlanningView: React.FC = () => {
         </div>
       )}
 
-      {/* Summary Tiles */}
+      {/* Executive KPI Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs">
           <span className="text-xs font-semibold text-rose-700">Total Outstanding Salaries</span>
@@ -329,7 +388,7 @@ export const PaymentPlanningView: React.FC = () => {
             OMR {formatOMR(totalLastUnpaidMonths)}
           </strong>
           <span className="text-[11px] text-amber-600 mt-1 block">
-            Sum of each employee's oldest outstanding month
+            {singleOldestUnpaidMonth ? `Oldest unpaid month: ${singleOldestUnpaidMonth}` : "Sum of each employee's oldest outstanding month"}
           </span>
         </div>
 
@@ -339,7 +398,7 @@ export const PaymentPlanningView: React.FC = () => {
             OMR {formatOMR(totalShouldPay)}
           </strong>
           <span className="text-[11px] text-indigo-500 mt-1 block">
-            Live sum of editable Should Pay values — updates instantly
+            Currently planned — updates instantly
           </span>
         </div>
 
@@ -353,10 +412,60 @@ export const PaymentPlanningView: React.FC = () => {
             OMR {formatOMR(pendingOfLastMonths)}
           </strong>
           <span className={`text-[11px] mt-1 block ${pendingOfLastMonths >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            Last Unpaid Months − Should Pay
+            Remaining after planned payment
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-blue-200 bg-blue-50/30 shadow-xs">
+          <span className="text-xs font-semibold text-blue-700">Last Month Paid</span>
+          <strong className="block text-2xl font-bold text-blue-900 mt-1 font-mono">
+            OMR {formatOMR(lastMonthPaidTotal)}
+          </strong>
+          <span className="text-[11px] text-blue-600 mt-1 block">
+            {latestMonthInView ? `Last payment cycle: ${latestMonthInView}` : 'Last payment cycle'}
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-semibold text-slate-700">Employees Awaiting Payment</span>
+          <strong className="block text-2xl font-bold text-slate-900 mt-1 font-mono">
+            {employeesAwaitingPayment.total} Employees
+          </strong>
+          <span className="text-[11px] text-slate-500 mt-1 block">
+            {employeesAwaitingPayment.fullyUnpaid} fully unpaid • {employeesAwaitingPayment.hasPartial} partially paid
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-xs font-semibold text-slate-700">Average Outstanding per Employee</span>
+          <strong className="block text-2xl font-bold text-slate-900 mt-1 font-mono">
+            OMR {formatOMR(averageOutstandingPerEmployee)}
+          </strong>
+          <span className="text-[11px] text-slate-500 mt-1 block">
+            Across {employeesWithOutstanding} employee(s) with a balance
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-purple-200 bg-purple-50/30 shadow-xs">
+          <span className="text-xs font-semibold text-purple-700">Payment Coverage %</span>
+          <strong className="block text-2xl font-bold text-purple-900 mt-1 font-mono">
+            {paymentCoveragePercent.toFixed(1)}%
+          </strong>
+          <span className="text-[11px] text-purple-600 mt-1 block">
+            Outstanding liability covered by current plan
           </span>
         </div>
       </div>
+
+      <PaymentPlanningAnalytics
+        rows={rows}
+        filteredRows={filteredRows}
+        totalOutstanding={totalOutstandingSalaries}
+        totalPlanned={totalShouldPay}
+        coveragePercent={paymentCoveragePercent}
+        onCompanyClick={(company) => setCompanyFilter([company])}
+        onMonthClick={(month) => setMonthFilter([month])}
+      />
 
       {/* Filter Toolbar */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
@@ -370,7 +479,19 @@ export const PaymentPlanningView: React.FC = () => {
             className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
           />
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-slate-500 mr-1">Period:</span>
+          {([['Current', 1], ['Last 3', 3], ['Last 6', 6], ['Last 12', 12], ['All', 'all']] as const).map(([label, value]) => (
+            <button
+              key={label}
+              onClick={() => applyPeriodPreset(value as number | 'all')}
+              className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <MultiSelectDropdown
             allLabel="All Months"
             options={monthOptions}
@@ -400,6 +521,12 @@ export const PaymentPlanningView: React.FC = () => {
             options={STATUS_OPTIONS}
             selected={statusFilter}
             onChange={setStatusFilter}
+          />
+          <MultiSelectDropdown
+            allLabel="All Employee Types"
+            options={EMPLOYEE_TYPE_OPTIONS}
+            selected={employeeTypeFilter}
+            onChange={setEmployeeTypeFilter}
           />
         </div>
       </div>
@@ -443,6 +570,7 @@ export const PaymentPlanningView: React.FC = () => {
                     return (
                       <tr
                         key={key}
+                        id={isFirst ? `payment-planning-emp-${r.employeeId}` : undefined}
                         className={`${dirtyKeys.has(key) ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'} ${
                           isLastOfGroup ? 'border-b-2 border-slate-300' : ''
                         }`}

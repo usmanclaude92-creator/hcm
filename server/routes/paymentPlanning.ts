@@ -54,6 +54,7 @@ function computePlanningRows(): any[] {
         salaryPaidBy: line.salaryPaidBy,
         wpsEmployee: line.wpsEmployee,
         wageType: line.wageType,
+        employeeType: line.employeeType,
         netSalary: line.netSalary,
         totalPaid,
         outstanding,

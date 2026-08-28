@@ -104,8 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Building className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-bold text-white text-base tracking-tight leading-tight">PAYROLL PRO</h2>
-              <p className="text-[11px] text-slate-400 font-medium">Enterprise & WPS Edition</p>
+              <h2 className="font-bold text-white text-sm tracking-tight leading-tight">HUMAN CAPITAL MANAGEMENT SYSTEM</h2>
             </div>
           </div>
         </div>
