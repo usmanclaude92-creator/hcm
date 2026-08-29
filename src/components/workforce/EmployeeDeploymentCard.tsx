@@ -16,9 +16,9 @@ interface Props {
 export const EmployeeDeploymentCard: React.FC<Props> = ({ employeeId, employeeName, employeeType, overtimeHours }) => {
   return (
     <div className="w-44 shrink-0 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col hover:shadow-sm hover:border-slate-300 transition-all">
-      {/* Photo -- compact banner, not the dominant area */}
-      <div className="h-16 shrink-0 bg-slate-100 flex items-center justify-center">
-        <UserRound className="w-8 h-8 text-slate-400" />
+      {/* Photo -- primary visual focus of the tile */}
+      <div className="h-56 shrink-0 bg-slate-100 flex items-center justify-center">
+        <UserRound className="w-20 h-20 text-slate-400" />
       </div>
 
       {/* Name, then Staff/Worker : Code */}
