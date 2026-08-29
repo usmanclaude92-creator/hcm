@@ -335,7 +335,7 @@ export const WorkforceDeploymentView: React.FC = () => {
               <p className="text-xs mt-1">No employees currently deployed to this {section.key === HEAD_OFFICE_KEY ? 'section' : 'project'}.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className="flex flex-wrap gap-3">
               {section.employees.map(emp => (
                 <EmployeeDeploymentCard
                   key={`${section.key}-${emp.employeeId}`}
