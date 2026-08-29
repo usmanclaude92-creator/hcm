@@ -15,10 +15,10 @@ interface Props {
 // fields; only Name, ID, and OT (from real Attendance data) are live.
 export const EmployeeDeploymentCard: React.FC<Props> = ({ employeeId, employeeName, employeeType, overtimeHours }) => {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col aspect-[2/4] hover:shadow-sm hover:border-slate-300 transition-all">
-      {/* Photo -- top of tile, primary visual focus */}
-      <div className="flex-1 min-h-0 bg-slate-100 flex items-center justify-center">
-        <UserRound className="w-1/2 h-1/2 text-slate-400" />
+    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col hover:shadow-sm hover:border-slate-300 transition-all">
+      {/* Photo -- compact banner, not the dominant area */}
+      <div className="h-16 shrink-0 bg-slate-100 flex items-center justify-center">
+        <UserRound className="w-8 h-8 text-slate-400" />
       </div>
 
       {/* Name, then Staff/Worker : Code */}
