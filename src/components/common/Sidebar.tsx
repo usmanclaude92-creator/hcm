@@ -19,6 +19,7 @@ import {
   Clock,
   UploadCloud,
   FileSpreadsheet,
+  MapPin,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -56,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'CORE MODULES',
       items: [
         { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
+        { id: 'workforce-deployment', label: 'Workforce Deployment', icon: MapPin },
         { id: 'employees', label: 'Employee Master', icon: Users },
         { id: 'projects', label: 'Project Master', icon: FolderKanban },
         { id: 'attendance', label: 'Attendance Ledger', icon: CalendarCheck, permission: 'attendance.view' },

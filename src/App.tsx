@@ -4,6 +4,7 @@ import { LoginView } from './components/auth/LoginView';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
+import { WorkforceDeploymentView } from './components/workforce/WorkforceDeploymentView';
 import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
 import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
@@ -43,6 +44,8 @@ const MainApp: React.FC = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView onNavigate={(view) => setCurrentView(view)} />;
+      case 'workforce-deployment':
+        return <WorkforceDeploymentView />;
       case 'employees':
         return <EmployeeMasterView />;
       case 'projects':

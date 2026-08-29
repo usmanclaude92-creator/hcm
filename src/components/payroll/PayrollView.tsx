@@ -150,10 +150,13 @@ export const PayrollView: React.FC = () => {
       }
       return true;
     }).sort((a, b) => {
-      // Display priority: Company A-Z -> WPS Status (WPS employees first) ->
-      // Project A-Z -> Employee Type A-Z -> Employee Name A-Z (tie-breaker).
+      // Display priority: Company A-Z -> Pay By A-Z -> WPS Status (WPS employees
+      // first) -> Project A-Z -> Employee Type A-Z -> Employee Name A-Z (tie-breaker).
       const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
       if (companyCmp !== 0) return companyCmp;
+
+      const paidByCmp = (a.salaryPaidBy || '').localeCompare(b.salaryPaidBy || '');
+      if (paidByCmp !== 0) return paidByCmp;
 
       const aWps = a.wpsEmployee === 'Yes' ? 0 : 1;
       const bWps = b.wpsEmployee === 'Yes' ? 0 : 1;
@@ -524,11 +527,12 @@ export const PayrollView: React.FC = () => {
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
                 <th className="px-3 py-3">Sr#</th>
-                <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3">Company</th>
+                <th className="px-3 py-3">Pay By</th>
                 <th className="px-3 py-3 text-center">WPS Status</th>
                 <th className="px-3 py-3">Project</th>
                 <th className="px-3 py-3">Employee Type</th>
+                <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3 text-right">Worked</th>
                 <th className="px-3 py-3 text-right">Rate Used</th>
                 <th className="px-3 py-3 text-right">Gross (OMR)</th>
@@ -567,12 +571,11 @@ export const PayrollView: React.FC = () => {
                 filteredLines.map((line, idx) => (
                   <tr key={line.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-3 py-3 font-mono text-slate-400">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono font-bold text-blue-600 block">{line.employeeId}</span>
-                      <span className="font-semibold text-slate-900">{line.employeeName}</span>
-                    </td>
                     <td className="px-3 py-3 text-slate-600">
                       {line.employeeCompany}
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {line.salaryPaidBy}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -590,6 +593,10 @@ export const PayrollView: React.FC = () => {
                       }`}>
                         {line.employeeType}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono font-bold text-blue-600 block">{line.employeeId}</span>
+                      <span className="font-semibold text-slate-900">{line.employeeName}</span>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold">
                       {line.employeeType === 'Staff' ? `${line.daysWorked}d` : `${line.hoursWorked}h`}
