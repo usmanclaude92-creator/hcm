@@ -1,13 +1,32 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Building2, Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database } from 'lucide-react';
+import { Building2, Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database, Rocket } from 'lucide-react';
+import type { UserRole } from '../../types/index';
+
+// Static class strings, not template-literal-composed -- Tailwind's JIT scanner only
+// picks up whole class names it can find verbatim in source, so `text-${color}-400`
+// would silently render unstyled.
+const DEMO_ROLE_STYLES: Record<string, { border: string; text: string; textHover: string }> = {
+  purple: { border: 'hover:border-purple-500/50', text: 'text-purple-400', textHover: 'text-purple-300' },
+  blue: { border: 'hover:border-blue-500/50', text: 'text-blue-400', textHover: 'text-blue-300' },
+  emerald: { border: 'hover:border-emerald-500/50', text: 'text-emerald-400', textHover: 'text-emerald-300' },
+  slate: { border: 'hover:border-slate-500/50', text: 'text-slate-300', textHover: 'text-slate-300' },
+};
+
+const DEMO_ROLES: { role: UserRole; label: string; subtitle: string; color: string }[] = [
+  { role: 'Administrator', label: 'System Administrator', subtitle: 'Full Demo System', color: 'purple' },
+  { role: 'Payroll Manager', label: 'Payroll Manager', subtitle: 'Payroll Processing Demo', color: 'blue' },
+  { role: 'Payroll User', label: 'Payroll User', subtitle: 'Payroll Data Entry Demo', color: 'emerald' },
+  { role: 'Viewer', label: 'Auditor', subtitle: 'Read-Only Demo Reports', color: 'slate' },
+];
 
 export const LoginView: React.FC = () => {
-  const { login } = useAuth();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const { login, loginDemo } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showDemoRoles, setShowDemoRoles] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,26 +39,6 @@ export const LoginView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickRole = async (u: string, p: string, autoSubmit = false) => {
-    setUsername(u);
-    setPassword(p);
-    if (autoSubmit) {
-      setError(null);
-      setLoading(true);
-      try {
-        await login({ username: u, password: p });
-      } catch (err: any) {
-        setError(err.message || 'Login failed. Please verify credentials.');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const handleInstantSkip = () => {
-    handleQuickRole('admin', 'admin123', true);
   };
 
   return (
@@ -64,6 +63,7 @@ export const LoginView: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-slate-900 border border-slate-800 py-8 px-6 shadow-2xl rounded-2xl sm:px-10">
+          {/* Production Sign In */}
           <form className="space-y-5" onSubmit={handleSubmit}>
             {error && (
               <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 flex items-start justify-between gap-2.5 text-rose-400 text-xs">
@@ -125,99 +125,68 @@ export const LoginView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                {loading ? (
-                  <span>Authenticating...</span>
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleInstantSkip}
-                disabled={loading}
-                className="py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
-                title="Skip login and enter as Administrator"
-              >
-                <span>⚡ Instant Access</span>
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              {loading ? (
+                <span>Authenticating...</span>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
           </form>
 
-          {/* Quick Demo Roles Access */}
-          <div className="mt-6 pt-5 border-t border-slate-800">
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                1-Click Instant Sign In
-              </p>
-              <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                Click any card to enter
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => handleQuickRole('admin', 'admin123', true)}
-                className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 hover:border-purple-500/50 border border-slate-800 text-left transition-all cursor-pointer group"
-              >
-                <div className="font-semibold text-purple-400 flex items-center justify-between">
-                  <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Admin</span>
-                  <span className="text-[10px] text-purple-300 opacity-0 group-hover:opacity-100 transition-opacity">Sign in →</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">Full System Access</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRole('manager', 'manager123', true)}
-                className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 hover:border-blue-500/50 border border-slate-800 text-left transition-all cursor-pointer group"
-              >
-                <div className="font-semibold text-blue-400 flex items-center justify-between">
-                  <span>Payroll Manager</span>
-                  <span className="text-[10px] text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity">Sign in →</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">Approve & Finalize</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRole('user', 'user123', true)}
-                className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 hover:border-emerald-500/50 border border-slate-800 text-left transition-all cursor-pointer group"
-              >
-                <div className="font-semibold text-emerald-400 flex items-center justify-between">
-                  <span>Payroll User</span>
-                  <span className="text-[10px] text-emerald-300 opacity-0 group-hover:opacity-100 transition-opacity">Sign in →</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">Data Entry & Payments</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickRole('viewer', 'viewer123', true)}
-                className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 hover:border-slate-500/50 border border-slate-800 text-left transition-all cursor-pointer group"
-              >
-                <div className="font-semibold text-slate-300 flex items-center justify-between">
-                  <span>Auditor / Viewer</span>
-                  <span className="text-[10px] text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">Sign in →</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">Read-Only Reports</div>
-              </button>
-            </div>
+          <div className="mt-4 text-center text-[11px] text-slate-500 flex items-center justify-center gap-2">
+            <Database className="w-3.5 h-3.5" />
+            <span>Production-grade PostgreSQL / Persistent Data Store Enabled</span>
           </div>
-        </div>
 
-        <div className="mt-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-          <Database className="w-3.5 h-3.5" />
-          <span>Production-grade PostgreSQL / Persistent Data Store Enabled</span>
+          {/* Demo Access -- fully isolated from production, see src/demo/ */}
+          <div className="mt-6 pt-5 border-t border-slate-800">
+            <div className="text-center">
+              <p className="text-xs text-slate-400 mb-2.5">Want to explore the system without an account?</p>
+              <button
+                type="button"
+                onClick={() => setShowDemoRoles(v => !v)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                Demo Access
+              </button>
+            </div>
+
+            {showDemoRoles && (
+              <div className="mt-4">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {DEMO_ROLES.map(d => {
+                    const styles = DEMO_ROLE_STYLES[d.color];
+                    return (
+                      <button
+                        key={d.role}
+                        type="button"
+                        onClick={() => loginDemo(d.role)}
+                        className={`p-2 rounded-lg bg-slate-950 hover:bg-slate-800 ${styles.border} border border-slate-800 text-left transition-all cursor-pointer group`}
+                      >
+                        <div className={`font-semibold ${styles.text} flex items-center justify-between`}>
+                          <span className="flex items-center gap-1">{d.role === 'Administrator' && <ShieldCheck className="w-3 h-3" />} {d.label}</span>
+                          <span className={`text-[10px] ${styles.textHover} opacity-0 group-hover:opacity-100 transition-opacity`}>Enter →</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">{d.subtitle}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-500 text-center mt-3">
+                  Demo sessions use sample data only — no connection to live systems.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

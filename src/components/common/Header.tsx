@@ -18,7 +18,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ currentView, onToggleSidebar }) => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isDemoMode } = useAuth();
   const [systemStatus, setSystemStatus] = useState<any>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onToggleSidebar }) 
         {/* User Role Badge */}
         <div className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${getRoleBadgeColor(user?.role)}`}>
           <ShieldCheck className="w-3.5 h-3.5" />
-          <span>{user?.role}</span>
+          <span>{user?.role}{isDemoMode ? ' (Demo)' : ''}</span>
         </div>
 
         {/* Profile / Logout Menu */}

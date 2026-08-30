@@ -1,4 +1,5 @@
 // API client with JWT token management and 3-decimal formatting helpers
+import { isDemoSessionActive } from '../demo/demoStore';
 
 const TOKEN_KEY = 'payroll_auth_token';
 const USER_KEY = 'payroll_auth_user';
@@ -31,6 +32,13 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  if (isDemoSessionActive()) {
+    // Dynamic import keeps the demo module (seed data + all handlers) out of the initial
+    // bundle for the vast majority of users who never touch Demo Access.
+    const { dispatchDemoRequest } = await import('../demo/demoApi');
+    return dispatchDemoRequest<T>(endpoint, options);
+  }
+
   const isAuthLogin = endpoint.includes('/api/auth/login');
   const token = getStoredToken();
   const headers: Record<string, string> = {
