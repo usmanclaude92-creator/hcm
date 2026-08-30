@@ -824,9 +824,14 @@ route('GET', '/api/loans', ({ query }) => {
   let loans = [...store.loans];
   const status = query.get('status');
   const search = query.get('search');
+  const employeeId = query.get('employeeId');
   if (search) {
     const q = search.toLowerCase();
     loans = loans.filter(l => l.employeeId.toLowerCase().includes(q) || l.employeeName.toLowerCase().includes(q));
+  }
+  if (employeeId) {
+    const norm = normalizeEmployeeId(employeeId);
+    loans = loans.filter(l => normalizeEmployeeId(l.employeeId) === norm);
   }
   if (status && status !== 'ALL') loans = loans.filter(l => l.status === status);
   loans.sort((a, b) => new Date(b.loanDate).getTime() - new Date(a.loanDate).getTime());

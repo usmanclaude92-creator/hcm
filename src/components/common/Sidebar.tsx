@@ -19,6 +19,7 @@ import {
   Clock,
   UploadCloud,
   FileSpreadsheet,
+  IdCard,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -71,6 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'wps', label: 'WPS Recovery', icon: RefreshCw },
         { id: 'loans', label: 'Loan Management', icon: Landmark },
         { id: 'cif', label: 'CIF Upload & Processing', icon: UploadCloud, permission: 'cif.view' },
+        { id: 'employee-ledger', label: 'Employee Profile & Ledger', icon: IdCard },
       ],
     },
     {
@@ -95,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

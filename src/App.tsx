@@ -6,6 +6,7 @@ import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
+import { EmployeeProfileLedgerView } from './components/employees/EmployeeProfileLedgerView';
 import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
 import { TimesheetView } from './components/timesheets/TimesheetView';
@@ -54,6 +55,8 @@ const MainApp: React.FC = () => {
         return <TimesheetView />;
       case 'cif':
         return <CifUploadView />;
+      case 'employee-ledger':
+        return <EmployeeProfileLedgerView />;
       case 'payroll':
         return <PayrollView />;
       case 'payments':

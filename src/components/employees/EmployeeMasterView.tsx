@@ -18,7 +18,6 @@ import {
   UserCheck,
   UserX,
   X,
-  FileText,
   Save,
   RefreshCw,
   Building,
@@ -302,7 +301,7 @@ export const EmployeeMasterView: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
-            Employee Master Directory
+            Employee Master
           </h2>
         </div>
 

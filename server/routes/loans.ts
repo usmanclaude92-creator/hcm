@@ -10,7 +10,7 @@ const router = Router();
 // GET /api/loans - List all loans with summary
 router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const { status, search } = req.query;
+    const { status, search, employeeId } = req.query;
     let loans = db.loans.getAll();
 
     if (search) {
@@ -20,6 +20,11 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
         l.employeeName.toLowerCase().includes(q) ||
         (l.remarks && l.remarks.toLowerCase().includes(q))
       );
+    }
+
+    if (employeeId) {
+      const norm = normalizeEmployeeId(String(employeeId));
+      loans = loans.filter(l => normalizeEmployeeId(l.employeeId) === norm);
     }
 
     if (status && status !== 'ALL') {
