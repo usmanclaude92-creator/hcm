@@ -48,6 +48,7 @@ interface PlanRow {
 
 interface Props {
   onNavigateToPlanning: () => void;
+  periodMonths?: string[] | null;
 }
 
 // Copied verbatim from DashboardView.tsx's local (unexported) ProgressBar, to stay
@@ -72,7 +73,7 @@ const ATTENTION_MONTHS_THRESHOLD = 2;
 // Planning dataset -- there is no operational table on this page to filter or scroll
 // into, so every breakdown here reflects everything, and row clicks navigate to the
 // Payment Planning Sheet itself rather than filtering in place.
-export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlanning }) => {
+export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlanning, periodMonths }) => {
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,14 +106,22 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
     };
   }, []);
 
-  // Chronological month order from the full dataset -- aging distance must be measured
-  // against real history.
+  // Chronological month order from the FULL, unfiltered dataset -- aging distance and
+  // "oldest unpaid month" are cross-month arrears signals that must be measured against
+  // real history, not the currently-selected period.
   const allMonthsSorted = useMemo(() => Array.from(new Set(rows.map((r) => r.payrollMonth))).sort(), [rows]);
   const latestKnownMonth = allMonthsSorted[allMonthsSorted.length - 1];
   const monthIndex = (m: string) => allMonthsSorted.indexOf(m);
 
-  const totalOutstanding = useMemo(() => rows.reduce((sum, r) => sum + (Number(r.outstanding) || 0), 0), [rows]);
-  const totalPlanned = useMemo(() => rows.reduce((sum, r) => sum + (Number(r.shouldPayAmount) || 0), 0), [rows]);
+  // Everything else on this page is scoped to the Dashboard's selected period (null/undefined
+  // periodMonths = unfiltered, preserving this component's original all-time behavior).
+  const scopedRows = useMemo(
+    () => (periodMonths ? rows.filter((r) => periodMonths.includes(r.payrollMonth)) : rows),
+    [rows, periodMonths]
+  );
+
+  const totalOutstanding = useMemo(() => scopedRows.reduce((sum, r) => sum + (Number(r.outstanding) || 0), 0), [scopedRows]);
+  const totalPlanned = useMemo(() => scopedRows.reduce((sum, r) => sum + (Number(r.shouldPayAmount) || 0), 0), [scopedRows]);
   const coveragePercent = totalOutstanding > 0 ? (totalPlanned / totalOutstanding) * 100 : 0;
 
   // Salary Outstanding Aging -- also serves as the "Payment Delay" view, since this
@@ -140,7 +149,7 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
   // Monthly Outstanding Trend
   const monthlyTrend = useMemo(() => {
     const map = new Map<string, { month: string; netSalary: number; totalPaid: number; outstanding: number; shouldPay: number; employees: Set<string> }>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       if (!map.has(r.payrollMonth)) {
         map.set(r.payrollMonth, { month: r.payrollMonth, netSalary: 0, totalPaid: 0, outstanding: 0, shouldPay: 0, employees: new Set() });
       }
@@ -161,12 +170,12 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
         shouldPay: m.shouldPay,
         employeeCount: m.employees.size,
       }));
-  }, [rows]);
+  }, [scopedRows]);
 
   // Company-Wise Liability
   const companyBreakdown = useMemo(() => {
     const map = new Map<string, { company: string; employees: Set<string>; outstanding: number; planned: number }>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       if (!map.has(r.employeeCompany)) map.set(r.employeeCompany, { company: r.employeeCompany, employees: new Set(), outstanding: 0, planned: 0 });
       const c = map.get(r.employeeCompany)!;
       c.employees.add(r.employeeId);
@@ -176,12 +185,12 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
     return Array.from(map.values())
       .map((c) => ({ company: c.company, employees: c.employees.size, outstanding: c.outstanding, planned: c.planned, pending: c.outstanding - c.planned }))
       .sort((a, b) => b.outstanding - a.outstanding);
-  }, [rows]);
+  }, [scopedRows]);
 
   // Pay-By Analysis
   const payByBreakdown = useMemo(() => {
     const map = new Map<string, { payBy: string; employees: Set<string>; outstanding: number; planned: number }>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       if (!map.has(r.salaryPaidBy)) map.set(r.salaryPaidBy, { payBy: r.salaryPaidBy, employees: new Set(), outstanding: 0, planned: 0 });
       const c = map.get(r.salaryPaidBy)!;
       c.employees.add(r.employeeId);
@@ -191,12 +200,12 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
     return Array.from(map.values())
       .map((c) => ({ payBy: c.payBy, employees: c.employees.size, outstanding: c.outstanding, planned: c.planned, pending: c.outstanding - c.planned }))
       .sort((a, b) => b.outstanding - a.outstanding);
-  }, [rows]);
+  }, [scopedRows]);
 
   // Staff vs Worker Analysis
   const employeeTypeBreakdown = useMemo(() => {
     const map = new Map<string, { type: string; employees: Set<string>; outstanding: number; planned: number }>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       const type = r.employeeType || 'Unknown';
       if (!map.has(type)) map.set(type, { type, employees: new Set(), outstanding: 0, planned: 0 });
       const c = map.get(type)!;
@@ -215,12 +224,12 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
         avgOutstanding: count > 0 ? c.outstanding / count : 0,
       };
     });
-  }, [rows]);
+  }, [scopedRows]);
 
   // WPS Analysis
   const wpsAnalysis = useMemo(() => {
     if (!wpsItems) return null;
-    const keys = new Set(rows.map((r) => `${r.employeeId}_${r.payrollMonth}`));
+    const keys = new Set(scopedRows.map((r) => `${r.employeeId}_${r.payrollMonth}`));
     const relevant = wpsItems.filter((w: any) => keys.has(`${w.employeeId}_${w.payrollMonth}`));
     const recoverable = relevant.reduce((s: number, w: any) => s + (w.totalRecoverable || 0), 0);
     const recovered = relevant.reduce((s: number, w: any) => s + (w.totalRecovered || 0), 0);
@@ -234,15 +243,15 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
       exceptions,
       coverage: recoverable > 0 ? (recovered / recoverable) * 100 : 0,
     };
-  }, [wpsItems, rows]);
+  }, [wpsItems, scopedRows]);
 
   // Last Payment Analysis
   const lastPaymentAnalysis = useMemo(() => {
-    const latest = rows.reduce((max: string | null, r) => (!max || r.payrollMonth > max ? r.payrollMonth : max), null as string | null);
+    const latest = scopedRows.reduce((max: string | null, r) => (!max || r.payrollMonth > max ? r.payrollMonth : max), null as string | null);
     if (!latest) return null;
-    const cycleRows = rows.filter((r) => r.payrollMonth === latest);
+    const cycleRows = scopedRows.filter((r) => r.payrollMonth === latest);
     const now = Date.now();
-    const daysSince = rows.filter((r) => r.lastPaymentDate).map((r) => (now - new Date(r.lastPaymentDate!).getTime()) / 86400000);
+    const daysSince = scopedRows.filter((r) => r.lastPaymentDate).map((r) => (now - new Date(r.lastPaymentDate!).getTime()) / 86400000);
     return {
       month: latest,
       totalPaid: cycleRows.reduce((s, r) => s + r.totalPaid, 0),
@@ -251,12 +260,14 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
       unpaid: cycleRows.filter((r) => r.status === 'Unpaid').length,
       avgDaysSincePayment: daysSince.length > 0 ? daysSince.reduce((a, b) => a + b, 0) / daysSince.length : null,
     };
-  }, [rows]);
+  }, [scopedRows]);
 
-  // Top 10 Outstanding Employees
+  // Top 10 Outstanding Employees (by outstanding total within the selected period; the
+  // "oldest unpaid month" lookup itself stays against the full, unfiltered dataset -- it's
+  // a full-history fact about the employee, not something a period selection should change).
   const topOutstandingEmployees = useMemo(() => {
     const byEmp = new Map<string, { employeeId: string; employeeName: string; employeeCompany: string; totalOutstanding: number }>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, { employeeId: r.employeeId, employeeName: r.employeeName, employeeCompany: r.employeeCompany, totalOutstanding: 0 });
       byEmp.get(r.employeeId)!.totalOutstanding += r.outstanding;
     });
@@ -273,12 +284,12 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
           oldestPlanned: oldestRow?.shouldPayAmount || 0,
         };
       });
-  }, [rows]);
+  }, [scopedRows, rows]);
 
   // Payment Attention Required
   const paymentAttention = useMemo(() => {
     const byEmp = new Map<string, PlanRow[]>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       if (!byEmp.has(r.employeeId)) byEmp.set(r.employeeId, []);
       byEmp.get(r.employeeId)!.push(r);
     });
@@ -298,12 +309,12 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
       }
     });
     return items.sort((a, b) => a.order - b.order);
-  }, [rows]);
+  }, [scopedRows]);
 
   // Oldest Unpaid Month Distribution
   const oldestUnpaidDistribution = useMemo(() => {
     const map = new Map<string, { month: string; employees: number; amount: number }>();
-    rows
+    scopedRows
       .filter((r) => r.isOldestUnpaid)
       .forEach((r) => {
         if (!map.has(r.payrollMonth)) map.set(r.payrollMonth, { month: r.payrollMonth, employees: 0, amount: 0 });
@@ -312,20 +323,20 @@ export const PaymentLiabilityAnalytics: React.FC<Props> = ({ onNavigateToPlannin
         m.amount += r.outstanding;
       });
     return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
-  }, [rows]);
+  }, [scopedRows]);
 
   // Planned Payment by Month -- grouped by every row's own month, not just the
   // oldest-unpaid one, since Should Pay is editable on any unpaid/partial row.
   const plannedByMonth = useMemo(() => {
     const map = new Map<string, number>();
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       map.set(r.payrollMonth, (map.get(r.payrollMonth) || 0) + r.shouldPayAmount);
     });
     return Array.from(map.entries())
       .map(([month, amount]) => ({ month, amount }))
       .sort((a, b) => a.month.localeCompare(b.month))
       .filter((m) => m.amount > 0);
-  }, [rows]);
+  }, [scopedRows]);
 
   const remainingPending = totalOutstanding - totalPlanned;
   const barMax = Math.max(totalOutstanding, totalPlanned, Math.abs(remainingPending), 1);

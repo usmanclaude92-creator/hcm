@@ -47,6 +47,10 @@ export const PayrollView: React.FC = () => {
   // failure to load either just leaves those filters inert rather than breaking the page.
   const [employeeActiveMap, setEmployeeActiveMap] = useState<Record<string, boolean>>({});
   const [receiptStatusMap, setReceiptStatusMap] = useState<Record<string, ReceiptStatus>>({});
+  // Attendance Ledger's per-employee overtime hours for this month -- informational only.
+  // This payroll system has no overtime-pay component anywhere (Net Salary never factors
+  // OT in), so this is shown purely as a reference figure, never used in any calculation.
+  const [overtimeMap, setOvertimeMap] = useState<Record<string, number>>({});
 
   // Line Editing Modal
   const [editingLine, setEditingLine] = useState<PayrollLine | null>(null);
@@ -132,6 +136,25 @@ export const PayrollView: React.FC = () => {
     };
   }, [month]);
 
+  // Attendance Ledger's per-employee overtime hours for this month -- a read-only join
+  // from a separate module, informational display only.
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest(`/api/attendance?month=${month}`)
+      .then((data) => {
+        if (cancelled) return;
+        const map: Record<string, number> = {};
+        (data.grouped || []).forEach((g: any) => {
+          map[g.employeeId] = Number(g.totalOvertimeHours) || 0;
+        });
+        setOvertimeMap(map);
+      })
+      .catch(() => setOvertimeMap({}));
+    return () => {
+      cancelled = true;
+    };
+  }, [month]);
+
   const filteredLines = useMemo(() => {
     return lines.filter((line) => {
       if (search) {
@@ -150,23 +173,33 @@ export const PayrollView: React.FC = () => {
       }
       return true;
     }).sort((a, b) => {
-      // Display priority: Company A-Z -> Pay By A-Z -> WPS Status (WPS employees
-      // first) -> Project A-Z -> Employee Type A-Z -> Employee Name A-Z (tie-breaker).
+      // Display priority: Company (DGO ranked first, then A-Z) -> Pay By A-Z ->
+      // WPS A-Z (Non-WPS before WPS) -> Type A-Z -> Nationality (Omani first, then
+      // others A-Z) -> Project A-Z -> Employee Name A-Z (final tie-breaker).
+      const companyRank = (c: string) => (c === 'DGO' ? 0 : 1);
+      const companyRankCmp = companyRank(a.employeeCompany) - companyRank(b.employeeCompany);
+      if (companyRankCmp !== 0) return companyRankCmp;
       const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
       if (companyCmp !== 0) return companyCmp;
 
       const paidByCmp = (a.salaryPaidBy || '').localeCompare(b.salaryPaidBy || '');
       if (paidByCmp !== 0) return paidByCmp;
 
-      const aWps = a.wpsEmployee === 'Yes' ? 0 : 1;
-      const bWps = b.wpsEmployee === 'Yes' ? 0 : 1;
-      if (aWps !== bWps) return aWps - bWps;
-
-      const projectCmp = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');
-      if (projectCmp !== 0) return projectCmp;
+      const wpsLabel = (l: typeof a) => (l.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS');
+      const wpsCmp = wpsLabel(a).localeCompare(wpsLabel(b));
+      if (wpsCmp !== 0) return wpsCmp;
 
       const typeCmp = (a.employeeType || '').localeCompare(b.employeeType || '');
       if (typeCmp !== 0) return typeCmp;
+
+      const nationalityRank = (n: string) => (n === 'Omani' ? 0 : 1);
+      const natRankCmp = nationalityRank(a.nationalityType) - nationalityRank(b.nationalityType);
+      if (natRankCmp !== 0) return natRankCmp;
+      const natCmp = (a.nationalityType || '').localeCompare(b.nationalityType || '');
+      if (natCmp !== 0) return natCmp;
+
+      const projectCmp = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');
+      if (projectCmp !== 0) return projectCmp;
 
       return (a.employeeName || '').localeCompare(b.employeeName || '');
     });
@@ -312,7 +345,7 @@ export const PayrollView: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <Calculator className="w-5 h-5 text-blue-600" />
-              Monthly Payroll Calculation Engine
+              Monthly Payroll Calculation
             </h2>
             {payroll && (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -326,9 +359,6 @@ export const PayrollView: React.FC = () => {
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Workers (Hours × Rate) • Staff (Salary ÷ 30 × Days) • Additions • Loan Recovery • WPS Recoverable
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -529,16 +559,19 @@ export const PayrollView: React.FC = () => {
                 <th className="px-3 py-3">Sr#</th>
                 <th className="px-3 py-3">Company</th>
                 <th className="px-3 py-3">Pay By</th>
-                <th className="px-3 py-3 text-center">WPS Status</th>
+                <th className="px-3 py-3 text-center">WPS</th>
                 <th className="px-3 py-3">Project</th>
-                <th className="px-3 py-3">Employee Type</th>
+                <th className="px-3 py-3">Type</th>
+                <th className="px-3 py-3">Nationality</th>
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3 text-right">Worked</th>
-                <th className="px-3 py-3 text-right">Rate Used</th>
+                <th className="px-3 py-3 text-right">Rate</th>
                 <th className="px-3 py-3 text-right">Gross (OMR)</th>
+                <th className="px-3 py-3 text-right">Overtime</th>
+                <th className="px-3 py-3 text-right">Bonus</th>
                 <th className="px-3 py-3 text-right">Additions</th>
                 <th className="px-3 py-3 text-right">Deductions</th>
-                <th className="px-4 py-3 text-right font-bold text-blue-900">Net Salary</th>
+                <th className="px-4 py-3 text-right font-bold text-blue-900">Net / Total</th>
                 <th className="px-3 py-3 text-center">Method</th>
                 <th className="px-3 py-3 text-right">WPS Recov.</th>
                 {canWrite && payroll?.status !== 'Finalized' && (
@@ -549,14 +582,14 @@ export const PayrollView: React.FC = () => {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {lines.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={18} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold">No payroll calculated yet for {month}.</p>
                     <p className="text-xs mt-1">Ensure attendance is recorded, then click "Calculate / Re-Run Payroll".</p>
                   </td>
                 </tr>
               ) : filteredLines.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={18} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold">No employees match the current filters.</p>
                     <button
                       type="button"
@@ -594,6 +627,13 @@ export const PayrollView: React.FC = () => {
                         {line.employeeType}
                       </span>
                     </td>
+                    <td className="px-3 py-3">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                        line.nationalityType === 'Omani' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {line.nationalityType}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span className="font-mono font-bold text-blue-600 block">{line.employeeId}</span>
                       <span className="font-semibold text-slate-900">{line.employeeName}</span>
@@ -606,6 +646,12 @@ export const PayrollView: React.FC = () => {
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-900">
                       {formatOMR(line.grossSalary)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-amber-600" title="From Attendance Ledger -- informational only, not part of Net Salary">
+                      {overtimeMap[line.employeeId] ? `${overtimeMap[line.employeeId]}h` : '—'}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono text-emerald-600">
+                      {formatOMR(line.bonus)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-emerald-600">
                       +{formatOMR(line.totalAdditions)}

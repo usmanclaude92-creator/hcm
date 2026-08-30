@@ -73,9 +73,6 @@ export const ReportsView: React.FC = () => {
             <FileBarChart className="w-5 h-5 text-blue-600" />
             Financial & Operational Reports Center
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Real-time multi-dimensional reports with 3-decimal OMR precision & Excel export
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { apiRequest } from '../../api/client';
 import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDropdown';
 import { EmployeeDeploymentCard } from './EmployeeDeploymentCard';
-import { Search, RotateCcw, MapPin, Building } from 'lucide-react';
+import { Search, RotateCcw, Building } from 'lucide-react';
 
 const HEAD_OFFICE_KEY = 'HEAD_OFFICE';
 const POLL_INTERVAL_MS = 60000;
@@ -22,6 +22,8 @@ interface AttendanceGroupRow {
   employeeType: 'Staff' | 'Worker';
   employeeCompany: string;
   totalOvertimeHours: number;
+  totalDays: number;
+  totalHours: number;
   records: AttendanceRecordRow[];
 }
 
@@ -41,6 +43,7 @@ interface DeploymentEntry {
   employeeCompany: string;
   sectionKey: string; // HEAD_OFFICE_KEY or a projectCode
   overtimeHours: number; // for this section only (summed if somehow >1 record for the same project)
+  hasAttendanceThisMonth: boolean; // across ALL of the employee's records, regardless of project
 }
 
 const COMPANY_OPTIONS: MultiSelectOption[] = [
@@ -68,11 +71,17 @@ const ATTENDANCE_STATUS_OPTIONS: MultiSelectOption[] = [
   { value: 'Head Office', label: 'Head Office' },
 ];
 
-function formatTime(d: Date): string {
-  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+export interface WorkforceDeploymentViewHandle {
+  refresh: () => void;
 }
 
-export const WorkforceDeploymentView: React.FC = () => {
+interface WorkforceDeploymentViewProps {
+  // Lifts the live-poll status up to the Dashboard's own header row, which now owns the
+  // LIVE badge + Refresh button UI (this view still owns all fetching/polling itself).
+  onStatusChange?: (status: { lastUpdated: Date | null }) => void;
+}
+
+export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle, WorkforceDeploymentViewProps>(({ onStatusChange }, ref) => {
   const [grouped, setGrouped] = useState<AttendanceGroupRow[]>([]);
   const [allProjects, setAllProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +133,13 @@ export const WorkforceDeploymentView: React.FC = () => {
     intervalRef.current = setInterval(fetchData, POLL_INTERVAL_MS);
   };
 
+  useImperativeHandle(ref, () => ({ refresh: handleManualRefresh }), []);
+
+  useEffect(() => {
+    onStatusChange?.({ lastUpdated });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastUpdated]);
+
   const activeProjects = useMemo(
     () => allProjects.filter(p => p.status === 'Active'),
     [allProjects]
@@ -152,6 +168,7 @@ export const WorkforceDeploymentView: React.FC = () => {
   const allEntries: DeploymentEntry[] = useMemo(() => {
     const entries: DeploymentEntry[] = [];
     for (const emp of grouped) {
+      const hasAttendanceThisMonth = (Number(emp.totalDays) || 0) > 0 || (Number(emp.totalHours) || 0) > 0;
       const activeRecords = emp.records.filter(
         r => activeProjectCodes.has(r.projectCode) && ((Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0)
       );
@@ -163,6 +180,7 @@ export const WorkforceDeploymentView: React.FC = () => {
           employeeCompany: emp.employeeCompany,
           sectionKey: HEAD_OFFICE_KEY,
           overtimeHours: emp.totalOvertimeHours || 0,
+          hasAttendanceThisMonth,
         });
       } else {
         const byProject = new Map<string, number>();
@@ -177,6 +195,7 @@ export const WorkforceDeploymentView: React.FC = () => {
             employeeCompany: emp.employeeCompany,
             sectionKey: projectCode,
             overtimeHours: ot,
+            hasAttendanceThisMonth,
           });
         });
       }
@@ -246,40 +265,6 @@ export const WorkforceDeploymentView: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-indigo-600" />
-            Workforce Deployment — Live View
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Where every active employee is currently deployed, grouped by Head Office and active project
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="text-[11px] font-bold text-emerald-700">LIVE</span>
-            <span className="text-[11px] text-slate-400">•</span>
-            <span className="text-[11px] text-slate-500">
-              Last Updated: {lastUpdated ? formatTime(lastUpdated) : '—'}
-            </span>
-          </div>
-          <button
-            onClick={handleManualRefresh}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Refresh
-          </button>
-        </div>
-      </div>
-
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">{error}</div>
       )}
@@ -343,6 +328,7 @@ export const WorkforceDeploymentView: React.FC = () => {
                   employeeName={emp.employeeName}
                   employeeType={emp.employeeType}
                   overtimeHours={emp.overtimeHours}
+                  attendanceStatus={emp.hasAttendanceThisMonth ? 'Present' : 'Absent'}
                 />
               ))}
             </div>
@@ -351,4 +337,6 @@ export const WorkforceDeploymentView: React.FC = () => {
       ))}
     </div>
   );
-};
+});
+
+WorkforceDeploymentView.displayName = 'WorkforceDeploymentView';

@@ -310,9 +310,6 @@ export const AttendanceView: React.FC = () => {
             <CalendarCheck className="w-5 h-5 text-indigo-600" />
             Monthly Attendance Ledger
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Staff: Days Worked (max 30) • Workers: Hours Worked • Multi-Project Allocation
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -516,8 +513,6 @@ export const AttendanceView: React.FC = () => {
                 <th className="px-3 py-3 min-w-[180px]">Project</th>
                 <th className="px-3 py-3 text-right">Hrs / Days</th>
                 <th className="px-3 py-3 text-right">Overtime</th>
-                <th className="px-3 py-3 text-right">Bonus (OMR)</th>
-                <th className="px-3 py-3 text-right">Deductions (OMR)</th>
                 <th className="px-4 py-3 text-right">Total Worked</th>
                 {canWrite && <th className="px-3 py-3 text-right">Action</th>}
               </tr>
@@ -588,7 +583,7 @@ export const AttendanceView: React.FC = () => {
                       {designationCell}
                       {companyCell}
                       {payByCell}
-                      <td colSpan={4} className="px-4 py-3 text-[11px] text-slate-400 italic">
+                      <td colSpan={3} className="px-4 py-3 text-[11px] text-slate-400 italic">
                         No project allocated yet. Click '+ Project' to assign.
                       </td>
                       {totalWorkedCell}
@@ -682,34 +677,6 @@ export const AttendanceView: React.FC = () => {
                           onChange={(e) => handleRecordChange(empIdx, recIdx, 'overtimeHours', e.target.value)}
                           title="Overtime Hours"
                           className="w-16 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-center font-bold text-amber-700 focus:ring-1 focus:ring-amber-500"
-                        />
-                      </td>
-
-                      {/* Bonus */}
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          disabled={isReadOnly}
-                          value={rec.bonus}
-                          onChange={(e) => handleRecordChange(empIdx, recIdx, 'bonus', e.target.value)}
-                          title="Bonus (OMR)"
-                          className="w-20 px-2 py-1 bg-white border border-emerald-200 rounded text-xs text-center font-bold text-emerald-700 focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </td>
-
-                      {/* Deductions */}
-                      <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          disabled={isReadOnly}
-                          value={rec.deduction}
-                          onChange={(e) => handleRecordChange(empIdx, recIdx, 'deduction', e.target.value)}
-                          title="Deductions (OMR)"
-                          className="w-20 px-2 py-1 bg-white border border-rose-200 rounded text-xs text-center font-bold text-rose-700 focus:ring-1 focus:ring-rose-500"
                         />
                       </td>
 

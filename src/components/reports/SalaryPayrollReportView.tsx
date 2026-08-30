@@ -263,14 +263,6 @@ export const SalaryPayrollReportView: React.FC = () => {
             <FileBarChart className="w-5 h-5 text-blue-600" />
             Salary & Payroll Report
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Comprehensive salary, payroll, WPS, attendance and payment analysis
-          </p>
-          {data?.reportingPeriod?.from && (
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Reporting Period: <strong className="text-slate-600">{data.reportingPeriod.from} — {data.reportingPeriod.to}</strong>
-            </p>
-          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={fetchReport} className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer">

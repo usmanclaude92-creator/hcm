@@ -173,9 +173,6 @@ export const WPSRecoveryView: React.FC = () => {
             <RefreshCw className="w-5 h-5 text-amber-600" />
             WPS Recovery Management
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Formula: MAX(WPS Registered Salary - Net Salary Owed, 0) • Recovery back to entity accounts
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

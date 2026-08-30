@@ -1,11 +1,13 @@
 import React from 'react';
 import { UserRound } from 'lucide-react';
+import { AttendanceStatusBadge, type AttendanceStatus } from '../common/AttendanceStatusBadge';
 
 interface Props {
   employeeId: string;
   employeeName: string;
   employeeType: string;
   overtimeHours: number;
+  attendanceStatus: AttendanceStatus;
 }
 
 // Photo, Start Time, End Time, Geofence, and Mobility have no real data source
@@ -13,12 +15,13 @@ interface Props {
 // GPS/geofence infrastructure, no clock-in/out timestamps, no mobility field).
 // Rather than fabricate values, this card shows honest placeholders for those
 // fields; only Name, ID, and OT (from real Attendance data) are live.
-export const EmployeeDeploymentCard: React.FC<Props> = ({ employeeId, employeeName, employeeType, overtimeHours }) => {
+export const EmployeeDeploymentCard: React.FC<Props> = ({ employeeId, employeeName, employeeType, overtimeHours, attendanceStatus }) => {
   return (
     <div className="w-44 shrink-0 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col hover:shadow-sm hover:border-slate-300 transition-all">
       {/* Photo -- primary visual focus of the tile */}
-      <div className="h-56 shrink-0 bg-slate-100 flex items-center justify-center">
+      <div className="relative h-56 shrink-0 bg-slate-100 flex items-center justify-center">
         <UserRound className="w-20 h-20 text-slate-400" />
+        <AttendanceStatusBadge status={attendanceStatus} />
       </div>
 
       {/* Name, then Staff/Worker : Code */}

@@ -418,9 +418,6 @@ export const SalaryPaymentsView: React.FC = () => {
             <CreditCard className="w-5 h-5 text-emerald-600" />
             Salary Payment & Disbursal Ledger
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Strict Separation: Actual Disbursals vs. Net Salary Owed • Partial Payments • Digital Receipt Attachments
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

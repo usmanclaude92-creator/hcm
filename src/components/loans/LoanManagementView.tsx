@@ -224,9 +224,6 @@ export const LoanManagementView: React.FC = () => {
             <Landmark className="w-5 h-5 text-purple-600" />
             Employee Loan Management
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Track employee loan principal, monthly payroll deductions, and ad-hoc cash/bank repayments
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

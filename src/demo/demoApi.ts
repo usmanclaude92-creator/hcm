@@ -50,8 +50,40 @@ function route(method: string, pattern: string, handler: Handler) {
 }
 
 // ==================== Dashboard ====================
-route('GET', '/api/dashboard', () => {
+// Mirrors server/routes/dashboard.ts's period-filtering logic exactly (kept in lockstep
+// deliberately -- apiRequest() routes here instead of the real server whenever a demo
+// session is active, so a period filter left unmirrored here would silently be a no-op).
+function monthRangeDemo(start: string, end: string): string[] {
+  if (!start || !end || start > end) return [];
+  const [sy, sm] = start.split('-').map(Number);
+  const [ey, em] = end.split('-').map(Number);
+  const months: string[] = [];
+  let y = sy;
+  let m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return months;
+}
+function monthBeforeDemo(month: string, count: number): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(y, m - 1 - count, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function formatMonthLabelDemo(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+route('GET', '/api/dashboard', ({ query }) => {
   const store = getDemoStore();
+  const periodMode = (query.get('periodMode') || 'month') as 'month' | 'range' | 'all';
+  const monthParam = query.get('month') || '';
+  const fromMonth = query.get('fromMonth') || '';
+  const toMonth = query.get('toMonth') || '';
+
   const employees = store.employees;
   const activeEmployees = employees.filter(e => e.isActive);
   const workers = activeEmployees.filter(e => e.employeeType === 'Worker');
@@ -60,9 +92,30 @@ route('GET', '/api/dashboard', () => {
   const expat = activeEmployees.filter(e => e.nationalityType === 'Expat');
 
   const payrolls = [...store.payrolls].sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth));
+  const allMonthsAsc = [...payrolls].map(p => p.payrollMonth).sort((a, b) => a.localeCompare(b));
   const latestPayroll = payrolls[0] || null;
-  const allFinalized = payrolls.filter(p => p.status === 'Finalized');
-  const allPayments = store.salaryPayments.filter(p => !p.isReversed);
+
+  let periodMonths: string[];
+  if (periodMode === 'month') {
+    periodMonths = payrolls.some(p => p.payrollMonth === monthParam) ? [monthParam] : [];
+  } else if (periodMode === 'range') {
+    periodMonths = payrolls.filter(p => p.payrollMonth >= fromMonth && p.payrollMonth <= toMonth).map(p => p.payrollMonth);
+  } else {
+    periodMonths = allMonthsAsc;
+  }
+  const periodMonthSet = new Set(periodMonths);
+
+  let periodLabel: string;
+  if (periodMode === 'month') {
+    periodLabel = monthParam ? formatMonthLabelDemo(monthParam) : 'No Period Selected';
+  } else if (periodMode === 'range') {
+    periodLabel = fromMonth && toMonth ? `${formatMonthLabelDemo(fromMonth)} – ${formatMonthLabelDemo(toMonth)}` : 'No Range Selected';
+  } else {
+    periodLabel = 'All Time';
+  }
+
+  const allFinalized = payrolls.filter(p => p.status === 'Finalized' && periodMonthSet.has(p.payrollMonth));
+  const allPayments = store.salaryPayments.filter(p => !p.isReversed && periodMonthSet.has(p.payrollMonth));
 
   let totalFinalizedNetSalary = 0;
   for (const p of allFinalized) {
@@ -76,23 +129,52 @@ route('GET', '/api/dashboard', () => {
   const totalActiveLoanPrincipal = roundOMR(activeLoans.reduce((s, l) => s + l.loanAmount, 0));
   const totalLoanRecovered = roundOMR(activeLoans.reduce((s, l) => s + (l.totalRecovered || 0), 0));
   const loanRecoveryPercentage = totalActiveLoanPrincipal > 0 ? roundOMR((totalLoanRecovered / totalActiveLoanPrincipal) * 100) : 0;
+  const periodRecovery = roundOMR(
+    store.loans.reduce((sum, l) => {
+      const recoveriesInPeriod = (l.recoveries || []).filter(r => periodMonthSet.has((r.recoveryDate || '').slice(0, 7)));
+      return sum + recoveriesInPeriod.reduce((s, r) => s + (r.recoveryAmount || 0), 0);
+    }, 0)
+  );
 
-  const totalWpsRecoverable = roundOMR(store.wpsRecords.reduce((s, w) => s + w.totalRecoverable, 0));
-  const totalWpsRecovered = roundOMR(store.wpsRecords.reduce((s, w) => s + w.totalRecovered, 0));
-  const totalWpsRemaining = roundOMR(store.wpsRecords.reduce((s, w) => s + w.remainingBalance, 0));
+  const wpsInScope = store.wpsRecords.filter(w => periodMonthSet.has((w.payrollMonth || (w as any).month || '') as string));
+  const totalWpsRecoverable = roundOMR(wpsInScope.reduce((s, w) => s + w.totalRecoverable, 0));
+  const totalWpsRecovered = roundOMR(wpsInScope.reduce((s, w) => s + w.totalRecovered, 0));
+  const totalWpsRemaining = roundOMR(wpsInScope.reduce((s, w) => s + w.remainingBalance, 0));
 
-  const latestFinalized = allFinalized[0] || null;
   const workforceCostByCategory = ['Staff', 'Worker'].map(type => {
-    const lines = (latestFinalized?.lines || []).filter(l => l.employeeType === type);
+    const lines = allFinalized.flatMap(p => p.lines || []).filter(l => l.employeeType === type);
     const totalNetSalary = roundOMR(lines.reduce((s, l) => s + l.netSalary, 0));
     return { name: type, count: lines.length, totalNetSalary, avgNetSalary: lines.length > 0 ? roundOMR(totalNetSalary / lines.length) : 0 };
   });
+  const workforceCostSourceMonth = allFinalized.length > 0
+    ? [...allFinalized].sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth))[0].payrollMonth
+    : null;
 
-  const monthlyTrends = payrolls.slice(0, 6).reverse().map(p => {
-    const paymentsForMonth = allPayments.filter(tx => tx.payrollMonth === p.payrollMonth);
+  let trendMonths: string[];
+  if (periodMode === 'month' && monthParam) {
+    trendMonths = monthRangeDemo(monthBeforeDemo(monthParam, 5), monthParam);
+  } else if (periodMode === 'range' && fromMonth && toMonth) {
+    trendMonths = monthRangeDemo(fromMonth, toMonth);
+  } else if (allMonthsAsc.length > 0) {
+    trendMonths = monthRangeDemo(allMonthsAsc[0], allMonthsAsc[allMonthsAsc.length - 1]);
+  } else {
+    trendMonths = [];
+  }
+  const allPaymentsForTrends = store.salaryPayments.filter(p => !p.isReversed);
+  const monthlyTrends = trendMonths.map(month => {
+    const p = payrolls.find(pr => pr.payrollMonth === month);
+    const paymentsForMonth = allPaymentsForTrends.filter(tx => tx.payrollMonth === month);
     const paidAmount = roundOMR(paymentsForMonth.reduce((s, tx) => s + (tx.payAmount || 0), 0));
-    return { month: p.payrollMonth, grossSalary: roundOMR(p.totalGrossSalary), netSalary: roundOMR(p.totalNetSalary), paidSalary: paidAmount, status: p.status };
+    return { month, grossSalary: p ? roundOMR(p.totalGrossSalary) : 0, netSalary: p ? roundOMR(p.totalNetSalary) : 0, paidSalary: paidAmount, status: p ? p.status : 'No Payroll Run' };
   });
+
+  let currentPayrollSource = latestPayroll;
+  if (periodMode === 'month') {
+    currentPayrollSource = monthParam ? (payrolls.find(p => p.payrollMonth === monthParam) || null) : null;
+  } else if (periodMode === 'range' && periodMonths.length > 0) {
+    const lastMonthInScope = [...periodMonths].sort((a, b) => b.localeCompare(a))[0];
+    currentPayrollSource = payrolls.find(p => p.payrollMonth === lastMonthInScope) || null;
+  }
 
   return {
     counts: {
@@ -100,17 +182,17 @@ route('GET', '/api/dashboard', () => {
       workers: workers.length, staff: staff.length, omani: omani.length, expat: expat.length,
     },
     currentPayroll: {
-      month: latestPayroll ? latestPayroll.payrollMonth : new Date().toISOString().slice(0, 7),
-      status: latestPayroll ? latestPayroll.status : 'No Payroll Run',
-      grossSalary: latestPayroll ? roundOMR(latestPayroll.totalGrossSalary) : 0,
-      netSalary: latestPayroll ? roundOMR(latestPayroll.totalNetSalary) : 0,
-      wpsSalary: latestPayroll ? roundOMR(latestPayroll.totalWpsSalary) : 0,
-      recoverableSalary: latestPayroll ? roundOMR(latestPayroll.totalRecoverableSalary) : 0,
+      month: currentPayrollSource ? currentPayrollSource.payrollMonth : (monthParam || new Date().toISOString().slice(0, 7)),
+      status: currentPayrollSource ? currentPayrollSource.status : 'No Payroll Run',
+      grossSalary: currentPayrollSource ? roundOMR(currentPayrollSource.totalGrossSalary) : 0,
+      netSalary: currentPayrollSource ? roundOMR(currentPayrollSource.totalNetSalary) : 0,
+      wpsSalary: currentPayrollSource ? roundOMR(currentPayrollSource.totalWpsSalary) : 0,
+      recoverableSalary: currentPayrollSource ? roundOMR(currentPayrollSource.totalRecoverableSalary) : 0,
     },
     finances: { totalFinalizedNetSalary, totalActuallyPaid, totalOutstandingSalary, totalOutstandingLoans, totalWpsRecoverable, totalWpsRecovered, totalWpsRemaining },
-    loanAnalytics: { totalPrincipal: totalActiveLoanPrincipal, totalRecovered: totalLoanRecovered, outstandingBalance: totalOutstandingLoans, activeLoanCount: activeLoans.length, recoveryPercentage: loanRecoveryPercentage, monthlyRecovery: 0 },
+    loanAnalytics: { totalPrincipal: totalActiveLoanPrincipal, totalRecovered: totalLoanRecovered, outstandingBalance: totalOutstandingLoans, activeLoanCount: activeLoans.length, recoveryPercentage: loanRecoveryPercentage, monthlyRecovery: periodRecovery },
     workforceCostByCategory,
-    workforceCostSourceMonth: latestFinalized?.payrollMonth || null,
+    workforceCostSourceMonth,
     distribution: {
       employeeTypes: [{ name: 'Staff', value: staff.length }, { name: 'Workers', value: workers.length }],
       nationalities: [{ name: 'Omani', value: omani.length }, { name: 'Expat', value: expat.length }],
@@ -118,6 +200,9 @@ route('GET', '/api/dashboard', () => {
       wpsStatus: [{ name: 'Recovered', value: totalWpsRecovered }, { name: 'Pending Recovery', value: totalWpsRemaining }],
     },
     monthlyTrends,
+    periodMode,
+    periodLabel,
+    periodMonths,
   };
 });
 

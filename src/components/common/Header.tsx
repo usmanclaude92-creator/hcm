@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { apiRequest } from '../../api/client';
 import {
   LogOut,
   User,
   ShieldCheck,
-  Database,
   Building2,
   Bell,
   CheckCircle2,
@@ -13,28 +11,12 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  currentView: string;
   onToggleSidebar?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentView, onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { user, logout, isAdmin, isDemoMode } = useAuth();
-  const [systemStatus, setSystemStatus] = useState<any>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  useEffect(() => {
-    async function loadStatus() {
-      try {
-        const data = await apiRequest('/api/system/status');
-        setSystemStatus(data);
-      } catch {
-        // Silent catch for system status
-      }
-    }
-    loadStatus();
-    const interval = setInterval(loadStatus, 45000);
-    return () => clearInterval(interval);
-  }, []);
 
   const getRoleBadgeColor = (role?: string) => {
     switch (role) {
@@ -49,23 +31,6 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onToggleSidebar }) 
     }
   };
 
-  const getPageTitle = (view: string) => {
-    switch (view) {
-      case 'dashboard': return 'Executive Dashboard';
-      case 'employees': return 'Employee Master & Profile Management';
-      case 'projects': return 'Project Master Management';
-      case 'attendance': return 'Monthly Multi-Project Attendance';
-      case 'payroll': return 'Monthly Payroll & Calculation Engine';
-      case 'payments': return 'Salary Payments & Disbursal Ledger';
-      case 'wps': return 'WPS Recovery Management';
-      case 'loans': return 'Employee Loan Management';
-      case 'reports': return 'Financial & Operational Reports';
-      case 'audit': return 'Audit Logs & Governance Trail';
-      case 'users': return 'User & Access Role Administration';
-      default: return 'Payroll Management';
-    }
-  };
-
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between shadow-xs">
       <div className="flex items-center gap-3">
@@ -76,24 +41,9 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onToggleSidebar }) 
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900 tracking-tight flex items-center gap-2">
-            {getPageTitle(currentView)}
-          </h1>
-          <p className="text-xs text-slate-500 hidden sm:block">
-            Currency: <span className="font-semibold text-slate-700">OMR (3-Decimals)</span> • Separation: Payroll vs. Disbursals vs. WPS vs. Loans
-          </p>
-        </div>
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Database & Cloud Ready Status Badge */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <Database className="w-3.5 h-3.5 text-slate-400" />
-          <span>{systemStatus?.databaseEngine?.includes('PostgreSQL') ? 'PostgreSQL Cloud DB' : 'Persistent Storage Engine'}</span>
-        </div>
-
         {/* User Role Badge */}
         <div className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${getRoleBadgeColor(user?.role)}`}>
           <ShieldCheck className="w-3.5 h-3.5" />

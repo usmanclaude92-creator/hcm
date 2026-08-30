@@ -64,9 +64,6 @@ export const AuditLogsView: React.FC = () => {
           <History className="w-5 h-5 text-purple-600" />
           Audit Trail & Governance Logs
         </h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Immutable audit record of all employee modifications, payroll recalculations, and financial disbursals
-        </p>
       </div>
 
       {error && (

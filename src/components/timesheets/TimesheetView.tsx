@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { apiRequest, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ import {
   Calendar,
   ThumbsUp,
   ThumbsDown,
+  Search,
 } from 'lucide-react';
 import type { Project, Employee, TimesheetEntry } from '../../types/index';
 
@@ -24,10 +25,14 @@ export const TimesheetView: React.FC = () => {
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [employeeAnalytics, setEmployeeAnalytics] = useState<any[]>([]);
-  const [projectAnalytics, setProjectAnalytics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [projectFilter, setProjectFilter] = useState('ALL');
+  const [companyFilter, setCompanyFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addForm, setAddForm] = useState({ employeeId: '', date: new Date().toISOString().split('T')[0], project: '', taskActivity: '', normalHours: '8', overtimeHours: '0', remarks: '' });
@@ -46,18 +51,14 @@ export const TimesheetView: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [entryData, empData, projData, empAnalytics, projAnalytics] = await Promise.all([
+      const [entryData, empData, projData] = await Promise.all([
         apiRequest(`/api/timesheets?month=${month}`),
         apiRequest('/api/employees'),
         apiRequest('/api/projects'),
-        apiRequest(`/api/timesheets/analytics/employee?month=${month}`),
-        apiRequest(`/api/timesheets/analytics/project?month=${month}`),
       ]);
       setEntries(entryData || []);
       setEmployees((empData.employees || empData) || []);
       setAllProjects((projData || []).filter((p: Project) => p.status === 'Active'));
-      setEmployeeAnalytics(empAnalytics || []);
-      setProjectAnalytics(projAnalytics || []);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch timesheets');
     } finally {
@@ -167,6 +168,48 @@ export const TimesheetView: React.FC = () => {
     }
   };
 
+  // Timesheet entries only carry `company` themselves -- Pay By/WPS/Type/Nationality
+  // live on the Employee Master record, so sorting by those needs a lookup by employeeId.
+  const employeesById = useMemo(() => {
+    const map = new Map<string, Employee>();
+    employees.forEach(e => map.set(e.employeeId, e));
+    return map;
+  }, [employees]);
+
+  const filteredEntries = useMemo(() => {
+    const filtered = entries.filter(entry => {
+      if (search) {
+        const q = search.trim().toLowerCase();
+        const matches =
+          entry.employeeId.toLowerCase().includes(q) ||
+          (entry.employeeName || '').toLowerCase().includes(q) ||
+          (entry.taskActivity || '').toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      if (projectFilter !== 'ALL' && entry.projectCode !== projectFilter) return false;
+      if (companyFilter !== 'ALL' && entry.company !== companyFilter) return false;
+      if (statusFilter !== 'ALL' && entry.approvalStatus !== statusFilter) return false;
+      return true;
+    });
+
+    // Row order: Company -> Pay By -> WPS -> Project -> Type -> Nationality (Omani
+    // ranked first, per explicit product decision -- everything else in this cascade
+    // is plain ascending).
+    const nationalityRank = (n?: string) => (n === 'Omani' ? 0 : 1);
+    return filtered.sort((a, b) => {
+      const empA = employeesById.get(a.employeeId);
+      const empB = employeesById.get(b.employeeId);
+      return (
+        (a.company || '').localeCompare(b.company || '') ||
+        (empA?.salaryPaidBy || '').localeCompare(empB?.salaryPaidBy || '') ||
+        (empA?.wpsEmployee || '').localeCompare(empB?.wpsEmployee || '') ||
+        a.projectCode.localeCompare(b.projectCode) ||
+        (empA?.employeeType || '').localeCompare(empB?.employeeType || '') ||
+        (nationalityRank(empA?.nationalityType) - nationalityRank(empB?.nationalityType))
+      );
+    });
+  }, [entries, search, projectFilter, companyFilter, statusFilter, employeesById]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -175,9 +218,6 @@ export const TimesheetView: React.FC = () => {
             <Clock className="w-5 h-5 text-indigo-600" />
             Timesheet Management
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Daily / per-project time recording • Coexists with monthly Attendance • Does not affect payroll calculation
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-3 py-1.5 shadow-2xs">
@@ -208,60 +248,55 @@ export const TimesheetView: React.FC = () => {
         </div>
       )}
 
-      {/* Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-          <h3 className="text-xs font-bold text-slate-800 mb-3">Employee Summary</h3>
-          <div className="overflow-x-auto max-h-64 overflow-y-auto">
-            <table className="w-full text-left text-[11px]">
-              <thead className="text-slate-500 font-semibold sticky top-0 bg-white">
-                <tr>
-                  <th className="px-2 py-1.5">Employee</th>
-                  <th className="px-2 py-1.5 text-right">Hours</th>
-                  <th className="px-2 py-1.5 text-right">OT</th>
-                  <th className="px-2 py-1.5 text-right">Projects</th>
-                  <th className="px-2 py-1.5 text-right">Approved</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {employeeAnalytics.map(a => (
-                  <tr key={a.employeeId} className={a.missingEntries ? 'bg-rose-50/40' : ''}>
-                    <td className="px-2 py-1.5"><span className="font-mono font-bold text-blue-600">{a.employeeId}</span> {a.employeeName}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">{a.totalHours}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-amber-600">{a.overtimeHours}</td>
-                    <td className="px-2 py-1.5 text-right">{a.projectCount}</td>
-                    <td className="px-2 py-1.5 text-right">{a.approvedEntries}/{a.entryCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Filter Toolbar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search by employee or task..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-colors"
+            />
           </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-          <h3 className="text-xs font-bold text-slate-800 mb-3">Project Summary</h3>
-          <div className="overflow-x-auto max-h-64 overflow-y-auto">
-            <table className="w-full text-left text-[11px]">
-              <thead className="text-slate-500 font-semibold sticky top-0 bg-white">
-                <tr>
-                  <th className="px-2 py-1.5">Project</th>
-                  <th className="px-2 py-1.5 text-right">Hours</th>
-                  <th className="px-2 py-1.5 text-right">OT</th>
-                  <th className="px-2 py-1.5 text-right">Employees</th>
-                  <th className="px-2 py-1.5 text-right">Labor Volume</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {projectAnalytics.map(p => (
-                  <tr key={p.projectCode}>
-                    <td className="px-2 py-1.5"><span className="font-mono font-bold text-indigo-600">{p.projectCode}</span> {p.projectName}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">{p.totalHours}</td>
-                    <td className="px-2 py-1.5 text-right font-mono text-amber-600">{p.overtimeHours}</td>
-                    <td className="px-2 py-1.5 text-right">{p.employeeCount}</td>
-                    <td className="px-2 py-1.5 text-right font-mono">{p.laborVolume}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div>
+            <select
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
+              className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Projects</option>
+              {allProjects.map(p => <option key={p.id} value={p.projectCode}>{p.projectCode} - {p.projectName}</option>)}
+            </select>
+          </div>
+          <div>
+            <select
+              value={companyFilter}
+              onChange={(e) => setCompanyFilter(e.target.value)}
+              className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Companies</option>
+              <option value="DGO">DGO</option>
+              <option value="SMI">SMI</option>
+              <option value="NC">NC</option>
+              <option value="Supplier">Supplier</option>
+              <option value="Azad">Azad</option>
+            </select>
+          </div>
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="Submitted">Submitted</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
           </div>
         </div>
       </div>
@@ -274,6 +309,8 @@ export const TimesheetView: React.FC = () => {
               <tr>
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3">Date</th>
+                <th className="px-3 py-3">Company</th>
+                <th className="px-3 py-3">Pay By</th>
                 <th className="px-3 py-3">Project</th>
                 <th className="px-3 py-3">Task/Activity</th>
                 <th className="px-3 py-3 text-right">Normal</th>
@@ -284,17 +321,23 @@ export const TimesheetView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {loading ? (
-                <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">Loading timesheet entries...</td></tr>
-              ) : entries.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No timesheet entries for {month} yet.</td></tr>
+                <tr><td colSpan={10} className="px-6 py-10 text-center text-slate-400">Loading timesheet entries...</td></tr>
+              ) : filteredEntries.length === 0 ? (
+                <tr><td colSpan={10} className="px-6 py-10 text-center text-slate-400">
+                  {entries.length === 0 ? `No timesheet entries for ${month} yet.` : 'No timesheet entries matching the current filters.'}
+                </td></tr>
               ) : (
-                entries.map(entry => (
+                filteredEntries.map(entry => {
+                  const emp = employeesById.get(entry.employeeId);
+                  return (
                   <tr key={entry.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
                       <span className="font-mono font-bold text-blue-600 block">{entry.employeeId}</span>
                       <span className="font-semibold text-slate-900">{entry.employeeName}</span>
                     </td>
                     <td className="px-3 py-3">{formatDate(entry.date)}</td>
+                    <td className="px-3 py-3 font-medium text-slate-600">{entry.company}</td>
+                    <td className="px-3 py-3 text-slate-600">{emp?.salaryPaidBy || '—'}</td>
                     <td className="px-3 py-3">
                       <span className="font-mono font-semibold text-indigo-700">{entry.projectCode}</span>
                     </td>
@@ -330,7 +373,8 @@ export const TimesheetView: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

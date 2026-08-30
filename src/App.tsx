@@ -5,7 +5,6 @@ import { DemoBanner } from './demo/DemoBanner';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
-import { WorkforceDeploymentView } from './components/workforce/WorkforceDeploymentView';
 import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
 import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
@@ -45,8 +44,6 @@ const MainApp: React.FC = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView onNavigate={(view) => setCurrentView(view)} />;
-      case 'workforce-deployment':
-        return <WorkforceDeploymentView />;
       case 'employees':
         return <EmployeeMasterView />;
       case 'projects':
@@ -94,7 +91,6 @@ const MainApp: React.FC = () => {
       <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
         {isDemoMode && <DemoBanner />}
         <Header
-          currentView={currentView}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
         <main className="flex-1 overflow-y-auto px-[2%] py-6 print:p-0">

@@ -136,9 +136,6 @@ export const ProjectMasterView: React.FC = () => {
             <FolderKanban className="w-5 h-5 text-indigo-600" />
             Project Master Directory
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configure site project codes for multi-project employee attendance allocation
-          </p>
         </div>
 
         {canWrite && (

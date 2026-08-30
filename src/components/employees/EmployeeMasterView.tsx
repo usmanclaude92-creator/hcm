@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { apiRequest, formatOMR, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -247,6 +247,22 @@ export const EmployeeMasterView: React.FC = () => {
     setUpdateExisting(false);
   };
 
+  // Row order: Company -> Pay By -> WPS -> Type -> Nationality (Omani ranked first) ->
+  // Employee Name (final tie-breaker) -- everything else in this cascade is plain ascending.
+  const sortedEmployees = useMemo(() => {
+    const nationalityRank = (n: string) => (n === 'Omani' ? 0 : 1);
+    return [...employees].sort((a, b) => {
+      return (
+        a.employeeCompany.localeCompare(b.employeeCompany) ||
+        a.salaryPaidBy.localeCompare(b.salaryPaidBy) ||
+        a.wpsEmployee.localeCompare(b.wpsEmployee) ||
+        a.employeeType.localeCompare(b.employeeType) ||
+        (nationalityRank(a.nationalityType) - nationalityRank(b.nationalityType)) ||
+        a.employeeName.localeCompare(b.employeeName)
+      );
+    });
+  }, [employees]);
+
   const handleDownloadErrorReport = () => {
     if (!importPreview?.rows) return;
     const errorMap = new Map<string, string>();
@@ -288,9 +304,6 @@ export const EmployeeMasterView: React.FC = () => {
             <Users className="w-5 h-5 text-blue-600" />
             Employee Master Directory
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Normalized alphanumeric IDs • Dual worker/staff wages • WPS configurations • Designation & salary histories
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -410,34 +423,44 @@ export const EmployeeMasterView: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3">Employee ID</th>
-                <th className="px-4 py-3">Employee Name</th>
-                <th className="px-3 py-3">Type</th>
-                <th className="px-3 py-3">Nationality</th>
+                <th className="px-3 py-3">Sr#</th>
                 <th className="px-3 py-3">Company</th>
                 <th className="px-3 py-3">Salary Paid By</th>
+                <th className="px-3 py-3 text-center">WPS</th>
+                <th className="px-3 py-3">Type</th>
+                <th className="px-3 py-3">Nationality</th>
+                <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3">Designation</th>
                 <th className="px-4 py-3 text-right">Monthly Salary / Rate</th>
-                <th className="px-3 py-3 text-center">WPS</th>
                 <th className="px-3 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {employees.length === 0 ? (
+              {sortedEmployees.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-10 text-center text-slate-400">
                     No employees matching the current filters found.
                   </td>
                 </tr>
               ) : (
-                employees.map((emp) => (
+                sortedEmployees.map((emp, idx) => (
                   <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-4 py-3 font-mono font-bold text-blue-600">
-                      {emp.employeeId}
+                    <td className="px-3 py-3 font-mono text-slate-400">
+                      {idx + 1}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">
-                      {emp.employeeName}
+                    <td className="px-3 py-3 font-medium text-slate-600">
+                      {emp.employeeCompany}
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {emp.salaryPaidBy}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                        emp.wpsEmployee === 'Yes' ? 'text-emerald-600' : 'text-slate-400'
+                      }`}>
+                        {emp.wpsEmployee === 'Yes' ? 'Yes' : 'No'}
+                      </span>
                     </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -453,11 +476,9 @@ export const EmployeeMasterView: React.FC = () => {
                         {emp.nationalityType}
                       </span>
                     </td>
-                    <td className="px-3 py-3 font-medium text-slate-600">
-                      {emp.employeeCompany}
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      {emp.salaryPaidBy}
+                    <td className="px-4 py-3">
+                      <span className="font-mono font-bold text-blue-600 block">{emp.employeeId}</span>
+                      <span className="font-semibold text-slate-900">{emp.employeeName}</span>
                     </td>
                     <td className="px-3 py-3 text-slate-800">
                       {emp.designation}
@@ -466,13 +487,6 @@ export const EmployeeMasterView: React.FC = () => {
                       OMR {formatOMR(emp.monthlySalaryOrRate)}
                       <span className="block text-[10px] font-normal text-slate-400">
                         {emp.employeeType === 'Worker' ? 'per hour' : 'fixed/mo'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                        emp.wpsEmployee === 'Yes' ? 'text-emerald-600' : 'text-slate-400'
-                      }`}>
-                        {emp.wpsEmployee === 'Yes' ? 'Yes' : 'No'}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-center">

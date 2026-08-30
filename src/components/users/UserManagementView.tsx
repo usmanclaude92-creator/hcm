@@ -156,9 +156,6 @@ export const UserManagementView: React.FC = () => {
             <ShieldCheck className="w-5 h-5 text-purple-600" />
             User & Role Administration
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage authorized credentials and assign RBAC roles (Administrator, Payroll Manager, Payroll User, Viewer)
-          </p>
         </div>
 
         <button

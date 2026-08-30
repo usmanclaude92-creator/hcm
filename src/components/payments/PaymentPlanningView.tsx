@@ -270,9 +270,6 @@ export const PaymentPlanningView: React.FC = () => {
             <ClipboardList className="w-5 h-5 text-indigo-600" />
             Payment Planning Sheet
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Intended disbursal planning only • Saving a plan never creates a payment or changes Total Paid / Outstanding
-          </p>
         </div>
         <div className="flex items-center gap-2.5">
           <button
