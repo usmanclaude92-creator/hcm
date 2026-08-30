@@ -65,8 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'FINANCIAL & PAYROLL',
       items: [
-        { id: 'payroll', label: 'Monthly Payroll', icon: Calculator, badge: 'Finalize & Revise' },
-        { id: 'payments', label: 'Salary Payments', icon: CreditCard, badge: 'Receipts', permission: 'salary_payment.view' },
+        { id: 'payroll', label: 'Monthly Payroll', icon: Calculator },
+        { id: 'payments', label: 'Salary Payments', icon: CreditCard, permission: 'salary_payment.view' },
         { id: 'payment-planning', label: 'Payment Planning', icon: ClipboardList, permission: 'payment_planning.view' },
         { id: 'wps', label: 'WPS Recovery', icon: RefreshCw },
         { id: 'loans', label: 'Loan Management', icon: Landmark },
