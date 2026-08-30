@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Building2, Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database, Rocket } from 'lucide-react';
+import { Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database, Rocket } from 'lucide-react';
 import type { UserRole } from '../../types/index';
 
 // Static class strings, not template-literal-composed -- Tailwind's JIT scanner only
@@ -49,15 +49,18 @@ export const LoginView: React.FC = () => {
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25">
-            <Building2 className="w-7 h-7" />
-          </div>
+          <img src="/logo.png" alt="HCMS Logo" className="w-32 h-32 rounded-2xl object-cover shadow-lg shadow-blue-500/25" />
         </div>
-        <h2 className="text-center text-2xl font-bold tracking-tight text-white">
-          Employee & Payroll Management
+        <h2 className="text-center text-2xl font-extrabold tracking-wide text-balance bg-gradient-to-r from-blue-400 via-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
+          Human Capital Management System
         </h2>
-        <p className="mt-1.5 text-center text-xs text-slate-400">
-          Enterprise Cloud Payroll System • OMR 3-Decimal Accounting
+        <p className="mt-1.5 text-center text-2xl text-slate-400 italic">
+          by Artify Solutions
+        </p>
+        <p className="mt-0.5 text-center text-xs">
+          <a href="https://www.artifysols.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors">
+            www.artifysols.com
+          </a>
         </p>
       </div>
 
