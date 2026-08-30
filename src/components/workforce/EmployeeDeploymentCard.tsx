@@ -47,7 +47,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({ employeeId, employeeNa
           <span className="text-slate-400 italic truncate">Not Tracked</span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-500 font-medium shrink-0">OT:</span>
+          <span className="text-slate-500 font-medium shrink-0">Over-time:</span>
           <span className={`font-mono font-bold ${overtimeHours > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
             {overtimeHours.toFixed(1)} Hrs
           </span>
