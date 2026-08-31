@@ -20,6 +20,7 @@ import { ReportsView } from './components/reports/ReportsView';
 import { SalaryPayrollReportView } from './components/reports/SalaryPayrollReportView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
 import { UserManagementView } from './components/users/UserManagementView';
+import { ComplianceDashboardView } from './components/compliance/ComplianceDashboardView';
 
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading, isDemoMode } = useAuth();
@@ -47,6 +48,8 @@ const MainApp: React.FC = () => {
         return <DashboardView onNavigate={(view) => setCurrentView(view)} />;
       case 'employees':
         return <EmployeeMasterView />;
+      case 'compliance':
+        return <ComplianceDashboardView />;
       case 'projects':
         return <ProjectMasterView />;
       case 'attendance':

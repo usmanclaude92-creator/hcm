@@ -26,6 +26,14 @@ import type {
   LoanRecoveryTransaction,
   LoanStatus,
   AuditLog,
+  EmployeeCivilId,
+  EmployeeDrivingLicence,
+  EmployeeVisa,
+  EmployeeGovernmentDocument,
+  EmployeePersonalDetails,
+  DocumentExpiryStatus,
+  OverallComplianceStatus,
+  DrivingLicenceCategory,
 } from '../src/types/index';
 
 // 3-decimal safe monetary arithmetic helper
@@ -39,6 +47,104 @@ export function roundOMR(amount: number): number {
 export function normalizeEmployeeId(id: string): string {
   if (!id) return '';
   return id.trim().toUpperCase();
+}
+
+// Deterministic expiry status calculation based on configurable thresholds
+// >60 days: Valid
+// 31-60 days: Expiring Soon
+// 0-30 days: Urgent
+// <0 days: Expired
+export function calculateExpiryStatus(expiryDateStr: string | null | undefined): DocumentExpiryStatus {
+  if (!expiryDateStr) return 'Missing';
+  const exp = new Date(expiryDateStr);
+  if (isNaN(exp.getTime())) return 'Missing';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  exp.setHours(0, 0, 0, 0);
+
+  const diffTime = exp.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return 'Expired';
+  if (diffDays <= 30) return 'Urgent';
+  if (diffDays <= 60) return 'Expiring Soon';
+  return 'Valid';
+}
+
+// Sensitive document number masking (leaves last 4 visible, masks prefix)
+export function maskSensitiveId(val: string | null | undefined): string {
+  if (!val) return '';
+  const trimmed = val.trim();
+  if (trimmed.length <= 4) return '••••';
+  const visible = trimmed.slice(-4);
+  return '•'.repeat(Math.max(4, trimmed.length - 4)) + visible;
+}
+
+// Compare designation vs trade on visa for discrepancy warnings
+export function checkTradeDiscrepancy(
+  designation?: string | null,
+  tradeOnVisa?: string | null
+): { hasWarning: boolean; designation: string; tradeOnVisa: string; message: string } {
+  const des = (designation || '').trim();
+  const trade = (tradeOnVisa || '').trim();
+  if (!des || !trade) {
+    return { hasWarning: false, designation: des, tradeOnVisa: trade, message: '' };
+  }
+  const dLow = des.toLowerCase();
+  const tLow = trade.toLowerCase();
+  const isMatch = dLow === tLow || dLow.includes(tLow) || tLow.includes(dLow);
+
+  if (!isMatch) {
+    return {
+      hasWarning: true,
+      designation: des,
+      tradeOnVisa: trade,
+      message: `HR REVIEW: Internal Designation (${des}) and Trade on Visa (${trade}) differ.`,
+    };
+  }
+  return { hasWarning: false, designation: des, tradeOnVisa: trade, message: '' };
+}
+
+// Calculates overall deterministic compliance status
+export function calculateOverallCompliance(
+  employee: Employee,
+  civilId?: EmployeeCivilId | null,
+  visa?: EmployeeVisa | null,
+  drivingLicence?: EmployeeDrivingLicence | null,
+  govtDocs: EmployeeGovernmentDocument[] = []
+): OverallComplianceStatus {
+  // If no civil id is recorded for an active employee
+  if (!civilId) return 'Critical / Expired';
+  const civilStatus = calculateExpiryStatus(civilId.expiryDate);
+  if (civilStatus === 'Expired') return 'Critical / Expired';
+
+  // For Expat employees, visa is mandatory
+  if (employee.nationalityType === 'Expat') {
+    if (!visa) return 'Critical / Expired';
+    const visaStatus = calculateExpiryStatus(visa.expiryDate);
+    if (visaStatus === 'Expired') return 'Critical / Expired';
+    if (visaStatus === 'Urgent' || visaStatus === 'Expiring Soon') return 'Attention Required';
+  }
+
+  // Check passport from government documents
+  const passport = govtDocs.find((d) => d.documentType === 'Passport' && d.isCurrent);
+  if (passport) {
+    const passStatus = calculateExpiryStatus(passport.expiryDate);
+    if (passStatus === 'Expired') return 'Critical / Expired';
+    if (passStatus === 'Urgent' || passStatus === 'Expiring Soon') return 'Attention Required';
+  }
+
+  // Check driving licence if present
+  if (drivingLicence && drivingLicence.isCurrent) {
+    const dlStatus = calculateExpiryStatus(drivingLicence.expiryDate);
+    if (dlStatus === 'Expired') return 'Attention Required';
+    if (dlStatus === 'Urgent' || dlStatus === 'Expiring Soon') return 'Attention Required';
+  }
+
+  if (civilStatus === 'Urgent' || civilStatus === 'Expiring Soon') return 'Attention Required';
+
+  return 'Compliant';
 }
 
 // Thrown by persist() when the app_state row's version doesn't match what was last
@@ -73,6 +179,13 @@ interface DatabaseSchema {
   loans: EmployeeLoan[];
   loanRecoveries: LoanRecoveryTransaction[];
   auditLogs: AuditLog[];
+  // Oman HR Compliance Architecture
+  civilIds: EmployeeCivilId[];
+  drivingLicences: EmployeeDrivingLicence[];
+  visas: EmployeeVisa[];
+  governmentDocuments: EmployeeGovernmentDocument[];
+  personalDetails: Record<string, EmployeePersonalDetails>;
+  drivingLicenceCategories: string[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -108,6 +221,20 @@ class DatabaseManager {
     loans: [],
     loanRecoveries: [],
     auditLogs: [],
+    civilIds: [],
+    drivingLicences: [],
+    visas: [],
+    governmentDocuments: [],
+    personalDetails: {},
+    drivingLicenceCategories: [
+      'Light Vehicle',
+      'Heavy Vehicle',
+      'Motorcycle',
+      'Bus',
+      'Truck',
+      'Heavy Equipment',
+      'Other',
+    ],
   };
 
   private pgPool: pg.Pool | null = null;
@@ -241,6 +368,98 @@ class DatabaseManager {
           ip_address VARCHAR(64),
           timestamp TIMESTAMPTZ DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS employee_civil_ids (
+          id VARCHAR(64) PRIMARY KEY,
+          employee_id VARCHAR(64) NOT NULL,
+          civil_id_number VARCHAR(128) NOT NULL,
+          issue_date VARCHAR(32) NOT NULL,
+          expiry_date VARCHAR(32) NOT NULL,
+          status VARCHAR(32) NOT NULL,
+          issuing_authority VARCHAR(128) NOT NULL,
+          country VARCHAR(64) NOT NULL,
+          document_attachment TEXT,
+          file_name VARCHAR(256),
+          storage_path TEXT,
+          remarks TEXT,
+          is_current BOOLEAN DEFAULT TRUE,
+          replaced_date VARCHAR(32),
+          replace_reason TEXT,
+          created_by VARCHAR(64),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_driving_licences (
+          id VARCHAR(64) PRIMARY KEY,
+          employee_id VARCHAR(64) NOT NULL,
+          licence_number VARCHAR(128) NOT NULL,
+          category VARCHAR(64) NOT NULL,
+          issuing_country VARCHAR(64) NOT NULL,
+          issuing_authority VARCHAR(128) NOT NULL,
+          vehicle_class VARCHAR(64),
+          restrictions TEXT,
+          issue_date VARCHAR(32) NOT NULL,
+          expiry_date VARCHAR(32) NOT NULL,
+          status VARCHAR(32) NOT NULL,
+          document_attachment TEXT,
+          file_name VARCHAR(256),
+          storage_path TEXT,
+          remarks TEXT,
+          is_current BOOLEAN DEFAULT TRUE,
+          previous_licence_id VARCHAR(64),
+          renewal_date VARCHAR(32),
+          created_by VARCHAR(64),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_visas (
+          id VARCHAR(64) PRIMARY KEY,
+          employee_id VARCHAR(64) NOT NULL,
+          visa_number VARCHAR(128) NOT NULL,
+          trade_on_visa VARCHAR(128) NOT NULL,
+          visa_profession_code VARCHAR(64),
+          visa_type VARCHAR(64) NOT NULL,
+          issue_date VARCHAR(32) NOT NULL,
+          expiry_date VARCHAR(32) NOT NULL,
+          sponsor VARCHAR(128) NOT NULL,
+          sponsorship_type VARCHAR(64),
+          issuing_authority VARCHAR(128) NOT NULL,
+          country VARCHAR(64) NOT NULL,
+          status VARCHAR(32) NOT NULL,
+          document_attachment TEXT,
+          file_name VARCHAR(256),
+          storage_path TEXT,
+          remarks TEXT,
+          is_current BOOLEAN DEFAULT TRUE,
+          effective_from VARCHAR(32) NOT NULL,
+          effective_to VARCHAR(32),
+          reason_for_change TEXT,
+          created_by VARCHAR(64),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS employee_government_documents (
+          id VARCHAR(64) PRIMARY KEY,
+          employee_id VARCHAR(64) NOT NULL,
+          document_type VARCHAR(64) NOT NULL,
+          document_number VARCHAR(128) NOT NULL,
+          issue_date VARCHAR(32) NOT NULL,
+          expiry_date VARCHAR(32) NOT NULL,
+          issuing_authority VARCHAR(128),
+          country VARCHAR(64),
+          status VARCHAR(32) NOT NULL,
+          document_attachment TEXT,
+          file_name VARCHAR(256),
+          storage_path TEXT,
+          remarks TEXT,
+          is_current BOOLEAN DEFAULT TRUE,
+          created_by VARCHAR(64),
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
       `);
       console.log('PostgreSQL schema verified and ready.');
     } catch (e) {
@@ -273,6 +492,20 @@ class DatabaseManager {
       loans: parsed.loans || [],
       loanRecoveries: parsed.loanRecoveries || [],
       auditLogs: parsed.auditLogs || [],
+      civilIds: parsed.civilIds || [],
+      drivingLicences: parsed.drivingLicences || [],
+      visas: parsed.visas || [],
+      governmentDocuments: parsed.governmentDocuments || [],
+      personalDetails: parsed.personalDetails || {},
+      drivingLicenceCategories: parsed.drivingLicenceCategories || [
+        'Light Vehicle',
+        'Heavy Vehicle',
+        'Motorcycle',
+        'Bus',
+        'Truck',
+        'Heavy Equipment',
+        'Other',
+      ],
     };
   }
 
@@ -390,6 +623,10 @@ class DatabaseManager {
         wpsRecoveries: this.inMemoryData.wpsRecoveries.length,
         loans: this.inMemoryData.loans.length,
         auditLogs: this.inMemoryData.auditLogs.length,
+        civilIds: this.inMemoryData.civilIds?.length || 0,
+        drivingLicences: this.inMemoryData.drivingLicences?.length || 0,
+        visas: this.inMemoryData.visas?.length || 0,
+        governmentDocuments: this.inMemoryData.governmentDocuments?.length || 0,
       }
     };
   }
@@ -1006,6 +1243,381 @@ class DatabaseManager {
       }
     ];
 
+    const initialCivilIds: EmployeeCivilId[] = [
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP001',
+        civilIdNumber: '10293847',
+        issueDate: '2023-01-10',
+        expiryDate: '2028-01-10',
+        status: 'Valid',
+        issuingAuthority: 'Royal Oman Police (ROP)',
+        country: 'Oman',
+        documentAttachment: 'civil_id_ahmed.pdf',
+        fileName: 'civil_id_ahmed.pdf',
+        storagePath: '/documents/civil_id_ahmed.pdf',
+        remarks: 'Omani National Smart Civil ID Card',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP002',
+        civilIdNumber: '83726194',
+        issueDate: '2024-03-01',
+        expiryDate: '2026-09-10',
+        status: 'Expiring Soon',
+        issuingAuthority: 'ROP Directorate General of Civil Status',
+        country: 'Oman',
+        documentAttachment: 'resident_card_ali.pdf',
+        fileName: 'resident_card_ali.pdf',
+        storagePath: '/documents/resident_card_ali.pdf',
+        remarks: 'Expat Resident Identity Card - SMI Sponsorship',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP003',
+        civilIdNumber: '74928103',
+        issueDate: '2023-06-15',
+        expiryDate: '2025-06-14',
+        status: 'Expired',
+        issuingAuthority: 'ROP Directorate General of Civil Status',
+        country: 'Oman',
+        remarks: 'Expired Resident Card - Renewal in process with MoL',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP004',
+        civilIdNumber: '92837461',
+        issueDate: '2022-08-20',
+        expiryDate: '2027-08-19',
+        status: 'Valid',
+        issuingAuthority: 'Royal Oman Police (ROP)',
+        country: 'Oman',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP005',
+        civilIdNumber: '61928374',
+        issueDate: '2024-02-01',
+        expiryDate: '2026-09-25',
+        status: 'Expiring Soon',
+        issuingAuthority: 'ROP Directorate General of Civil Status',
+        country: 'Oman',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ];
+
+    const initialDrivingLicences: EmployeeDrivingLicence[] = [
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP001',
+        licenceNumber: 'DL-OM-89214',
+        category: 'Light Vehicle',
+        issuingCountry: 'Oman',
+        issuingAuthority: 'ROP Directorate General of Traffic',
+        vehicleClass: 'Private / Light Commercial',
+        issueDate: '2021-05-12',
+        expiryDate: '2026-09-15',
+        status: 'Expiring Soon',
+        documentAttachment: 'dl_ahmed.pdf',
+        fileName: 'dl_ahmed.pdf',
+        remarks: 'Oman Light Vehicle Driving Licence',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP002',
+        licenceNumber: 'DL-OM-47291',
+        category: 'Heavy Equipment',
+        issuingCountry: 'Oman',
+        issuingAuthority: 'ROP Directorate General of Traffic',
+        vehicleClass: 'Excavator / Bulldozer / Heavy Plant',
+        restrictions: 'Corrective lenses required',
+        issueDate: '2022-01-15',
+        expiryDate: '2027-01-14',
+        status: 'Valid',
+        documentAttachment: 'heavy_dl_ali.pdf',
+        fileName: 'heavy_dl_ali.pdf',
+        remarks: 'Certified Plant & Heavy Machinery Operator',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP003',
+        licenceNumber: 'DL-OM-10293',
+        category: 'Motorcycle',
+        issuingCountry: 'Oman',
+        issuingAuthority: 'ROP Directorate General of Traffic',
+        vehicleClass: 'Motorcycle / Delivery',
+        issueDate: '2020-11-20',
+        expiryDate: '2025-11-19',
+        status: 'Expired',
+        remarks: 'Expired Motorcycle Licence',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP004',
+        licenceNumber: 'DL-OM-55612',
+        category: 'Light Vehicle',
+        issuingCountry: 'Oman',
+        issuingAuthority: 'ROP Directorate General of Traffic',
+        issueDate: '2020-04-10',
+        expiryDate: '2030-04-09',
+        status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ];
+
+    const initialVisas: EmployeeVisa[] = [
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP002',
+        visaNumber: 'V-882910',
+        tradeOnVisa: 'Mason',
+        visaProfessionCode: '711201',
+        visaType: 'Employment Visa',
+        issueDate: '2024-03-01',
+        expiryDate: '2026-09-10',
+        sponsor: 'SMI LLC',
+        sponsorshipType: 'Corporate',
+        issuingAuthority: 'Royal Oman Police - Passports & Residence',
+        country: 'Oman',
+        status: 'Expiring Soon',
+        documentAttachment: 'visa_ali.pdf',
+        fileName: 'visa_ali.pdf',
+        remarks: 'Matches job designation',
+        isCurrent: true,
+        effectiveFrom: '2024-03-01',
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP003',
+        visaNumber: 'V-339182',
+        tradeOnVisa: 'General Helper',
+        visaProfessionCode: '931301',
+        visaType: 'Employment Visa',
+        issueDate: '2023-06-15',
+        expiryDate: '2025-06-14',
+        sponsor: 'NC Engineering',
+        sponsorshipType: 'Corporate',
+        issuingAuthority: 'Royal Oman Police - Passports & Residence',
+        country: 'Oman',
+        status: 'Expired',
+        remarks: 'Trade on Visa is General Helper but active Designation is Electrician',
+        isCurrent: true,
+        effectiveFrom: '2023-06-15',
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP005',
+        visaNumber: 'V-994821',
+        tradeOnVisa: 'Carpenter',
+        visaProfessionCode: '711501',
+        visaType: 'Employment Visa',
+        issueDate: '2024-02-01',
+        expiryDate: '2026-09-25',
+        sponsor: 'Artify DGO',
+        sponsorshipType: 'Corporate',
+        issuingAuthority: 'Royal Oman Police',
+        country: 'Oman',
+        status: 'Expiring Soon',
+        isCurrent: true,
+        effectiveFrom: '2024-02-01',
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ];
+
+    const initialGovtDocs: EmployeeGovernmentDocument[] = [
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP001',
+        documentType: 'Passport',
+        documentNumber: 'P01928374',
+        issueDate: '2020-02-15',
+        expiryDate: '2030-02-14',
+        issuingAuthority: 'ROP Passports Dept',
+        country: 'Oman',
+        status: 'Valid',
+        documentAttachment: 'passport_ahmed.pdf',
+        fileName: 'passport_ahmed.pdf',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP002',
+        documentType: 'Passport',
+        documentNumber: 'L9283741',
+        issueDate: '2021-08-10',
+        expiryDate: '2031-08-09',
+        issuingAuthority: 'Regional Passport Office',
+        country: 'India',
+        status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP002',
+        documentType: 'Work Permit',
+        documentNumber: 'WP-2024-9182',
+        issueDate: '2024-03-01',
+        expiryDate: '2026-09-10',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Expiring Soon',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP003',
+        documentType: 'Passport',
+        documentNumber: 'Z8472910',
+        issueDate: '2019-10-01',
+        expiryDate: '2029-09-30',
+        issuingAuthority: 'Directorate of Immigration',
+        country: 'Pakistan',
+        status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP004',
+        documentType: 'Passport',
+        documentNumber: 'P8839201',
+        issueDate: '2022-01-01',
+        expiryDate: '2032-01-01',
+        issuingAuthority: 'ROP Passports Dept',
+        country: 'Oman',
+        status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP005',
+        documentType: 'Passport',
+        documentNumber: 'K7728193',
+        issueDate: '2023-05-10',
+        expiryDate: '2033-05-09',
+        issuingAuthority: 'Passport Authority',
+        country: 'India',
+        status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ];
+
+    const initialPersonalDetails: Record<string, EmployeePersonalDetails> = {
+      EMP001: {
+        employeeId: 'EMP001',
+        dateOfBirth: '1988-04-12',
+        gender: 'Male',
+        maritalStatus: 'Married',
+        bloodGroup: 'O+',
+        personalEmail: 'ahmed.balushi@artify.om',
+        mobileNumber: '+968 9123 4567',
+        whatsappNumber: '+968 9123 4567',
+        residentialAddress: 'Villa 14, Way 2819, Al Khuwair, Muscat, Oman',
+        permanentAddress: 'Barka, South Al Batinah Governorate, Oman',
+        qualifications: [
+          { degree: 'B.Sc. in Civil Engineering', institution: 'Sultan Qaboos University', yearOfPassing: '2010', grade: 'Distinction' }
+        ],
+        emergencyContacts: [
+          { name: 'Said Al-Balushi', relationship: 'Brother', contactNumber: '+968 9234 5678', address: 'Muscat, Oman', isPrimary: true }
+        ],
+        skills: ['Site Supervision', 'AutoCAD', 'Structural Engineering', 'Project Safety'],
+        notes: 'Senior Site Manager with over 14 years of civil construction experience in Oman.',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      EMP002: {
+        employeeId: 'EMP002',
+        dateOfBirth: '1992-07-22',
+        gender: 'Male',
+        maritalStatus: 'Married',
+        bloodGroup: 'B+',
+        mobileNumber: '+968 9876 5432',
+        residentialAddress: 'Al Ghubrah Labour Camp, Block B, Muscat',
+        emergencyContacts: [
+          { name: 'Fatima Hassan', relationship: 'Spouse', contactNumber: '+91 98765 43210', address: 'Kerala, India', isPrimary: true }
+        ],
+        skills: ['Masonry', 'Plastering', 'Heavy Equipment Operation', 'Tiling'],
+        notes: 'Certified heavy plant operator and skilled master mason.',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      EMP003: {
+        employeeId: 'EMP003',
+        dateOfBirth: '1995-11-05',
+        gender: 'Male',
+        maritalStatus: 'Single',
+        bloodGroup: 'A+',
+        mobileNumber: '+968 9345 6789',
+        residentialAddress: 'Al Mabelah Camp, Building 4',
+        emergencyContacts: [
+          { name: 'Tariq Mehmood', relationship: 'Father', contactNumber: '+92 300 1234567', address: 'Lahore, Pakistan', isPrimary: true }
+        ],
+        skills: ['Industrial Electrical Wiring', 'Cable Tray Installation', 'DB Dressing'],
+        notes: 'Electrician on site; visa trade amendment from General Helper currently requested.',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    };
+
     this.inMemoryData = {
       users: defaultCoreUsers,
       employees: initialEmployees,
@@ -1028,6 +1640,20 @@ class DatabaseManager {
       loans: initialLoans,
       loanRecoveries: initialLoans[0].recoveries || [],
       auditLogs: initialAuditLogs,
+      civilIds: initialCivilIds,
+      drivingLicences: initialDrivingLicences,
+      visas: initialVisas,
+      governmentDocuments: initialGovtDocs,
+      personalDetails: initialPersonalDetails,
+      drivingLicenceCategories: [
+        'Light Vehicle',
+        'Heavy Vehicle',
+        'Motorcycle',
+        'Bus',
+        'Truck',
+        'Heavy Equipment',
+        'Other',
+      ],
     };
 
     await this.persist();
@@ -1880,6 +2506,354 @@ class DatabaseManager {
         await this.persist();
         return logEntry;
       }
+    };
+  }
+
+  // --- Oman HR Compliance Repositories ---
+
+  public get civilIds() {
+    return {
+      getAll: () => [...this.inMemoryData.civilIds],
+      getByEmployeeId: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.civilIds
+          .filter((c) => normalizeEmployeeId(c.employeeId) === norm)
+          .map((c) => ({
+            ...c,
+            status: calculateExpiryStatus(c.expiryDate),
+          }))
+          .sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime());
+      },
+      getCurrent: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        const record = this.inMemoryData.civilIds.find(
+          (c) => normalizeEmployeeId(c.employeeId) === norm && c.isCurrent
+        );
+        if (!record) return null;
+        return {
+          ...record,
+          status: calculateExpiryStatus(record.expiryDate),
+        };
+      },
+      create: async (record: EmployeeCivilId) => {
+        const norm = normalizeEmployeeId(record.employeeId);
+        record.employeeId = norm;
+        record.status = calculateExpiryStatus(record.expiryDate);
+        if (record.isCurrent) {
+          this.inMemoryData.civilIds.forEach((c) => {
+            if (normalizeEmployeeId(c.employeeId) === norm && c.id !== record.id) {
+              c.isCurrent = false;
+              c.updatedAt = new Date().toISOString();
+            }
+          });
+        }
+        this.inMemoryData.civilIds.push(record);
+        await this.persist();
+        return record;
+      },
+      renew: async (empId: string, newRecord: EmployeeCivilId, reason: string, user: string) => {
+        const norm = normalizeEmployeeId(empId);
+        const timestamp = new Date().toISOString();
+        this.inMemoryData.civilIds.forEach((c) => {
+          if (normalizeEmployeeId(c.employeeId) === norm && c.isCurrent) {
+            c.isCurrent = false;
+            c.replacedDate = timestamp.slice(0, 10);
+            c.replaceReason = reason || 'Renewed with new Civil ID Card';
+            c.updatedAt = timestamp;
+          }
+        });
+        newRecord.employeeId = norm;
+        newRecord.isCurrent = true;
+        newRecord.status = calculateExpiryStatus(newRecord.expiryDate);
+        newRecord.createdBy = user;
+        newRecord.createdAt = timestamp;
+        newRecord.updatedAt = timestamp;
+        this.inMemoryData.civilIds.push(newRecord);
+        await this.persist();
+        return newRecord;
+      },
+      update: async (id: string, updates: Partial<EmployeeCivilId>) => {
+        const index = this.inMemoryData.civilIds.findIndex((c) => c.id === id);
+        if (index === -1) return null;
+        if (updates.expiryDate) {
+          updates.status = calculateExpiryStatus(updates.expiryDate);
+        }
+        this.inMemoryData.civilIds[index] = {
+          ...this.inMemoryData.civilIds[index],
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
+        await this.persist();
+        return this.inMemoryData.civilIds[index];
+      },
+    };
+  }
+
+  public get drivingLicences() {
+    return {
+      getAll: () => [...this.inMemoryData.drivingLicences],
+      getByEmployeeId: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.drivingLicences
+          .filter((d) => normalizeEmployeeId(d.employeeId) === norm)
+          .map((d) => ({
+            ...d,
+            status: calculateExpiryStatus(d.expiryDate),
+          }))
+          .sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime());
+      },
+      getCurrent: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        const record = this.inMemoryData.drivingLicences.find(
+          (d) => normalizeEmployeeId(d.employeeId) === norm && d.isCurrent
+        );
+        if (!record) return null;
+        return {
+          ...record,
+          status: calculateExpiryStatus(record.expiryDate),
+        };
+      },
+      create: async (record: EmployeeDrivingLicence) => {
+        const norm = normalizeEmployeeId(record.employeeId);
+        record.employeeId = norm;
+        record.status = calculateExpiryStatus(record.expiryDate);
+        if (record.isCurrent) {
+          // Deactivate previous active licence for same category/employee if applicable
+          this.inMemoryData.drivingLicences.forEach((d) => {
+            if (
+              normalizeEmployeeId(d.employeeId) === norm &&
+              d.category === record.category &&
+              d.id !== record.id
+            ) {
+              d.isCurrent = false;
+              d.updatedAt = new Date().toISOString();
+            }
+          });
+        }
+        this.inMemoryData.drivingLicences.push(record);
+        await this.persist();
+        return record;
+      },
+      renew: async (
+        empId: string,
+        oldLicenceId: string,
+        newRecord: EmployeeDrivingLicence,
+        reason: string,
+        user: string
+      ) => {
+        const norm = normalizeEmployeeId(empId);
+        const timestamp = new Date().toISOString();
+        const oldIndex = this.inMemoryData.drivingLicences.findIndex((d) => d.id === oldLicenceId);
+        if (oldIndex !== -1) {
+          this.inMemoryData.drivingLicences[oldIndex].isCurrent = false;
+          this.inMemoryData.drivingLicences[oldIndex].renewalDate = timestamp.slice(0, 10);
+          this.inMemoryData.drivingLicences[oldIndex].remarks = `${this.inMemoryData.drivingLicences[oldIndex].remarks || ''} (Renewed: ${reason})`.trim();
+          this.inMemoryData.drivingLicences[oldIndex].updatedAt = timestamp;
+        }
+        newRecord.employeeId = norm;
+        newRecord.isCurrent = true;
+        newRecord.previousLicenceId = oldLicenceId;
+        newRecord.status = calculateExpiryStatus(newRecord.expiryDate);
+        newRecord.createdBy = user;
+        newRecord.createdAt = timestamp;
+        newRecord.updatedAt = timestamp;
+        this.inMemoryData.drivingLicences.push(newRecord);
+        await this.persist();
+        return newRecord;
+      },
+      update: async (id: string, updates: Partial<EmployeeDrivingLicence>) => {
+        const index = this.inMemoryData.drivingLicences.findIndex((d) => d.id === id);
+        if (index === -1) return null;
+        if (updates.expiryDate) {
+          updates.status = calculateExpiryStatus(updates.expiryDate);
+        }
+        this.inMemoryData.drivingLicences[index] = {
+          ...this.inMemoryData.drivingLicences[index],
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
+        await this.persist();
+        return this.inMemoryData.drivingLicences[index];
+      },
+    };
+  }
+
+  public get visas() {
+    return {
+      getAll: () => [...this.inMemoryData.visas],
+      getByEmployeeId: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.visas
+          .filter((v) => normalizeEmployeeId(v.employeeId) === norm)
+          .map((v) => ({
+            ...v,
+            status: calculateExpiryStatus(v.expiryDate),
+          }))
+          .sort((a, b) => new Date(b.effectiveFrom || b.issueDate || 0).getTime() - new Date(a.effectiveFrom || a.issueDate || 0).getTime());
+      },
+      getCurrent: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        const record = this.inMemoryData.visas.find(
+          (v) => normalizeEmployeeId(v.employeeId) === norm && v.isCurrent
+        );
+        if (!record) return null;
+        return {
+          ...record,
+          status: calculateExpiryStatus(record.expiryDate),
+        };
+      },
+      create: async (record: EmployeeVisa) => {
+        const norm = normalizeEmployeeId(record.employeeId);
+        record.employeeId = norm;
+        record.status = calculateExpiryStatus(record.expiryDate);
+        if (record.isCurrent) {
+          this.inMemoryData.visas.forEach((v) => {
+            if (normalizeEmployeeId(v.employeeId) === norm && v.id !== record.id) {
+              v.isCurrent = false;
+              v.effectiveTo = record.effectiveFrom || new Date().toISOString().slice(0, 10);
+              v.updatedAt = new Date().toISOString();
+            }
+          });
+        }
+        this.inMemoryData.visas.push(record);
+        await this.persist();
+        return record;
+      },
+      renewOrChangeTrade: async (
+        empId: string,
+        newRecord: EmployeeVisa,
+        reason: string,
+        user: string
+      ) => {
+        const norm = normalizeEmployeeId(empId);
+        const timestamp = new Date().toISOString();
+        const effectiveDate = newRecord.effectiveFrom || timestamp.slice(0, 10);
+
+        this.inMemoryData.visas.forEach((v) => {
+          if (normalizeEmployeeId(v.employeeId) === norm && v.isCurrent) {
+            v.isCurrent = false;
+            v.effectiveTo = effectiveDate;
+            v.reasonForChange = reason || 'Visa renewal / trade designation amendment';
+            v.updatedAt = timestamp;
+          }
+        });
+
+        newRecord.employeeId = norm;
+        newRecord.isCurrent = true;
+        newRecord.effectiveFrom = effectiveDate;
+        newRecord.status = calculateExpiryStatus(newRecord.expiryDate);
+        newRecord.createdBy = user;
+        newRecord.createdAt = timestamp;
+        newRecord.updatedAt = timestamp;
+        this.inMemoryData.visas.push(newRecord);
+        await this.persist();
+        return newRecord;
+      },
+      update: async (id: string, updates: Partial<EmployeeVisa>) => {
+        const index = this.inMemoryData.visas.findIndex((v) => v.id === id);
+        if (index === -1) return null;
+        if (updates.expiryDate) {
+          updates.status = calculateExpiryStatus(updates.expiryDate);
+        }
+        this.inMemoryData.visas[index] = {
+          ...this.inMemoryData.visas[index],
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
+        await this.persist();
+        return this.inMemoryData.visas[index];
+      },
+    };
+  }
+
+  public get governmentDocuments() {
+    return {
+      getAll: () => [...this.inMemoryData.governmentDocuments],
+      getByEmployeeId: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.governmentDocuments
+          .filter((d) => normalizeEmployeeId(d.employeeId) === norm)
+          .map((d) => ({
+            ...d,
+            status: calculateExpiryStatus(d.expiryDate),
+          }))
+          .sort((a, b) => new Date(b.issueDate || 0).getTime() - new Date(a.issueDate || 0).getTime());
+      },
+      create: async (record: EmployeeGovernmentDocument) => {
+        const norm = normalizeEmployeeId(record.employeeId);
+        record.employeeId = norm;
+        record.status = calculateExpiryStatus(record.expiryDate);
+        if (record.isCurrent) {
+          this.inMemoryData.governmentDocuments.forEach((d) => {
+            if (
+              normalizeEmployeeId(d.employeeId) === norm &&
+              d.documentType === record.documentType &&
+              d.id !== record.id
+            ) {
+              d.isCurrent = false;
+              d.updatedAt = new Date().toISOString();
+            }
+          });
+        }
+        this.inMemoryData.governmentDocuments.push(record);
+        await this.persist();
+        return record;
+      },
+      update: async (id: string, updates: Partial<EmployeeGovernmentDocument>) => {
+        const index = this.inMemoryData.governmentDocuments.findIndex((d) => d.id === id);
+        if (index === -1) return null;
+        if (updates.expiryDate) {
+          updates.status = calculateExpiryStatus(updates.expiryDate);
+        }
+        this.inMemoryData.governmentDocuments[index] = {
+          ...this.inMemoryData.governmentDocuments[index],
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
+        await this.persist();
+        return this.inMemoryData.governmentDocuments[index];
+      },
+      delete: async (id: string) => {
+        const index = this.inMemoryData.governmentDocuments.findIndex((d) => d.id === id);
+        if (index === -1) return false;
+        this.inMemoryData.governmentDocuments.splice(index, 1);
+        await this.persist();
+        return true;
+      },
+    };
+  }
+
+  public get personalDetails() {
+    return {
+      get: (empId: string): EmployeePersonalDetails | null => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.personalDetails[norm] || null;
+      },
+      save: async (empId: string, details: EmployeePersonalDetails) => {
+        const norm = normalizeEmployeeId(empId);
+        const timestamp = new Date().toISOString();
+        details.employeeId = norm;
+        details.updatedAt = timestamp;
+        if (!details.createdAt) details.createdAt = timestamp;
+        this.inMemoryData.personalDetails[norm] = details;
+        await this.persist();
+        return details;
+      },
+    };
+  }
+
+  public get drivingLicenceCategories() {
+    return {
+      getAll: () => [...this.inMemoryData.drivingLicenceCategories],
+      add: async (category: string) => {
+        const trimmed = category.trim();
+        if (!trimmed) return this.inMemoryData.drivingLicenceCategories;
+        if (!this.inMemoryData.drivingLicenceCategories.includes(trimmed)) {
+          this.inMemoryData.drivingLicenceCategories.push(trimmed);
+          await this.persist();
+        }
+        return [...this.inMemoryData.drivingLicenceCategories];
+      },
     };
   }
 }

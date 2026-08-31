@@ -31,7 +31,11 @@ export type Permission =
   | 'cif.view'
   | 'cif.upload'
   | 'cif.process'
-  | 'cif.export';
+  | 'cif.export'
+  | 'compliance.view'
+  | 'compliance.edit'
+  | 'compliance.reveal'
+  | 'compliance.export';
 
 const ALL_PERMISSIONS: Permission[] = [
   'salary_payment.view',
@@ -61,6 +65,10 @@ const ALL_PERMISSIONS: Permission[] = [
   'cif.upload',
   'cif.process',
   'cif.export',
+  'compliance.view',
+  'compliance.edit',
+  'compliance.reveal',
+  'compliance.export',
 ];
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -86,6 +94,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'cif.view',
     'cif.upload',
     'cif.export',
+    'compliance.view',
+    'compliance.edit',
+    'compliance.reveal',
+    'compliance.export',
   ],
   Viewer: [
     'salary_payment.view',
@@ -98,6 +110,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'timesheet.export',
     'cif.view',
     'cif.export',
+    'compliance.view',
+    'compliance.export',
   ],
 };
 

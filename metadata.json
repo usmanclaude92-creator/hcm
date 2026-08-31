@@ -1,6 +1,6 @@
 {
   "name": "Employee & Payroll Management System",
-  "description": "Production-ready web-based Employee & Payroll Management System with attendance, multi-project allocation, OMR 3-decimal payroll, WPS recovery, loans, Excel import/export, and payment tracking.",
+  "description": "Production-ready web-based Employee & Payroll Management System with Oman 360° HR records, Civil ID, Visa trade compliance, historical driving licences, multi-project attendance, OMR 3-decimal payroll, WPS recovery, loans, and AI compliance assistant.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -2,9 +2,22 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { db, normalizeEmployeeId, roundOMR } from '../db.js';
+import { db, normalizeEmployeeId, roundOMR, calculateExpiryStatus, calculateOverallCompliance, checkTradeDiscrepancy, maskSensitiveId } from '../db.js';
 import { verifyAuth, requireRoles, requireWritePermission, AuthRequest } from '../auth.js';
-import type { Employee, EmployeeType, NationalityType, WageType, EmployeeCompany, SalaryPaidBy, WPSStatus } from '../../src/types/index';
+import type {
+  Employee,
+  EmployeeType,
+  NationalityType,
+  WageType,
+  EmployeeCompany,
+  SalaryPaidBy,
+  WPSStatus,
+  EmployeeCivilId,
+  EmployeeDrivingLicence,
+  EmployeeVisa,
+  EmployeeGovernmentDocument,
+  EmployeePersonalDetails,
+} from '../../src/types/index';
 
 const router = Router();
 
@@ -746,6 +759,670 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to commit employee import.' });
+  }
+});
+
+// ==========================================
+// OMAN HR COMPLIANCE & GOVERNMENT DOCUMENTS
+// ==========================================
+
+// GET /api/employees/:employeeId/compliance - Full compliance 360 overview
+router.get('/:employeeId/compliance', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) {
+      return res.status(404).json({ error: `Employee ${employeeId} not found.` });
+    }
+
+    const currentCivilId = db.civilIds.getCurrent(norm);
+    const civilIdHistory = db.civilIds.getByEmployeeId(norm);
+    const currentDrivingLicence = db.drivingLicences.getCurrent(norm);
+    const drivingLicenceHistory = db.drivingLicences.getByEmployeeId(norm);
+    const currentVisa = db.visas.getCurrent(norm);
+    const visaHistory = db.visas.getByEmployeeId(norm);
+    const governmentDocuments = db.governmentDocuments.getByEmployeeId(norm);
+    const personalDetails = db.personalDetails.get(norm);
+
+    const overallCompliance = calculateOverallCompliance(
+      emp,
+      currentCivilId,
+      currentVisa,
+      currentDrivingLicence,
+      governmentDocuments
+    );
+
+    const tradeDiscrepancy = currentVisa
+      ? checkTradeDiscrepancy(emp.designation, currentVisa.tradeOnVisa)
+      : { hasWarning: false, message: '' };
+
+    res.json({
+      employeeId: emp.employeeId,
+      employeeName: emp.employeeName,
+      employeeType: emp.employeeType,
+      nationalityType: emp.nationalityType,
+      designation: emp.designation,
+      employeeCompany: emp.employeeCompany,
+      overallCompliance,
+      tradeDiscrepancy,
+      currentCivilId,
+      civilIdHistory,
+      currentDrivingLicence,
+      drivingLicenceHistory,
+      currentVisa,
+      visaHistory,
+      governmentDocuments,
+      personalDetails,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch employee compliance details.' });
+  }
+});
+
+// --- CIVIL ID ---
+
+// GET /api/employees/:employeeId/civil-id
+router.get('/:employeeId/civil-id', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const records = db.civilIds.getByEmployeeId(employeeId);
+    res.json({ records });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/employees/:employeeId/civil-id - Create initial or update Civil ID
+router.post('/:employeeId/civil-id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      civilIdNumber,
+      issueDate,
+      expiryDate,
+      issuingAuthority,
+      country,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+    } = req.body;
+
+    if (!civilIdNumber || !expiryDate) {
+      return res.status(400).json({ error: 'Civil ID Number and Expiry Date are required.' });
+    }
+
+    const newRecord: EmployeeCivilId = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      civilIdNumber: String(civilIdNumber).trim(),
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      status: calculateExpiryStatus(expiryDate),
+      issuingAuthority: issuingAuthority || 'Royal Oman Police (ROP)',
+      country: country || 'Oman',
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await db.civilIds.create(newRecord);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'CIVIL_ID_UPDATED',
+      module: 'Compliance',
+      recordId: saved.id,
+      description: `Saved Civil ID ${maskSensitiveId(newRecord.civilIdNumber)} for ${emp.employeeName} (${norm}).`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save Civil ID.' });
+  }
+});
+
+// POST /api/employees/:employeeId/civil-id/renew - Renew Civil ID (preserves history)
+router.post('/:employeeId/civil-id/renew', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      civilIdNumber,
+      issueDate,
+      expiryDate,
+      issuingAuthority,
+      country,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+      replaceReason,
+    } = req.body;
+
+    if (!civilIdNumber || !expiryDate) {
+      return res.status(400).json({ error: 'Civil ID Number and Expiry Date are required.' });
+    }
+
+    const newRecord: EmployeeCivilId = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      civilIdNumber: String(civilIdNumber).trim(),
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      status: calculateExpiryStatus(expiryDate),
+      issuingAuthority: issuingAuthority || 'Royal Oman Police (ROP)',
+      country: country || 'Oman',
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const renewed = await db.civilIds.renew(norm, newRecord, replaceReason, req.user?.username || 'admin');
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'CIVIL_ID_RENEWED',
+      module: 'Compliance',
+      recordId: renewed.id,
+      description: `Renewed Civil ID for ${emp.employeeName} (${norm}). New Expiry: ${renewed.expiryDate}. Reason: ${replaceReason || 'Routine renewal'}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: renewed });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to renew Civil ID.' });
+  }
+});
+
+// --- DRIVING LICENCE ---
+
+// GET /api/employees/:employeeId/driving-licence
+router.get('/:employeeId/driving-licence', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const records = db.drivingLicences.getByEmployeeId(employeeId);
+    res.json({ records });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/employees/:employeeId/driving-licence - Create/add Driving Licence
+router.post('/:employeeId/driving-licence', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      licenceNumber,
+      category,
+      issuingCountry,
+      issuingAuthority,
+      vehicleClass,
+      restrictions,
+      bloodGroupOnLicence,
+      issueDate,
+      expiryDate,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+    } = req.body;
+
+    if (!licenceNumber || !category || !expiryDate) {
+      return res.status(400).json({ error: 'Licence Number, Category, and Expiry Date are required.' });
+    }
+
+    const newRecord: EmployeeDrivingLicence = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      licenceNumber: String(licenceNumber).trim(),
+      category: category,
+      issuingCountry: issuingCountry || 'Oman',
+      issuingAuthority: issuingAuthority || 'ROP Directorate General of Traffic',
+      vehicleClass: vehicleClass || '',
+      restrictions: restrictions || '',
+      bloodGroupOnLicence: bloodGroupOnLicence || '',
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      status: calculateExpiryStatus(expiryDate),
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await db.drivingLicences.create(newRecord);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'DRIVING_LICENCE_UPDATED',
+      module: 'Compliance',
+      recordId: saved.id,
+      description: `Added ${category} Driving Licence ${maskSensitiveId(newRecord.licenceNumber)} for ${emp.employeeName} (${norm}).`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save driving licence.' });
+  }
+});
+
+// POST /api/employees/:employeeId/driving-licence/renew - Renew Driving Licence
+router.post('/:employeeId/driving-licence/renew', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      oldLicenceId,
+      licenceNumber,
+      category,
+      issuingCountry,
+      issuingAuthority,
+      vehicleClass,
+      restrictions,
+      bloodGroupOnLicence,
+      issueDate,
+      expiryDate,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+      reason,
+    } = req.body;
+
+    if (!licenceNumber || !category || !expiryDate) {
+      return res.status(400).json({ error: 'Licence Number, Category, and Expiry Date are required.' });
+    }
+
+    const newRecord: EmployeeDrivingLicence = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      licenceNumber: String(licenceNumber).trim(),
+      category: category,
+      issuingCountry: issuingCountry || 'Oman',
+      issuingAuthority: issuingAuthority || 'ROP Directorate General of Traffic',
+      vehicleClass: vehicleClass || '',
+      restrictions: restrictions || '',
+      bloodGroupOnLicence: bloodGroupOnLicence || '',
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      status: calculateExpiryStatus(expiryDate),
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const renewed = await db.drivingLicences.renew(
+      norm,
+      oldLicenceId,
+      newRecord,
+      reason || 'Renewal',
+      req.user?.username || 'admin'
+    );
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'DRIVING_LICENCE_RENEWED',
+      module: 'Compliance',
+      recordId: renewed.id,
+      description: `Renewed ${category} Driving Licence for ${emp.employeeName} (${norm}). Expiry: ${renewed.expiryDate}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: renewed });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to renew driving licence.' });
+  }
+});
+
+// --- VISA & TRADE DETAILS ---
+
+// GET /api/employees/:employeeId/visa
+router.get('/:employeeId/visa', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const records = db.visas.getByEmployeeId(employeeId);
+    res.json({ records });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/employees/:employeeId/visa - Add/Update Visa
+router.post('/:employeeId/visa', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      visaNumber,
+      tradeOnVisa,
+      visaProfessionCode,
+      visaType,
+      issueDate,
+      expiryDate,
+      sponsor,
+      sponsorshipType,
+      issuingAuthority,
+      country,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+      effectiveFrom,
+    } = req.body;
+
+    if (!tradeOnVisa || !expiryDate) {
+      return res.status(400).json({ error: 'Trade on Visa and Expiry Date are required.' });
+    }
+
+    const newRecord: EmployeeVisa = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      visaNumber: visaNumber ? String(visaNumber).trim() : '',
+      tradeOnVisa: String(tradeOnVisa).trim(),
+      visaProfessionCode: visaProfessionCode ? String(visaProfessionCode).trim() : '',
+      visaType: visaType || 'Employment Visa',
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      sponsor: sponsor || emp.employeeCompany,
+      sponsorshipType: sponsorshipType || 'Corporate',
+      issuingAuthority: issuingAuthority || 'Royal Oman Police - Passports & Residence',
+      country: country || 'Oman',
+      status: calculateExpiryStatus(expiryDate),
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      effectiveFrom: effectiveFrom || issueDate || new Date().toISOString().slice(0, 10),
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await db.visas.create(newRecord);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'VISA_RECORD_UPDATED',
+      module: 'Compliance',
+      recordId: saved.id,
+      description: `Saved Visa record (Trade: ${saved.tradeOnVisa}) for ${emp.employeeName} (${norm}).`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save visa record.' });
+  }
+});
+
+// POST /api/employees/:employeeId/visa/renew - Renew Visa / Amendment (preserves historical trade records)
+router.post('/:employeeId/visa/renew', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      visaNumber,
+      tradeOnVisa,
+      visaProfessionCode,
+      visaType,
+      issueDate,
+      expiryDate,
+      sponsor,
+      sponsorshipType,
+      issuingAuthority,
+      country,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+      effectiveFrom,
+      reasonForChange,
+    } = req.body;
+
+    if (!tradeOnVisa || !expiryDate) {
+      return res.status(400).json({ error: 'Trade on Visa and Expiry Date are required.' });
+    }
+
+    const newRecord: EmployeeVisa = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      visaNumber: visaNumber ? String(visaNumber).trim() : '',
+      tradeOnVisa: String(tradeOnVisa).trim(),
+      visaProfessionCode: visaProfessionCode ? String(visaProfessionCode).trim() : '',
+      visaType: visaType || 'Employment Visa',
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      sponsor: sponsor || emp.employeeCompany,
+      sponsorshipType: sponsorshipType || 'Corporate',
+      issuingAuthority: issuingAuthority || 'Royal Oman Police - Passports & Residence',
+      country: country || 'Oman',
+      status: calculateExpiryStatus(expiryDate),
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      effectiveFrom: effectiveFrom || issueDate || new Date().toISOString().slice(0, 10),
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const renewed = await db.visas.renewOrChangeTrade(
+      norm,
+      newRecord,
+      reasonForChange || 'Visa renewal / trade designation amendment',
+      req.user?.username || 'admin'
+    );
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'VISA_RECORD_RENEWED',
+      module: 'Compliance',
+      recordId: renewed.id,
+      description: `Renewed / Amended Visa for ${emp.employeeName} (${norm}). Trade: ${renewed.tradeOnVisa}, Expiry: ${renewed.expiryDate}. Reason: ${reasonForChange || 'Renewal'}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: renewed });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to renew visa.' });
+  }
+});
+
+// --- GOVERNMENT DOCUMENTS (Passport, Work Permit, Residence, Contract) ---
+
+// GET /api/employees/:employeeId/government-documents
+router.get('/:employeeId/government-documents', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const records = db.governmentDocuments.getByEmployeeId(employeeId);
+    res.json({ records });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/employees/:employeeId/government-documents
+router.post('/:employeeId/government-documents', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      documentType,
+      documentNumber,
+      issueDate,
+      expiryDate,
+      issuingAuthority,
+      country,
+      documentAttachment,
+      fileName,
+      storagePath,
+      remarks,
+    } = req.body;
+
+    if (!documentType || !documentNumber || !expiryDate) {
+      return res.status(400).json({ error: 'Document Type, Document Number, and Expiry Date are required.' });
+    }
+
+    const newDoc: EmployeeGovernmentDocument = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      documentType,
+      documentNumber: String(documentNumber).trim(),
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      issuingAuthority: issuingAuthority || '',
+      country: country || (emp.nationalityType === 'Omani' ? 'Oman' : ''),
+      status: calculateExpiryStatus(expiryDate),
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await db.governmentDocuments.create(newDoc);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'GOVERNMENT_DOCUMENT_ADDED',
+      module: 'Compliance',
+      recordId: saved.id,
+      description: `Added ${documentType} (${maskSensitiveId(newDoc.documentNumber)}) for ${emp.employeeName} (${norm}).`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save document.' });
+  }
+});
+
+// DELETE /api/employees/:employeeId/government-documents/:docId
+router.delete('/:employeeId/government-documents/:docId', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { docId, employeeId } = req.params;
+    const deleted = await db.governmentDocuments.delete(docId);
+    if (!deleted) return res.status(404).json({ error: 'Document not found.' });
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'GOVERNMENT_DOCUMENT_DELETED',
+      module: 'Compliance',
+      recordId: docId,
+      description: `Deleted government document from employee ${employeeId}.`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- PERSONAL & CONTACT DETAILS ---
+
+// GET /api/employees/:employeeId/personal-details
+router.get('/:employeeId/personal-details', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const details = db.personalDetails.get(employeeId);
+    res.json({ details: details || null });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/employees/:employeeId/personal-details
+router.post('/:employeeId/personal-details', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const saved = await db.personalDetails.save(norm, req.body);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'PERSONAL_DETAILS_UPDATED',
+      module: 'Employee Master',
+      description: `Updated personal & emergency contact details for ${emp.employeeName} (${norm}).`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ details: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save personal details.' });
   }
 });
 

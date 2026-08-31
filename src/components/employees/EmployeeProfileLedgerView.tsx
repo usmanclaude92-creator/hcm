@@ -10,7 +10,9 @@ import {
   FileSpreadsheet,
   RotateCcw,
   IdCard,
+  ShieldCheck,
 } from 'lucide-react';
+import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
 
 type LedgerRowType = 'Salary' | 'Salary Payment' | 'Loan Disbursement' | 'Loan Recovery';
 
@@ -73,6 +75,7 @@ export const EmployeeProfileLedgerView: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('ALL');
   const [loanStatusFilter, setLoanStatusFilter] = useState('ALL');
+  const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
 
   useEffect(() => {
     apiRequest('/api/employees')
@@ -409,6 +412,12 @@ export const EmployeeProfileLedgerView: React.FC = () => {
           {selectedEmployeeId && (
             <>
               <button
+                onClick={() => setIsComplianceModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Documents &amp; Compliance 360°
+              </button>
+              <button
                 onClick={() => window.print()}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
               >
@@ -614,6 +623,14 @@ export const EmployeeProfileLedgerView: React.FC = () => {
             </div>
           </div>
         </>
+      )}
+
+      {employee && isComplianceModalOpen && (
+        <EmployeeIdentificationModal
+          employee={employee}
+          isOpen={isComplianceModalOpen}
+          onClose={() => setIsComplianceModalOpen(false)}
+        />
       )}
     </div>
   );

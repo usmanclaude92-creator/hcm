@@ -22,8 +22,10 @@ import {
   RefreshCw,
   Building,
   Info,
+  ShieldCheck,
 } from 'lucide-react';
 import type { Employee, EmployeeType, NationalityType, WageType, EmployeeCompany, SalaryPaidBy, WPSStatus } from '../../types/index';
+import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
 
 export const EmployeeMasterView: React.FC = () => {
   const { canWrite } = useAuth();
@@ -44,6 +46,8 @@ export const EmployeeMasterView: React.FC = () => {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [historyData, setHistoryData] = useState<any>(null);
+  const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
+  const [selectedComplianceEmp, setSelectedComplianceEmp] = useState<Employee | null>(null);
 
   // Import Wizard
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -497,6 +501,16 @@ export const EmployeeMasterView: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedComplianceEmp(emp);
+                            setIsComplianceModalOpen(true);
+                          }}
+                          title="Identification, Driving Licence & Visa Compliance 360°"
+                          className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => handleViewHistory(emp)}
                           title="View Designation & Salary History"
@@ -1089,6 +1103,19 @@ export const EmployeeMasterView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Employee Identification & Compliance Modal */}
+      {selectedComplianceEmp && (
+        <EmployeeIdentificationModal
+          employee={selectedComplianceEmp}
+          isOpen={isComplianceModalOpen}
+          onClose={() => {
+            setIsComplianceModalOpen(false);
+            setSelectedComplianceEmp(null);
+          }}
+          onUpdated={fetchEmployees}
+        />
       )}
     </div>
   );

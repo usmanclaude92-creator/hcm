@@ -18,6 +18,183 @@ export type WageType = 'Per Hour' | 'Fixed Monthly';
 export type EmployeeCompany = 'DGO' | 'SMI' | 'NC' | 'Supplier' | 'Azad';
 export type SalaryPaidBy = 'DGO' | 'SMI' | 'NC' | 'Supplier';
 export type WPSStatus = 'Yes' | 'No';
+export type DocumentExpiryStatus = 'Valid' | 'Expiring Soon' | 'Urgent' | 'Expired' | 'Missing';
+export type OverallComplianceStatus = 'Compliant' | 'Attention Required' | 'Critical / Expired';
+
+export type DrivingLicenceCategory =
+  | 'Light Vehicle'
+  | 'Heavy Vehicle'
+  | 'Motorcycle'
+  | 'Bus'
+  | 'Truck'
+  | 'Heavy Equipment'
+  | 'Other'
+  | string;
+
+export interface EmployeeCivilId {
+  id: string;
+  employeeId: string;
+  civilIdNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  status: DocumentExpiryStatus;
+  issuingAuthority: string;
+  country: string;
+  documentAttachment?: string | null;
+  fileName?: string | null;
+  storagePath?: string | null;
+  remarks?: string;
+  isCurrent: boolean;
+  replacedDate?: string | null;
+  replaceReason?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeDrivingLicence {
+  id: string;
+  employeeId: string;
+  licenceNumber: string;
+  category: DrivingLicenceCategory;
+  issuingCountry: string;
+  issuingAuthority: string;
+  vehicleClass?: string;
+  restrictions?: string;
+  bloodGroupOnLicence?: string;
+  issueDate: string;
+  expiryDate: string;
+  status: DocumentExpiryStatus;
+  documentAttachment?: string | null;
+  fileName?: string | null;
+  storagePath?: string | null;
+  remarks?: string;
+  isCurrent: boolean;
+  previousLicenceId?: string | null;
+  renewalDate?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeVisa {
+  id: string;
+  employeeId: string;
+  visaNumber: string;
+  tradeOnVisa: string;
+  visaProfessionCode?: string;
+  visaType: string;
+  issueDate: string;
+  expiryDate: string;
+  sponsor: string;
+  sponsorshipType?: string;
+  issuingAuthority: string;
+  country: string;
+  status: DocumentExpiryStatus;
+  documentAttachment?: string | null;
+  fileName?: string | null;
+  storagePath?: string | null;
+  remarks?: string;
+  isCurrent: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  reasonForChange?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type GovernmentDocumentType =
+  | 'Passport'
+  | 'Residence Card'
+  | 'Work Permit'
+  | 'Employment Contract'
+  | 'Certification'
+  | 'Other';
+
+export interface EmployeeGovernmentDocument {
+  id: string;
+  employeeId: string;
+  documentType: GovernmentDocumentType;
+  documentNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  issuingAuthority?: string;
+  country?: string;
+  status: DocumentExpiryStatus;
+  documentAttachment?: string | null;
+  fileName?: string | null;
+  storagePath?: string | null;
+  remarks?: string;
+  isCurrent: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeePersonalDetails {
+  employeeId?: string;
+  dob?: string;
+  dateOfBirth?: string;
+  gender?: 'Male' | 'Female' | 'Other' | string;
+  maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed' | string;
+  bloodGroup?: string;
+  mobile?: string;
+  mobileNumber?: string;
+  whatsappNumber?: string;
+  email?: string;
+  personalEmail?: string;
+  currentAddress?: string;
+  residentialAddress?: string;
+  permanentAddress?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  emergencyContacts?: Array<{
+    name: string;
+    relationship: string;
+    contactNumber: string;
+    address?: string;
+    isPrimary?: boolean;
+  }>;
+  qualifications?: any;
+  skills?: any;
+  workExperience?: string;
+  hrNotes?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TradeDiscrepancyInfo {
+  hasWarning: boolean;
+  designation: string;
+  tradeOnVisa: string;
+  message: string;
+}
+
+export interface EmployeeComplianceProfile {
+  civilId?: EmployeeCivilId | null;
+  civilIdHistory: EmployeeCivilId[];
+  drivingLicences: EmployeeDrivingLicence[];
+  drivingLicenceHistory: EmployeeDrivingLicence[];
+  currentVisa?: EmployeeVisa | null;
+  visaHistory: EmployeeVisa[];
+  governmentDocuments: EmployeeGovernmentDocument[];
+  overallStatus: OverallComplianceStatus;
+  tradeDiscrepancyWarning?: TradeDiscrepancyInfo | null;
+}
+
+export interface DocumentExpiryWidgetStats {
+  docType: string;
+  label: string;
+  total: number;
+  valid: number;
+  expiringSoon: number;
+  urgent: number;
+  expired: number;
+  missing: number;
+}
 
 export interface DesignationHistory {
   id: string;

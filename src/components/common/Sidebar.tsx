@@ -19,6 +19,7 @@ import {
   UploadCloud,
   FileSpreadsheet,
   IdCard,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -57,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
         { id: 'employees', label: 'Employee Master', icon: Users },
+        { id: 'compliance', label: 'HR Compliance & Docs', icon: ShieldAlert },
         { id: 'projects', label: 'Project Master', icon: FolderKanban },
         { id: 'attendance', label: 'Attendance Ledger', icon: CalendarCheck, permission: 'attendance.view' },
         { id: 'timesheets', label: 'Timesheet Management', icon: Clock, permission: 'timesheet.view' },
