@@ -25,7 +25,13 @@ import { ComplianceDashboardView } from './components/compliance/ComplianceDashb
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading, isDemoMode } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
+  const [viewParams, setViewParams] = useState<Record<string, any>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleNavigate = (view: string, params?: Record<string, any>) => {
+    setViewParams(params || {});
+    setCurrentView(view);
+  };
 
   if (isLoading) {
     return (
@@ -45,9 +51,14 @@ const MainApp: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <DashboardView onNavigate={(view) => setCurrentView(view)} />;
+        return <DashboardView onNavigate={handleNavigate} />;
       case 'employees':
-        return <EmployeeMasterView />;
+        return (
+          <EmployeeMasterView
+            initialFilters={viewParams}
+            onClearInitialFilters={() => setViewParams({})}
+          />
+        );
       case 'compliance':
         return <ComplianceDashboardView />;
       case 'projects':
@@ -79,7 +90,7 @@ const MainApp: React.FC = () => {
       case 'users':
         return <UserManagementView />;
       default:
-        return <DashboardView onNavigate={(view) => setCurrentView(view)} />;
+        return <DashboardView onNavigate={handleNavigate} />;
     }
   };
 
@@ -88,7 +99,7 @@ const MainApp: React.FC = () => {
       {/* Sidebar Navigation */}
       <Sidebar
         currentView={currentView}
-        onSelectView={setCurrentView}
+        onSelectView={(view) => handleNavigate(view)}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />

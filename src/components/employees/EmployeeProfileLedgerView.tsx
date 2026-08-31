@@ -11,6 +11,7 @@ import {
   RotateCcw,
   IdCard,
   ShieldCheck,
+  ArrowLeft,
 } from 'lucide-react';
 import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
 
@@ -83,7 +84,7 @@ export const EmployeeProfileLedgerView: React.FC = () => {
       .catch(() => setEmployees([]));
   }, []);
 
-  useEffect(() => {
+  const loadEmployeeData = async () => {
     if (!selectedEmployeeId) {
       setEmployee(null);
       setPayrollRows([]);
@@ -94,76 +95,66 @@ export const EmployeeProfileLedgerView: React.FC = () => {
       return;
     }
 
-    let cancelled = false;
     setLoading(true);
     setError(null);
-    setEmployee(null);
-    setPayrollRows([]);
-    setPaymentTx([]);
-    setLoans([]);
-    setCurrentProject('—');
 
-    (async () => {
-      try {
-        const emp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}`);
-        if (!cancelled) setEmployee(emp);
-      } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load employee profile');
-      }
+    try {
+      const emp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}`);
+      setEmployee(emp);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load employee profile');
+    }
 
-      try {
-        const reportRes = await apiRequest(
-          `/api/reports/salary-payroll?search=${encodeURIComponent(selectedEmployeeId)}&pageSize=all&sortBy=payrollMonth&sortDir=asc`
+    try {
+      const reportRes = await apiRequest(
+        `/api/reports/salary-payroll?search=${encodeURIComponent(selectedEmployeeId)}&pageSize=all&sortBy=payrollMonth&sortDir=asc`
+      );
+      setPayrollRows((reportRes.rows || []).filter((r: any) => r.employeeId === selectedEmployeeId));
+    } catch {
+      // Non-fatal -- ledger just shows no Salary rows.
+    }
+
+    try {
+      const tx = await apiRequest(`/api/payments/transactions?employeeId=${encodeURIComponent(selectedEmployeeId)}`);
+      setPaymentTx(Array.isArray(tx) ? tx : []);
+    } catch {
+      // Non-fatal -- ledger just shows no Salary Payment rows.
+    }
+
+    try {
+      const loansRes = await apiRequest(`/api/loans?employeeId=${encodeURIComponent(selectedEmployeeId)}`);
+      setLoans(loansRes.loans || []);
+    } catch {
+      // Non-fatal -- ledger just shows no Loan rows.
+    }
+
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const attData = await apiRequest(`/api/attendance?month=${currentMonth}`);
+      const allProjects = attData.allProjects || [];
+      const activeProjectCodes = new Set(
+        allProjects.filter((p: any) => p.status === 'Active').map((p: any) => p.projectCode)
+      );
+      const empGroup = (attData.grouped || []).find((g: any) => g.employeeId === selectedEmployeeId);
+      let project = 'Head Office';
+      if (empGroup) {
+        const active = (empGroup.records || []).filter(
+          (r: any) =>
+            activeProjectCodes.has(r.projectCode) &&
+            ((Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0)
         );
-        if (!cancelled) setPayrollRows((reportRes.rows || []).filter((r: any) => r.employeeId === selectedEmployeeId));
-      } catch {
-        // Non-fatal -- ledger just shows no Salary rows.
+        if (active.length > 0) project = active.map((r: any) => r.projectCode).join(', ');
       }
+      setCurrentProject(project);
+    } catch {
+      // Non-fatal -- Current Project just shows the default placeholder.
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      try {
-        const tx = await apiRequest(`/api/payments/transactions?employeeId=${encodeURIComponent(selectedEmployeeId)}`);
-        if (!cancelled) setPaymentTx(Array.isArray(tx) ? tx : []);
-      } catch {
-        // Non-fatal -- ledger just shows no Salary Payment rows.
-      }
-
-      try {
-        const loansRes = await apiRequest(`/api/loans?employeeId=${encodeURIComponent(selectedEmployeeId)}`);
-        if (!cancelled) setLoans(loansRes.loans || []);
-      } catch {
-        // Non-fatal -- ledger just shows no Loan rows.
-      }
-
-      try {
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const attData = await apiRequest(`/api/attendance?month=${currentMonth}`);
-        if (!cancelled) {
-          const allProjects = attData.allProjects || [];
-          const activeProjectCodes = new Set(
-            allProjects.filter((p: any) => p.status === 'Active').map((p: any) => p.projectCode)
-          );
-          const empGroup = (attData.grouped || []).find((g: any) => g.employeeId === selectedEmployeeId);
-          let project = 'Head Office';
-          if (empGroup) {
-            const active = (empGroup.records || []).filter(
-              (r: any) =>
-                activeProjectCodes.has(r.projectCode) &&
-                ((Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0)
-            );
-            if (active.length > 0) project = active.map((r: any) => r.projectCode).join(', ');
-          }
-          setCurrentProject(project);
-        }
-      } catch {
-        // Non-fatal -- Current Project just shows the default placeholder.
-      }
-
-      if (!cancelled) setLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    loadEmployeeData();
   }, [selectedEmployeeId]);
 
   // Unified chronological ledger. A payroll-driven loan recovery (recoverySource==='Payroll')
@@ -387,6 +378,37 @@ export const EmployeeProfileLedgerView: React.FC = () => {
     XLSX.utils.book_append_sheet(wb, ledgerSheet, 'Ledger');
     XLSX.writeFile(wb, `Employee_Ledger_${selectedEmployeeId}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
+
+  // If viewing employee compliance details, render inline full page form
+  if (isComplianceModalOpen && employee) {
+    return (
+      <div className="space-y-4 animate-in fade-in duration-200">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <button
+            onClick={() => setIsComplianceModalOpen(false)}
+            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600"
+          >
+            <ArrowLeft size={13} />
+            <span>Employee Profile &amp; Ledger</span>
+          </button>
+          <span>/</span>
+          <span className="font-semibold text-slate-800">
+            {employee.employeeName} ({employee.employeeId})
+          </span>
+        </div>
+
+        <EmployeeIdentificationModal
+          employee={employee}
+          isOpen={true}
+          mode="inline"
+          backLabel="Back to Employee Ledger"
+          onClose={() => setIsComplianceModalOpen(false)}
+          onUpdated={loadEmployeeData}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -623,14 +645,6 @@ export const EmployeeProfileLedgerView: React.FC = () => {
             </div>
           </div>
         </>
-      )}
-
-      {employee && isComplianceModalOpen && (
-        <EmployeeIdentificationModal
-          employee={employee}
-          isOpen={isComplianceModalOpen}
-          onClose={() => setIsComplianceModalOpen(false)}
-        />
       )}
     </div>
   );

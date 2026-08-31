@@ -17,6 +17,7 @@ import reportsRouter from './routes/reports.js';
 import auditRouter from './routes/audit.js';
 import usersRouter from './routes/users.js';
 import complianceRouter from './routes/compliance.js';
+import storageRouter from './routes/storage.js';
 
 // Builds the Express app and ensures the database is initialized. Shared by the
 // traditional long-running entrypoint (server.ts) and the Vercel serverless
@@ -45,6 +46,7 @@ export async function createApp(): Promise<Express> {
   app.use('/api/audit', auditRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/compliance', complianceRouter);
+  app.use('/api/storage', storageRouter);
 
   app.get('/api/system/status', (req, res) => {
     try {

@@ -29,6 +29,7 @@ import {
   Wrench,
   Truck,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 import { apiRequest, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -253,6 +254,44 @@ export const ComplianceDashboardView: React.FC = () => {
       setAiLoading(false);
     }
   };
+
+  // If inspecting or editing an employee's compliance record, render inline full page form
+  if (isModalOpen && selectedEmployee) {
+    return (
+      <div className="space-y-4 animate-in fade-in duration-200">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <button
+            onClick={() => {
+              setIsModalOpen(false);
+              setSelectedEmployee(null);
+            }}
+            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600"
+          >
+            <ArrowLeft size={13} />
+            <span>Compliance 360° Hub</span>
+          </button>
+          <span>/</span>
+          <span className="font-semibold text-slate-800">
+            {selectedEmployee.employeeName} ({selectedEmployee.employeeId})
+          </span>
+        </div>
+
+        <EmployeeIdentificationModal
+          employee={selectedEmployee}
+          isOpen={true}
+          mode="inline"
+          backLabel="Back to Compliance Hub"
+          initialTab={modalInitialTab}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedEmployee(null);
+          }}
+          onUpdated={fetchData}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -857,20 +896,6 @@ export const ComplianceDashboardView: React.FC = () => {
             </button>
           </div>
         </div>
-      )}
-
-      {/* Employee Identification & Document Renewal Modal */}
-      {selectedEmployee && (
-        <EmployeeIdentificationModal
-          employee={selectedEmployee}
-          isOpen={isModalOpen}
-          initialTab={modalInitialTab}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedEmployee(null);
-          }}
-          onUpdated={fetchData}
-        />
       )}
     </div>
   );

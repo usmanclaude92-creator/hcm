@@ -87,7 +87,20 @@ function validateEmployeeFields(f: {
 // GET /api/employees - List employees with filters
 router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const { search, employeeType, nationalityType, employeeCompany, salaryPaidBy, wageType, status, sortField, sortOrder } = req.query;
+    const {
+      search,
+      employeeType,
+      nationalityType,
+      employeeCompany,
+      salaryPaidBy,
+      wageType,
+      status,
+      docType,
+      docStatus,
+      expiryStatus,
+      sortField,
+      sortOrder,
+    } = req.query;
 
     let employees = db.employees.getAll();
 
@@ -124,6 +137,155 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
       employees = employees.filter(e => e.isActive);
     } else if (status === 'inactive') {
       employees = employees.filter(e => !e.isActive);
+    }
+
+    // Document expiry filtering (e.g. from Dashboard Expiry Monitoring widgets)
+    const targetDocStatus = (docStatus || expiryStatus || '') as string;
+    const targetDocType = (docType || '') as string;
+
+    if (targetDocType || targetDocStatus) {
+      const civilIds = db.civilIds.getAll().filter(c => c.isCurrent);
+      const drivingLicences = db.drivingLicences.getAll().filter(d => d.isCurrent);
+      const visas = db.visas.getAll().filter(v => v.isCurrent);
+      const govtDocs = db.governmentDocuments.getAll().filter(g => g.isCurrent);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const matchesStatus = (st: string) => {
+        if (!targetDocStatus || targetDocStatus === 'ALL') return true;
+        if (targetDocStatus === 'Action Needed') {
+          return st === 'Expired' || st === 'Urgent' || st === 'Expiring Soon';
+        }
+        return st.toLowerCase() === targetDocStatus.toLowerCase();
+      };
+
+      const dtLow = targetDocType ? targetDocType.toLowerCase().replace(/[\s-_]/g, '') : '';
+
+      const enrichedEmployees = employees.map(emp => {
+        const empNorm = normalizeEmployeeId(emp.employeeId);
+        const docs: Array<{
+          category: string;
+          type: string;
+          number: string;
+          expiryDate: string;
+          status: string;
+          daysRemaining: number;
+        }> = [];
+
+        // Civil ID
+        const cid = civilIds.find(c => normalizeEmployeeId(c.employeeId) === empNorm);
+        if (cid) {
+          const st = calculateExpiryStatus(cid.expiryDate);
+          const exp = new Date(cid.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          docs.push({
+            category: 'civilId',
+            type: 'Civil ID',
+            number: cid.civilIdNumber,
+            expiryDate: cid.expiryDate,
+            status: st,
+            daysRemaining: Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+          });
+        }
+
+        // Visa
+        if (emp.nationalityType === 'Expat') {
+          const v = visas.find(vi => normalizeEmployeeId(vi.employeeId) === empNorm);
+          if (v) {
+            const st = calculateExpiryStatus(v.expiryDate);
+            const exp = new Date(v.expiryDate);
+            exp.setHours(0, 0, 0, 0);
+            docs.push({
+              category: 'visa',
+              type: 'Visa',
+              number: v.visaNumber,
+              expiryDate: v.expiryDate,
+              status: st,
+              daysRemaining: Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+            });
+          }
+        }
+
+        // Driving Licence
+        const dl = drivingLicences.find(d => normalizeEmployeeId(d.employeeId) === empNorm);
+        if (dl) {
+          const st = calculateExpiryStatus(dl.expiryDate);
+          const exp = new Date(dl.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          docs.push({
+            category: 'drivingLicence',
+            type: `Driving Licence (${dl.category})`,
+            number: dl.licenceNumber,
+            expiryDate: dl.expiryDate,
+            status: st,
+            daysRemaining: Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+          });
+        }
+
+        // Passport
+        const pass = govtDocs.find(g => normalizeEmployeeId(g.employeeId) === empNorm && g.documentType === 'Passport');
+        if (pass) {
+          const st = calculateExpiryStatus(pass.expiryDate);
+          const exp = new Date(pass.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          docs.push({
+            category: 'passport',
+            type: 'Passport',
+            number: pass.documentNumber,
+            expiryDate: pass.expiryDate,
+            status: st,
+            daysRemaining: Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+          });
+        }
+
+        // Work Permit
+        const wp = govtDocs.find(g => normalizeEmployeeId(g.employeeId) === empNorm && g.documentType === 'Work Permit');
+        if (wp) {
+          const st = calculateExpiryStatus(wp.expiryDate);
+          const exp = new Date(wp.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          docs.push({
+            category: 'workPermit',
+            type: 'Work Permit',
+            number: wp.documentNumber,
+            expiryDate: wp.expiryDate,
+            status: st,
+            daysRemaining: Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+          });
+        }
+
+        // Employment Contract
+        const contract = govtDocs.find(g => normalizeEmployeeId(g.employeeId) === empNorm && ((g.documentType as any) === 'Employment Contract' || (g.documentType as any) === 'Contract'));
+        if (contract) {
+          const st = calculateExpiryStatus(contract.expiryDate);
+          const exp = new Date(contract.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          docs.push({
+            category: 'contract',
+            type: 'Employment Contract',
+            number: contract.documentNumber || 'CONTRACT',
+            expiryDate: contract.expiryDate,
+            status: st,
+            daysRemaining: Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)),
+          });
+        }
+
+        // Find matched document if criteria specified
+        const matchingDoc = docs.find(d => {
+          const matchType = !dtLow || d.category.toLowerCase().replace(/[\s-_]/g, '').includes(dtLow) || d.type.toLowerCase().replace(/[\s-_]/g, '').includes(dtLow);
+          const matchSt = matchesStatus(d.status);
+          return matchType && matchSt;
+        });
+
+        return {
+          ...emp,
+          _matchedDoc: matchingDoc || null,
+          _allDocs: docs,
+        };
+      });
+
+      employees = enrichedEmployees.filter(e => e._matchedDoc !== null) as any;
     }
 
     // Sorting

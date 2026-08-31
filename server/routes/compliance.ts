@@ -30,12 +30,17 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
       visa: { Valid: 0, 'Expiring Soon': 0, Urgent: 0, Expired: 0, Missing: 0 },
       passport: { Valid: 0, 'Expiring Soon': 0, Urgent: 0, Expired: 0, Missing: 0 },
       workPermit: { Valid: 0, 'Expiring Soon': 0, Urgent: 0, Expired: 0, Missing: 0 },
+      contract: { Valid: 0, 'Expiring Soon': 0, Urgent: 0, Expired: 0, Missing: 0 },
     };
 
     const alerts: Array<{
       id: string;
       employeeId: string;
       employeeName: string;
+      designation: string;
+      employeeCompany: string;
+      nationalityType: string;
+      documentCategory: string;
       documentType: string;
       documentNumberMasked: string;
       expiryDate: string;
@@ -61,7 +66,7 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
     employees.forEach((emp) => {
       const empNorm = normalizeEmployeeId(emp.employeeId);
 
-      // Civil ID
+      // 1. Civil ID
       const cid = civilIds.find((c) => normalizeEmployeeId(c.employeeId) === empNorm);
       if (cid) {
         const st = calculateExpiryStatus(cid.expiryDate);
@@ -75,7 +80,11 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
             id: `cid-${cid.id}`,
             employeeId: emp.employeeId,
             employeeName: emp.employeeName,
-            documentType: 'Civil ID / Resident Card',
+            designation: emp.designation,
+            employeeCompany: emp.employeeCompany,
+            nationalityType: emp.nationalityType,
+            documentCategory: 'civilId',
+            documentType: 'Civil ID',
             documentNumberMasked: maskSensitiveId(cid.civilIdNumber),
             expiryDate: cid.expiryDate,
             status: st,
@@ -86,7 +95,7 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
         docCounts.civilId.Missing = (docCounts.civilId.Missing || 0) + 1;
       }
 
-      // Visa (Expat only)
+      // 2. Visa (Expat only)
       if (emp.nationalityType === 'Expat') {
         const v = visas.find((vi) => normalizeEmployeeId(vi.employeeId) === empNorm);
         if (v) {
@@ -101,6 +110,10 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
               id: `visa-${v.id}`,
               employeeId: emp.employeeId,
               employeeName: emp.employeeName,
+              designation: emp.designation,
+              employeeCompany: emp.employeeCompany,
+              nationalityType: emp.nationalityType,
+              documentCategory: 'visa',
               documentType: 'Visa',
               documentNumberMasked: maskSensitiveId(v.visaNumber),
               expiryDate: v.expiryDate,
@@ -127,7 +140,7 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
         }
       }
 
-      // Driving Licence
+      // 3. Driving Licence
       const dl = drivingLicences.find((d) => normalizeEmployeeId(d.employeeId) === empNorm);
       if (dl) {
         const st = calculateExpiryStatus(dl.expiryDate);
@@ -143,6 +156,10 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
             id: `dl-${dl.id}`,
             employeeId: emp.employeeId,
             employeeName: emp.employeeName,
+            designation: emp.designation,
+            employeeCompany: emp.employeeCompany,
+            nationalityType: emp.nationalityType,
+            documentCategory: 'drivingLicence',
             documentType: `Driving Licence (${dl.category})`,
             documentNumberMasked: maskSensitiveId(dl.licenceNumber),
             expiryDate: dl.expiryDate,
@@ -152,7 +169,7 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
         }
       }
 
-      // Passport
+      // 4. Passport
       const pass = govtDocs.find((g) => normalizeEmployeeId(g.employeeId) === empNorm && g.documentType === 'Passport');
       if (pass) {
         const st = calculateExpiryStatus(pass.expiryDate);
@@ -166,6 +183,10 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
             id: `pass-${pass.id}`,
             employeeId: emp.employeeId,
             employeeName: emp.employeeName,
+            designation: emp.designation,
+            employeeCompany: emp.employeeCompany,
+            nationalityType: emp.nationalityType,
+            documentCategory: 'passport',
             documentType: 'Passport',
             documentNumberMasked: maskSensitiveId(pass.documentNumber),
             expiryDate: pass.expiryDate,
@@ -177,7 +198,7 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
         docCounts.passport.Missing = (docCounts.passport.Missing || 0) + 1;
       }
 
-      // Work Permit
+      // 5. Work Permit
       const wp = govtDocs.find((g) => normalizeEmployeeId(g.employeeId) === empNorm && g.documentType === 'Work Permit');
       if (wp) {
         const st = calculateExpiryStatus(wp.expiryDate);
@@ -191,9 +212,40 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
             id: `wp-${wp.id}`,
             employeeId: emp.employeeId,
             employeeName: emp.employeeName,
+            designation: emp.designation,
+            employeeCompany: emp.employeeCompany,
+            nationalityType: emp.nationalityType,
+            documentCategory: 'workPermit',
             documentType: 'Work Permit',
             documentNumberMasked: maskSensitiveId(wp.documentNumber),
             expiryDate: wp.expiryDate,
+            status: st,
+            daysRemaining: days,
+          });
+        }
+      }
+
+      // 6. Employment Contract
+      const contract = govtDocs.find((g) => normalizeEmployeeId(g.employeeId) === empNorm && ((g.documentType as any) === 'Employment Contract' || (g.documentType as any) === 'Contract'));
+      if (contract) {
+        const st = calculateExpiryStatus(contract.expiryDate);
+        docCounts.contract[st] = (docCounts.contract[st] || 0) + 1;
+
+        const exp = new Date(contract.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (st === 'Expired' || st === 'Urgent' || st === 'Expiring Soon') {
+          alerts.push({
+            id: `contract-${contract.id}`,
+            employeeId: emp.employeeId,
+            employeeName: emp.employeeName,
+            designation: emp.designation,
+            employeeCompany: emp.employeeCompany,
+            nationalityType: emp.nationalityType,
+            documentCategory: 'contract',
+            documentType: 'Employment Contract',
+            documentNumberMasked: maskSensitiveId(contract.documentNumber || 'CONTRACT'),
+            expiryDate: contract.expiryDate,
             status: st,
             daysRemaining: days,
           });
@@ -204,8 +256,30 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
     // Sort alerts: Expired first, then lowest days remaining
     alerts.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
+    // Calculate totals across all 6 document types
+    let totalValid = 0;
+    let totalExpiringSoon = 0;
+    let totalUrgent = 0;
+    let totalExpired = 0;
+    let totalMissing = 0;
+
+    Object.values(docCounts).forEach((c) => {
+      totalValid += c.Valid || 0;
+      totalExpiringSoon += c['Expiring Soon'] || 0;
+      totalUrgent += c.Urgent || 0;
+      totalExpired += c.Expired || 0;
+      totalMissing += c.Missing || 0;
+    });
+
     res.json({
+      totalEmployees: employees.length,
       totalActiveEmployees: employees.length,
+      totalValid,
+      totalExpiringSoon,
+      totalUrgent,
+      totalExpired,
+      totalMissing,
+      totalAttention: totalExpired + totalUrgent + totalExpiringSoon,
       docCounts,
       alerts,
       tradeDiscrepancies,
@@ -214,6 +288,265 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to calculate compliance summary' });
+  }
+});
+
+// GET /api/compliance/expiries - List all monitored document expiries with filters
+router.get('/expiries', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { docType, status, company, nationality, search } = req.query;
+
+    const employees = db.employees.getAll().filter((e) => e.isActive);
+    const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
+    const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
+    const visas = db.visas.getAll().filter((v) => v.isCurrent);
+    const govtDocs = db.governmentDocuments.getAll().filter((g) => g.isCurrent);
+
+    const items: Array<{
+      id: string;
+      employeeId: string;
+      employeeName: string;
+      designation: string;
+      employeeCompany: string;
+      nationalityType: string;
+      salaryPaidBy: string;
+      documentCategory: string;
+      documentType: string;
+      documentNumber: string;
+      documentNumberMasked: string;
+      issueDate: string;
+      expiryDate: string;
+      status: DocumentExpiryStatus;
+      daysRemaining: number;
+      issuingAuthority?: string;
+      country?: string;
+      remarks?: string;
+    }> = [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    employees.forEach((emp) => {
+      const empNorm = normalizeEmployeeId(emp.employeeId);
+
+      // 1. Civil ID
+      const cid = civilIds.find((c) => normalizeEmployeeId(c.employeeId) === empNorm);
+      if (cid) {
+        const st = calculateExpiryStatus(cid.expiryDate);
+        const exp = new Date(cid.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        items.push({
+          id: `cid-${cid.id}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          designation: emp.designation,
+          employeeCompany: emp.employeeCompany,
+          nationalityType: emp.nationalityType,
+          salaryPaidBy: emp.salaryPaidBy,
+          documentCategory: 'civilId',
+          documentType: 'Civil ID',
+          documentNumber: cid.civilIdNumber,
+          documentNumberMasked: maskSensitiveId(cid.civilIdNumber),
+          issueDate: cid.issueDate,
+          expiryDate: cid.expiryDate,
+          status: st,
+          daysRemaining: days,
+          issuingAuthority: cid.issuingAuthority,
+          country: cid.country,
+          remarks: cid.remarks,
+        });
+      }
+
+      // 2. Visa
+      if (emp.nationalityType === 'Expat') {
+        const v = visas.find((vi) => normalizeEmployeeId(vi.employeeId) === empNorm);
+        if (v) {
+          const st = calculateExpiryStatus(v.expiryDate);
+          const exp = new Date(v.expiryDate);
+          exp.setHours(0, 0, 0, 0);
+          const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          items.push({
+            id: `visa-${v.id}`,
+            employeeId: emp.employeeId,
+            employeeName: emp.employeeName,
+            designation: emp.designation,
+            employeeCompany: emp.employeeCompany,
+            nationalityType: emp.nationalityType,
+            salaryPaidBy: emp.salaryPaidBy,
+            documentCategory: 'visa',
+            documentType: 'Visa',
+            documentNumber: v.visaNumber,
+            documentNumberMasked: maskSensitiveId(v.visaNumber),
+            issueDate: v.issueDate,
+            expiryDate: v.expiryDate,
+            status: st,
+            daysRemaining: days,
+            issuingAuthority: v.issuingAuthority,
+            country: v.country,
+            remarks: v.tradeOnVisa ? `Trade on Visa: ${v.tradeOnVisa}` : v.remarks,
+          });
+        }
+      }
+
+      // 3. Driving Licence
+      const dl = drivingLicences.find((d) => normalizeEmployeeId(d.employeeId) === empNorm);
+      if (dl) {
+        const st = calculateExpiryStatus(dl.expiryDate);
+        const exp = new Date(dl.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        items.push({
+          id: `dl-${dl.id}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          designation: emp.designation,
+          employeeCompany: emp.employeeCompany,
+          nationalityType: emp.nationalityType,
+          salaryPaidBy: emp.salaryPaidBy,
+          documentCategory: 'drivingLicence',
+          documentType: `Driving Licence (${dl.category})`,
+          documentNumber: dl.licenceNumber,
+          documentNumberMasked: maskSensitiveId(dl.licenceNumber),
+          issueDate: dl.issueDate,
+          expiryDate: dl.expiryDate,
+          status: st,
+          daysRemaining: days,
+          issuingAuthority: dl.issuingAuthority,
+          remarks: dl.vehicleClass ? `Class: ${dl.vehicleClass}` : dl.remarks,
+        });
+      }
+
+      // 4. Passport
+      const pass = govtDocs.find((g) => normalizeEmployeeId(g.employeeId) === empNorm && g.documentType === 'Passport');
+      if (pass) {
+        const st = calculateExpiryStatus(pass.expiryDate);
+        const exp = new Date(pass.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        items.push({
+          id: `pass-${pass.id}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          designation: emp.designation,
+          employeeCompany: emp.employeeCompany,
+          nationalityType: emp.nationalityType,
+          salaryPaidBy: emp.salaryPaidBy,
+          documentCategory: 'passport',
+          documentType: 'Passport',
+          documentNumber: pass.documentNumber,
+          documentNumberMasked: maskSensitiveId(pass.documentNumber),
+          issueDate: pass.issueDate,
+          expiryDate: pass.expiryDate,
+          status: st,
+          daysRemaining: days,
+          issuingAuthority: pass.issuingAuthority,
+          country: pass.country,
+          remarks: pass.remarks,
+        });
+      }
+
+      // 5. Work Permit
+      const wp = govtDocs.find((g) => normalizeEmployeeId(g.employeeId) === empNorm && g.documentType === 'Work Permit');
+      if (wp) {
+        const st = calculateExpiryStatus(wp.expiryDate);
+        const exp = new Date(wp.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        items.push({
+          id: `wp-${wp.id}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          designation: emp.designation,
+          employeeCompany: emp.employeeCompany,
+          nationalityType: emp.nationalityType,
+          salaryPaidBy: emp.salaryPaidBy,
+          documentCategory: 'workPermit',
+          documentType: 'Work Permit',
+          documentNumber: wp.documentNumber,
+          documentNumberMasked: maskSensitiveId(wp.documentNumber),
+          issueDate: wp.issueDate,
+          expiryDate: wp.expiryDate,
+          status: st,
+          daysRemaining: days,
+          issuingAuthority: wp.issuingAuthority || 'Ministry of Labour (MoL)',
+          remarks: wp.remarks,
+        });
+      }
+
+      // 6. Employment Contract
+      const contract = govtDocs.find((g) => normalizeEmployeeId(g.employeeId) === empNorm && ((g.documentType as any) === 'Employment Contract' || (g.documentType as any) === 'Contract'));
+      if (contract) {
+        const st = calculateExpiryStatus(contract.expiryDate);
+        const exp = new Date(contract.expiryDate);
+        exp.setHours(0, 0, 0, 0);
+        const days = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        items.push({
+          id: `contract-${contract.id}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          designation: emp.designation,
+          employeeCompany: emp.employeeCompany,
+          nationalityType: emp.nationalityType,
+          salaryPaidBy: emp.salaryPaidBy,
+          documentCategory: 'contract',
+          documentType: 'Employment Contract',
+          documentNumber: contract.documentNumber,
+          documentNumberMasked: maskSensitiveId(contract.documentNumber || 'CONTRACT'),
+          issueDate: contract.issueDate,
+          expiryDate: contract.expiryDate,
+          status: st,
+          daysRemaining: days,
+          issuingAuthority: contract.issuingAuthority || 'Ministry of Labour (MoL)',
+          remarks: contract.remarks,
+        });
+      }
+    });
+
+    let filtered = items;
+
+    if (docType && docType !== 'ALL') {
+      const dtLow = String(docType).toLowerCase().replace(/[\s-_]/g, '');
+      filtered = filtered.filter((i) => {
+        const catLow = i.documentCategory.toLowerCase().replace(/[\s-_]/g, '');
+        const typeLow = i.documentType.toLowerCase().replace(/[\s-_]/g, '');
+        return catLow.includes(dtLow) || typeLow.includes(dtLow);
+      });
+    }
+
+    if (status && status !== 'ALL') {
+      if (status === 'Action Needed') {
+        filtered = filtered.filter((i) => i.status === 'Expired' || i.status === 'Urgent' || i.status === 'Expiring Soon');
+      } else {
+        filtered = filtered.filter((i) => i.status === status);
+      }
+    }
+
+    if (company && company !== 'ALL') {
+      filtered = filtered.filter((i) => i.employeeCompany === company);
+    }
+
+    if (nationality && nationality !== 'ALL') {
+      filtered = filtered.filter((i) => i.nationalityType === nationality);
+    }
+
+    if (search) {
+      const q = String(search).toLowerCase().trim();
+      filtered = filtered.filter(
+        (i) =>
+          i.employeeId.toLowerCase().includes(q) ||
+          i.employeeName.toLowerCase().includes(q) ||
+          i.documentNumber.toLowerCase().includes(q) ||
+          i.designation.toLowerCase().includes(q) ||
+          i.documentType.toLowerCase().includes(q)
+      );
+    }
+
+    filtered.sort((a, b) => a.daysRemaining - b.daysRemaining);
+
+    res.json(filtered);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch document expiries' });
   }
 });
 

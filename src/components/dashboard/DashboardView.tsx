@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { apiRequest, formatOMR } from '../../api/client';
 import { PaymentLiabilityAnalytics } from './PaymentLiabilityAnalytics';
 import { PayrollPeriodFilter, type PeriodMode } from './PayrollPeriodFilter';
+import { DocumentExpiryMonitoringSection } from './DocumentExpiryMonitoringSection';
 import { WorkforceDeploymentView, type WorkforceDeploymentViewHandle } from '../workforce/WorkforceDeploymentView';
 import {
   Users,
@@ -56,7 +57,7 @@ function ProgressBar({ percentage, colorClass }: { percentage: number; colorClas
 }
 
 interface DashboardViewProps {
-  onNavigate: (view: string) => void;
+  onNavigate: (view: string, params?: Record<string, any>) => void;
 }
 
 type DashboardTab = 'payroll-insights' | 'workforce-deployment';
@@ -618,6 +619,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </div>
           </div>
+
+          {/* Document Expiry Monitoring Engine Section */}
+          <DocumentExpiryMonitoringSection
+            onNavigateToEmployees={(filters) => onNavigate('employees', filters)}
+            onNavigateToCompliance={() => onNavigate('compliance')}
+          />
 
           {/* Quick Action Navigation Panels */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

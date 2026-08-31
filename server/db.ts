@@ -31,6 +31,8 @@ import type {
   EmployeeVisa,
   EmployeeGovernmentDocument,
   EmployeePersonalDetails,
+  EmployeeDocument,
+  EmployeeDocumentCategory,
   DocumentExpiryStatus,
   OverallComplianceStatus,
   DrivingLicenceCategory,
@@ -184,6 +186,7 @@ interface DatabaseSchema {
   drivingLicences: EmployeeDrivingLicence[];
   visas: EmployeeVisa[];
   governmentDocuments: EmployeeGovernmentDocument[];
+  documents: EmployeeDocument[];
   personalDetails: Record<string, EmployeePersonalDetails>;
   drivingLicenceCategories: string[];
 }
@@ -225,6 +228,7 @@ class DatabaseManager {
     drivingLicences: [],
     visas: [],
     governmentDocuments: [],
+    documents: [],
     personalDetails: {},
     drivingLicenceCategories: [
       'Light Vehicle',
@@ -497,6 +501,7 @@ class DatabaseManager {
       visas: parsed.visas || [],
       governmentDocuments: parsed.governmentDocuments || [],
       personalDetails: parsed.personalDetails || {},
+      documents: parsed.documents || [],
       drivingLicenceCategories: parsed.drivingLicenceCategories || [
         'Light Vehicle',
         'Heavy Vehicle',
@@ -703,11 +708,6 @@ class DatabaseManager {
       if (!existing) {
         this.inMemoryData.users.push(coreUser);
       }
-    }
-
-    if (!forceReset && this.inMemoryData.employees.length > 0) {
-      await this.persist();
-      return;
     }
 
     const initialProjects: Project[] = [
@@ -1486,6 +1486,24 @@ class DatabaseManager {
       },
       {
         id: crypto.randomUUID(),
+        employeeId: 'EMP001',
+        documentType: 'Employment Contract',
+        documentNumber: 'CNT-2023-0192',
+        issueDate: '2023-01-10',
+        expiryDate: '2028-01-10',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Valid',
+        documentAttachment: 'contract_ahmed.pdf',
+        fileName: 'contract_ahmed.pdf',
+        remarks: 'Permanent Senior Employment Contract under RD 53/2023',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
         employeeId: 'EMP002',
         documentType: 'Passport',
         documentNumber: 'L9283741',
@@ -1516,6 +1534,22 @@ class DatabaseManager {
       },
       {
         id: crypto.randomUUID(),
+        employeeId: 'EMP002',
+        documentType: 'Employment Contract',
+        documentNumber: 'CNT-2024-4412',
+        issueDate: '2024-03-01',
+        expiryDate: '2026-09-10',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Expiring Soon',
+        remarks: '2-Year Expat Fixed Term Contract',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
         employeeId: 'EMP003',
         documentType: 'Passport',
         documentNumber: 'Z8472910',
@@ -1524,6 +1558,38 @@ class DatabaseManager {
         issuingAuthority: 'Directorate of Immigration',
         country: 'Pakistan',
         status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP003',
+        documentType: 'Work Permit',
+        documentNumber: 'WP-2023-3391',
+        issueDate: '2023-06-15',
+        expiryDate: '2025-06-14',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Expired',
+        remarks: 'Expired Work Permit - Labour clearance pending',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP003',
+        documentType: 'Employment Contract',
+        documentNumber: 'CNT-2023-8821',
+        issueDate: '2023-06-15',
+        expiryDate: '2025-06-14',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Expired',
+        remarks: 'Expired Contract - Pending MoL Renewal',
         isCurrent: true,
         createdBy: 'admin',
         createdAt: timestamp,
@@ -1546,6 +1612,22 @@ class DatabaseManager {
       },
       {
         id: crypto.randomUUID(),
+        employeeId: 'EMP004',
+        documentType: 'Employment Contract',
+        documentNumber: 'CNT-2024-5519',
+        issueDate: '2024-09-02',
+        expiryDate: '2026-09-02',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Urgent',
+        remarks: 'Renewing Contract - Notice period active',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
         employeeId: 'EMP005',
         documentType: 'Passport',
         documentNumber: 'K7728193',
@@ -1554,6 +1636,37 @@ class DatabaseManager {
         issuingAuthority: 'Passport Authority',
         country: 'India',
         status: 'Valid',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP005',
+        documentType: 'Work Permit',
+        documentNumber: 'WP-2024-7712',
+        issueDate: '2024-02-01',
+        expiryDate: '2026-09-25',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Expiring Soon',
+        isCurrent: true,
+        createdBy: 'admin',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        employeeId: 'EMP005',
+        documentType: 'Employment Contract',
+        documentNumber: 'CNT-2024-9921',
+        issueDate: '2024-02-01',
+        expiryDate: '2026-09-25',
+        issuingAuthority: 'Ministry of Labour (MoL)',
+        country: 'Oman',
+        status: 'Expiring Soon',
+        remarks: 'Expat Carpenter Employment Contract',
         isCurrent: true,
         createdBy: 'admin',
         createdAt: timestamp,
@@ -1618,6 +1731,19 @@ class DatabaseManager {
       },
     };
 
+    if (!forceReset && this.inMemoryData.employees.length > 0) {
+      // Ensure compliance records are backfilled if they were empty
+      if (!this.inMemoryData.civilIds || this.inMemoryData.civilIds.length === 0) {
+        this.inMemoryData.civilIds = initialCivilIds;
+        this.inMemoryData.drivingLicences = initialDrivingLicences;
+        this.inMemoryData.visas = initialVisas;
+        this.inMemoryData.governmentDocuments = initialGovtDocs;
+        this.inMemoryData.personalDetails = initialPersonalDetails;
+      }
+      await this.persist();
+      return;
+    }
+
     this.inMemoryData = {
       users: defaultCoreUsers,
       employees: initialEmployees,
@@ -1644,6 +1770,115 @@ class DatabaseManager {
       drivingLicences: initialDrivingLicences,
       visas: initialVisas,
       governmentDocuments: initialGovtDocs,
+      documents: [
+        {
+          id: crypto.randomUUID(),
+          employeeId: 'EMP001',
+          documentType: 'Civil ID',
+          category: 'civil-id',
+          title: 'Ahmed Al-Balushi Civil ID Card (Front & Back)',
+          documentNumber: '10928374',
+          fileName: 'ahmed_civil_id_scan.pdf',
+          storagePath: 'employees/EMP001/civil-id/sample_cid.pdf',
+          fileSize: 1048576,
+          mimeType: 'application/pdf',
+          issueDate: '2022-05-15',
+          expiryDate: '2027-05-14',
+          status: 'Valid',
+          remarks: 'Verified against ROP civil status database',
+          uploadedBy: 'admin',
+          uploadedAt: timestamp,
+        },
+        {
+          id: crypto.randomUUID(),
+          employeeId: 'EMP001',
+          documentType: 'Driving Licence',
+          category: 'driving-licence',
+          title: 'Light & Heavy Vehicle Driving Licence',
+          documentNumber: 'DL-882910',
+          fileName: 'ahmed_dl_oman.pdf',
+          storagePath: 'employees/EMP001/driving-licence/sample_dl.pdf',
+          fileSize: 845000,
+          mimeType: 'application/pdf',
+          issueDate: '2023-01-10',
+          expiryDate: '2033-01-09',
+          status: 'Valid',
+          remarks: 'ROP issued licence with clean record',
+          uploadedBy: 'admin',
+          uploadedAt: timestamp,
+        },
+        {
+          id: crypto.randomUUID(),
+          employeeId: 'EMP002',
+          documentType: 'Visa',
+          category: 'visa',
+          title: 'Resident Employment Visa Stamp',
+          documentNumber: 'VS-9928172',
+          fileName: 'rahul_resident_visa.pdf',
+          storagePath: 'employees/EMP002/visa/sample_visa.pdf',
+          fileSize: 1250000,
+          mimeType: 'application/pdf',
+          issueDate: '2024-09-01',
+          expiryDate: '2026-08-31',
+          status: 'Valid',
+          remarks: 'Trade: Civil Foreman. Sponsored by DGO.',
+          uploadedBy: 'admin',
+          uploadedAt: timestamp,
+        },
+        {
+          id: crypto.randomUUID(),
+          employeeId: 'EMP002',
+          documentType: 'Work Permit',
+          category: 'govt-docs',
+          title: 'Ministry of Labour Work Permit Card',
+          documentNumber: 'WP-2024-9182',
+          fileName: 'rahul_work_permit.pdf',
+          storagePath: 'employees/EMP002/govt-docs/sample_wp.pdf',
+          fileSize: 620000,
+          mimeType: 'application/pdf',
+          issueDate: '2024-03-01',
+          expiryDate: '2026-09-10',
+          status: 'Expiring Soon',
+          remarks: 'Renewal paperwork to be initiated with MoL',
+          uploadedBy: 'admin',
+          uploadedAt: timestamp,
+        },
+        {
+          id: crypto.randomUUID(),
+          employeeId: 'EMP001',
+          documentType: 'Employment Contract',
+          category: 'contract',
+          title: 'MOL Registered Employment Contract',
+          documentNumber: 'CTR-2022-001',
+          fileName: 'ahmed_employment_contract.pdf',
+          storagePath: 'employees/EMP001/contract/sample_contract.pdf',
+          fileSize: 2100000,
+          mimeType: 'application/pdf',
+          issueDate: '2022-01-01',
+          expiryDate: '2027-01-01',
+          status: 'Valid',
+          remarks: 'Indefinite duration contract attested by MoL',
+          uploadedBy: 'admin',
+          uploadedAt: timestamp,
+        },
+        {
+          id: crypto.randomUUID(),
+          employeeId: 'EMP001',
+          documentType: 'Educational Certificate',
+          category: 'education',
+          title: 'B.Sc. Civil Engineering Degree Certificate',
+          documentNumber: 'SQU-ENG-2010-09',
+          fileName: 'squ_civil_eng_degree.pdf',
+          storagePath: 'employees/EMP001/education/sample_degree.pdf',
+          fileSize: 1800000,
+          mimeType: 'application/pdf',
+          issueDate: '2010-06-30',
+          status: 'Valid',
+          remarks: 'Sultan Qaboos University with distinction',
+          uploadedBy: 'admin',
+          uploadedAt: timestamp,
+        },
+      ],
       personalDetails: initialPersonalDetails,
       drivingLicenceCategories: [
         'Light Vehicle',
@@ -2838,6 +3073,64 @@ class DatabaseManager {
         this.inMemoryData.personalDetails[norm] = details;
         await this.persist();
         return details;
+      },
+    };
+  }
+
+  public get documents() {
+    return {
+      getAll: () => [...this.inMemoryData.documents],
+      getByEmployeeId: (empId: string, category?: string) => {
+        const norm = normalizeEmployeeId(empId);
+        let list = this.inMemoryData.documents.filter((d) => normalizeEmployeeId(d.employeeId) === norm);
+        if (category && category !== 'ALL') {
+          list = list.filter((d) => d.category === category);
+        }
+        return list
+          .map((d) => ({
+            ...d,
+            status: d.expiryDate ? calculateExpiryStatus(d.expiryDate) : undefined,
+          }))
+          .sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+      },
+      getById: (id: string) => {
+        const doc = this.inMemoryData.documents.find((d) => d.id === id);
+        if (!doc) return null;
+        return {
+          ...doc,
+          status: doc.expiryDate ? calculateExpiryStatus(doc.expiryDate) : undefined,
+        };
+      },
+      create: async (doc: EmployeeDocument) => {
+        const norm = normalizeEmployeeId(doc.employeeId);
+        doc.employeeId = norm;
+        if (doc.expiryDate) {
+          doc.status = calculateExpiryStatus(doc.expiryDate);
+        }
+        this.inMemoryData.documents.push(doc);
+        await this.persist();
+        return doc;
+      },
+      update: async (id: string, updates: Partial<EmployeeDocument>) => {
+        const index = this.inMemoryData.documents.findIndex((d) => d.id === id);
+        if (index === -1) return null;
+        if (updates.expiryDate) {
+          updates.status = calculateExpiryStatus(updates.expiryDate);
+        }
+        this.inMemoryData.documents[index] = {
+          ...this.inMemoryData.documents[index],
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        };
+        await this.persist();
+        return this.inMemoryData.documents[index];
+      },
+      delete: async (id: string) => {
+        const index = this.inMemoryData.documents.findIndex((d) => d.id === id);
+        if (index === -1) return false;
+        this.inMemoryData.documents.splice(index, 1);
+        await this.persist();
+        return true;
       },
     };
   }

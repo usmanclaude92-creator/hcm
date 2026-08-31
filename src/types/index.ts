@@ -132,6 +132,39 @@ export interface EmployeeGovernmentDocument {
   updatedAt: string;
 }
 
+export type EmployeeDocumentCategory =
+  | 'civil-id'
+  | 'driving-licence'
+  | 'visa'
+  | 'passport'
+  | 'govt-docs'
+  | 'contract'
+  | 'education'
+  | 'medical'
+  | 'general'
+  | 'receipt';
+
+export interface EmployeeDocument {
+  id: string;
+  employeeId: string;
+  documentType: string;
+  category: EmployeeDocumentCategory;
+  title: string;
+  documentNumber?: string;
+  fileName: string;
+  storagePath: string;
+  fileUrl?: string;
+  fileSize?: number;
+  mimeType?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  status?: DocumentExpiryStatus;
+  remarks?: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  updatedAt?: string;
+}
+
 export interface EmployeePersonalDetails {
   employeeId?: string;
   dob?: string;

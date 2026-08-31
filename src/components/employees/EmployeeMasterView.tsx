@@ -18,36 +18,83 @@ import {
   UserCheck,
   UserX,
   X,
-  Save,
   RefreshCw,
   Building,
   Info,
+  CreditCard,
+  Globe,
+  FileCheck,
+  Car,
   ShieldCheck,
+  ShieldAlert,
+  FileText,
+  Clock,
+  CheckCircle2,
+  ArrowLeft,
 } from 'lucide-react';
 import type { Employee, EmployeeType, NationalityType, WageType, EmployeeCompany, SalaryPaidBy, WPSStatus } from '../../types/index';
-import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
+import { EmployeeIdentificationModal, type EmployeeRecordTab } from './EmployeeIdentificationModal';
 
-export const EmployeeMasterView: React.FC = () => {
+export interface EmployeeMasterViewProps {
+  initialFilters?: {
+    docType?: string;
+    docStatus?: string;
+    search?: string;
+    status?: string;
+    company?: string;
+    employeeType?: string;
+    nationalityType?: string;
+  };
+  onClearInitialFilters?: () => void;
+}
+
+function getTabForDocType(docType?: string): EmployeeRecordTab {
+  if (!docType) return 'employment';
+  const lower = docType.toLowerCase();
+  if (lower.includes('civil') || lower.includes('id')) return 'civil-id';
+  if (lower.includes('licence') || lower.includes('license') || lower.includes('driving')) return 'driving-licence';
+  if (lower.includes('visa')) return 'visa';
+  if (lower.includes('passport')) return 'personal';
+  if (lower.includes('permit') || lower.includes('contract') || lower.includes('govt') || lower.includes('bataqa')) return 'govt-docs';
+  return 'employment';
+}
+
+export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
+  initialFilters,
+  onClearInitialFilters,
+}) => {
   const { canWrite } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('ALL');
-  const [nationalityFilter, setNationalityFilter] = useState('ALL');
-  const [companyFilter, setCompanyFilter] = useState('ALL');
+  const [search, setSearch] = useState(initialFilters?.search || '');
+  const [typeFilter, setTypeFilter] = useState(initialFilters?.employeeType || 'ALL');
+  const [nationalityFilter, setNationalityFilter] = useState(initialFilters?.nationalityType || 'ALL');
+  const [companyFilter, setCompanyFilter] = useState(initialFilters?.company || 'ALL');
   const [paidByFilter, setPaidByFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState(initialFilters?.status || 'ALL');
+  const [docTypeFilter, setDocTypeFilter] = useState(initialFilters?.docType || 'ALL');
+  const [docStatusFilter, setDocStatusFilter] = useState(initialFilters?.docStatus || 'ALL');
 
-  // Modals
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  // Sync initialFilters if they change from parent navigation
+  useEffect(() => {
+    if (initialFilters) {
+      if (initialFilters.search !== undefined) setSearch(initialFilters.search);
+      if (initialFilters.docType !== undefined) setDocTypeFilter(initialFilters.docType);
+      if (initialFilters.docStatus !== undefined) setDocStatusFilter(initialFilters.docStatus);
+      if (initialFilters.company !== undefined) setCompanyFilter(initialFilters.company);
+      if (initialFilters.status !== undefined) setStatusFilter(initialFilters.status);
+    }
+  }, [initialFilters]);
+
+  // Unified Employee Record Form Modal
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [selectedRecordEmp, setSelectedRecordEmp] = useState<Employee | null>(null);
+  const [recordInitialTab, setRecordInitialTab] = useState<EmployeeRecordTab>('employment');
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [historyData, setHistoryData] = useState<any>(null);
-  const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
-  const [selectedComplianceEmp, setSelectedComplianceEmp] = useState<Employee | null>(null);
 
   // Import Wizard
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -56,26 +103,6 @@ export const EmployeeMasterView: React.FC = () => {
   const [updateExisting, setUpdateExisting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
-
-  // Form State
-  const [formData, setFormData] = useState({
-    employeeId: '',
-    employeeName: '',
-    employeeType: 'Staff' as EmployeeType,
-    nationalityType: 'Expat' as NationalityType,
-    wageType: 'Fixed Monthly' as WageType,
-    dateOfJoining: new Date().toISOString().split('T')[0],
-    dateOfLeaving: '',
-    designation: '',
-    employeeCompany: 'DGO' as EmployeeCompany,
-    salaryPaidBy: 'DGO' as SalaryPaidBy,
-    monthlySalaryOrRate: '0.000',
-    wpsEmployee: 'Yes' as WPSStatus,
-    wpsSalary: '0.000',
-    actualSalary: '0.000',
-    recoverFrom: '',
-    isActive: true,
-  });
 
   const fetchEmployees = async () => {
     try {
@@ -87,6 +114,8 @@ export const EmployeeMasterView: React.FC = () => {
       if (companyFilter !== 'ALL') params.append('employeeCompany', companyFilter);
       if (paidByFilter !== 'ALL') params.append('salaryPaidBy', paidByFilter);
       if (statusFilter !== 'ALL') params.append('status', statusFilter);
+      if (docTypeFilter !== 'ALL') params.append('docType', docTypeFilter);
+      if (docStatusFilter !== 'ALL') params.append('docStatus', docStatusFilter);
 
       const data = await apiRequest(`/api/employees?${params.toString()}`);
       setEmployees(data);
@@ -100,72 +129,32 @@ export const EmployeeMasterView: React.FC = () => {
 
   useEffect(() => {
     fetchEmployees();
-  }, [search, typeFilter, nationalityFilter, companyFilter, paidByFilter, statusFilter]);
+  }, [search, typeFilter, nationalityFilter, companyFilter, paidByFilter, statusFilter, docTypeFilter, docStatusFilter]);
 
   const handleOpenAdd = () => {
-    setEditingEmployee(null);
-    setFormData({
-      employeeId: '',
-      employeeName: '',
-      employeeType: 'Staff',
-      nationalityType: 'Expat',
-      wageType: 'Fixed Monthly',
-      dateOfJoining: new Date().toISOString().split('T')[0],
-      dateOfLeaving: '',
-      designation: '',
-      employeeCompany: 'DGO',
-      salaryPaidBy: 'DGO',
-      monthlySalaryOrRate: '600.000',
-      wpsEmployee: 'Yes',
-      wpsSalary: '600.000',
-      actualSalary: '600.000',
-      recoverFrom: 'DGO',
-      isActive: true,
-    });
-    setIsEditModalOpen(true);
+    setSelectedRecordEmp(null);
+    setRecordInitialTab('employment');
+    setIsRecordModalOpen(true);
   };
 
   const handleOpenEdit = (emp: Employee) => {
-    setEditingEmployee(emp);
-    setFormData({
-      employeeId: emp.employeeId,
-      employeeName: emp.employeeName,
-      employeeType: emp.employeeType,
-      nationalityType: emp.nationalityType,
-      wageType: emp.wageType,
-      dateOfJoining: emp.dateOfJoining || '',
-      dateOfLeaving: emp.dateOfLeaving || '',
-      designation: emp.designation,
-      employeeCompany: emp.employeeCompany,
-      salaryPaidBy: emp.salaryPaidBy,
-      monthlySalaryOrRate: formatOMR(emp.monthlySalaryOrRate),
-      wpsEmployee: emp.wpsEmployee,
-      wpsSalary: formatOMR(emp.wpsSalary),
-      actualSalary: formatOMR(emp.actualSalary),
-      recoverFrom: emp.recoverFrom || '',
-      isActive: emp.isActive,
-    });
-    setIsEditModalOpen(true);
+    setSelectedRecordEmp(emp);
+    const matchedDoc = (emp as any)._matchedDoc;
+    if (matchedDoc?.documentType) {
+      setRecordInitialTab(getTabForDocType(matchedDoc.documentType));
+    } else if (docTypeFilter !== 'ALL') {
+      setRecordInitialTab(getTabForDocType(docTypeFilter));
+    } else {
+      setRecordInitialTab('employment');
+    }
+    setIsRecordModalOpen(true);
   };
 
-  const handleSaveEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingEmployee) {
-        await apiRequest(`/api/employees/${editingEmployee.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(formData),
-        });
-      } else {
-        await apiRequest('/api/employees', {
-          method: 'POST',
-          body: JSON.stringify(formData),
-        });
-      }
-      setIsEditModalOpen(false);
-      fetchEmployees();
-    } catch (err: any) {
-      alert(err.message || 'Failed to save employee.');
+  const handleClearDocFilters = () => {
+    setDocTypeFilter('ALL');
+    setDocStatusFilter('ALL');
+    if (onClearInitialFilters) {
+      onClearInitialFilters();
     }
   };
 
@@ -298,6 +287,46 @@ export const EmployeeMasterView: React.FC = () => {
     XLSX.writeFile(wb, `Employee_Import_Errors_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  // If viewing or creating employee record, render full page inline form (avoiding popups)
+  if (isRecordModalOpen) {
+    return (
+      <div className="space-y-4">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <button
+            onClick={() => {
+              setIsRecordModalOpen(false);
+              setSelectedRecordEmp(null);
+            }}
+            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600"
+          >
+            <ArrowLeft size={13} />
+            <span>Employee Master</span>
+          </button>
+          <span>/</span>
+          <span className="font-semibold text-slate-800">
+            {selectedRecordEmp
+              ? `${selectedRecordEmp.employeeName} (${selectedRecordEmp.employeeId})`
+              : 'Register New Employee'}
+          </span>
+        </div>
+
+        <EmployeeIdentificationModal
+          employee={selectedRecordEmp}
+          isOpen={true}
+          mode="inline"
+          backLabel="Back to Employee Master"
+          initialTab={recordInitialTab}
+          onClose={() => {
+            setIsRecordModalOpen(false);
+            setSelectedRecordEmp(null);
+          }}
+          onUpdated={fetchEmployees}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Header & Actions */}
@@ -347,6 +376,70 @@ export const EmployeeMasterView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Active Document Compliance Filter Banner */}
+      {(docTypeFilter !== 'ALL' || docStatusFilter !== 'ALL') && (
+        <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <div className="p-2 bg-blue-600 text-white rounded-lg shrink-0">
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-900">
+                  Document Expiry Engine Filter Active:
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-white text-blue-700 border border-blue-200 shadow-2xs">
+                  {docTypeFilter === 'ALL' ? 'All Document Types' : docTypeFilter}
+                </span>
+                {docStatusFilter !== 'ALL' && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold ${
+                    docStatusFilter === 'Expired'
+                      ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                      : docStatusFilter === 'Urgent'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : docStatusFilter === 'Expiring Soon'
+                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                      : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  }`}>
+                    {docStatusFilter}
+                  </span>
+                )}
+                <span className="text-xs text-slate-500 font-medium ml-1">
+                  ({employees.length} matching employee{employees.length === 1 ? '' : 's'})
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Clicking the edit pencil icon on any employee will automatically open the corresponding document tab for instant renewal.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 self-end md:self-auto">
+            {/* Quick document switcher buttons */}
+            {['Civil ID', 'Passport', 'Visa', 'Driving Licence', 'Work Permit', 'Contract'].map((d) => (
+              <button
+                key={d}
+                onClick={() => setDocTypeFilter(docTypeFilter === d ? 'ALL' : d)}
+                className={`px-2 py-1 text-[11px] font-semibold rounded-md border transition-all cursor-pointer ${
+                  docTypeFilter === d
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+            <button
+              onClick={handleClearDocFilters}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-md hover:bg-rose-100 transition-colors cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+              Clear Filter
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter Toolbar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
@@ -447,365 +540,117 @@ export const EmployeeMasterView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedEmployees.map((emp, idx) => (
-                  <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-3 py-3 font-mono text-slate-400">
-                      {idx + 1}
-                    </td>
-                    <td className="px-3 py-3 font-medium text-slate-600">
-                      {emp.employeeCompany}
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      {emp.salaryPaidBy}
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                        emp.wpsEmployee === 'Yes' ? 'text-emerald-600' : 'text-slate-400'
-                      }`}>
-                        {emp.wpsEmployee === 'Yes' ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        emp.employeeType === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
-                      }`}>
-                        {emp.employeeType}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        emp.nationalityType === 'Omani' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {emp.nationalityType}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono font-bold text-blue-600 block">{emp.employeeId}</span>
-                      <span className="font-semibold text-slate-900">{emp.employeeName}</span>
-                    </td>
-                    <td className="px-3 py-3 text-slate-800">
-                      {emp.designation}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">
-                      OMR {formatOMR(emp.monthlySalaryOrRate)}
-                      <span className="block text-[10px] font-normal text-slate-400">
-                        {emp.employeeType === 'Worker' ? 'per hour' : 'fixed/mo'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                        emp.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
-                      }`}>
-                        {emp.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => {
-                            setSelectedComplianceEmp(emp);
-                            setIsComplianceModalOpen(true);
-                          }}
-                          title="Identification, Driving Licence & Visa Compliance 360°"
-                          className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleViewHistory(emp)}
-                          title="View Designation & Salary History"
-                          className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                        >
-                          <History className="w-3.5 h-3.5" />
-                        </button>
-                        {canWrite && (
-                          <>
-                            <button
-                              onClick={() => handleOpenEdit(emp)}
-                              title="Edit Employee Master"
-                              className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(emp)}
-                              title={emp.isActive ? 'Deactivate Employee' : 'Activate Employee'}
-                              className={`p-1 rounded-md transition-colors cursor-pointer ${
-                                emp.isActive ? 'text-rose-500 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'
-                              }`}
-                            >
-                              {emp.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-                            </button>
-                          </>
+                sortedEmployees.map((emp, idx) => {
+                  const matchedDoc = (emp as any)._matchedDoc;
+                  return (
+                    <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-3 py-3 font-mono text-slate-400">
+                        {idx + 1}
+                      </td>
+                      <td className="px-3 py-3 font-medium text-slate-600">
+                        {emp.employeeCompany}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {emp.salaryPaidBy}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                          emp.wpsEmployee === 'Yes' ? 'text-emerald-600' : 'text-slate-400'
+                        }`}>
+                          {emp.wpsEmployee === 'Yes' ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          emp.employeeType === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                        }`}>
+                          {emp.employeeType}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          emp.nationalityType === 'Omani' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {emp.nationalityType}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-mono font-bold text-blue-600 block">{emp.employeeId}</span>
+                        <span className="font-semibold text-slate-900">{emp.employeeName}</span>
+                        {matchedDoc && (
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                              {matchedDoc.documentType}: {matchedDoc.documentNumberMasked || 'N/A'}
+                            </span>
+                            <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              matchedDoc.status === 'Expired'
+                                ? 'bg-rose-100 text-rose-800'
+                                : matchedDoc.status === 'Urgent'
+                                ? 'bg-amber-100 text-amber-800'
+                                : matchedDoc.status === 'Expiring Soon'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {matchedDoc.status} {matchedDoc.expiryDate ? `(${matchedDoc.expiryDate})` : ''}
+                            </span>
+                          </div>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 py-3 text-slate-800">
+                        {emp.designation}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">
+                        OMR {formatOMR(emp.monthlySalaryOrRate)}
+                        <span className="block text-[10px] font-normal text-slate-400">
+                          {emp.employeeType === 'Worker' ? 'per hour' : 'fixed/mo'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                          emp.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        }`}>
+                          {emp.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleViewHistory(emp)}
+                            title="View Designation & Salary History"
+                            className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
+                          {canWrite && (
+                            <>
+                              <button
+                                onClick={() => handleOpenEdit(emp)}
+                                title="Edit Employee Record (Personal, Compliance & Documents)"
+                                className="p-1 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleToggleActive(emp)}
+                                title={emp.isActive ? 'Deactivate Employee' : 'Activate Employee'}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                                  emp.isActive ? 'text-rose-500 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'
+                                }`}
+                              >
+                                {emp.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Add / Edit Employee Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden my-8">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Users className="w-4 h-4 text-blue-600" />
-                {editingEmployee ? `Edit Employee ${editingEmployee.employeeId}` : 'Register New Employee'}
-              </h3>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEmployee} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Employee ID */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Employee ID <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={!!editingEmployee}
-                    value={formData.employeeId}
-                    onChange={(e) => setFormData({ ...formData, employeeId: e.target.value.toUpperCase() })}
-                    placeholder="e.g. EMP001"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs uppercase font-mono font-bold focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
-                  />
-                </div>
-
-                {/* Employee Name */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Employee Full Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.employeeName}
-                    onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
-                    placeholder="e.g. Ahmed Al-Balushi"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Employee Type */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Employee Type <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formData.employeeType}
-                    onChange={(e) => {
-                      const t = e.target.value as EmployeeType;
-                      setFormData({
-                        ...formData,
-                        employeeType: t,
-                        wageType: t === 'Worker' ? 'Per Hour' : 'Fixed Monthly',
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Staff">Staff (Days Worked basis)</option>
-                    <option value="Worker">Worker (Hours Worked basis)</option>
-                  </select>
-                </div>
-
-                {/* Nationality Type */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nationality Type <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formData.nationalityType}
-                    onChange={(e) => setFormData({ ...formData, nationalityType: e.target.value as NationalityType })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Omani">Omani</option>
-                    <option value="Expat">Expat</option>
-                  </select>
-                </div>
-
-                {/* Wage Type */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Wage Calculation Type
-                  </label>
-                  <select
-                    value={formData.wageType}
-                    onChange={(e) => setFormData({ ...formData, wageType: e.target.value as WageType })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Fixed Monthly">Fixed Monthly</option>
-                    <option value="Per Hour">Per Hour</option>
-                  </select>
-                </div>
-
-                {/* Designation */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Designation / Role <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.designation}
-                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                    placeholder="e.g. Site Engineer, Mason"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Employee Company */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Employee Company <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formData.employeeCompany}
-                    onChange={(e) => setFormData({ ...formData, employeeCompany: e.target.value as EmployeeCompany })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="DGO">DGO</option>
-                    <option value="SMI">SMI</option>
-                    <option value="NC">NC</option>
-                    <option value="Supplier">Supplier</option>
-                    <option value="Azad">Azad</option>
-                  </select>
-                </div>
-
-                {/* Salary Paid By */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Salary Paid By <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={formData.salaryPaidBy}
-                    onChange={(e) => setFormData({ ...formData, salaryPaidBy: e.target.value as SalaryPaidBy })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="DGO">DGO</option>
-                    <option value="SMI">SMI</option>
-                    <option value="NC">NC</option>
-                    <option value="Supplier">Supplier</option>
-                  </select>
-                </div>
-
-                {/* Monthly Salary or Wage Rate */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {formData.employeeType === 'Worker' ? 'Hourly Wage Rate (OMR)' : 'Monthly Basic Salary (OMR)'} <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    required
-                    value={formData.monthlySalaryOrRate}
-                    onChange={(e) => setFormData({ ...formData, monthlySalaryOrRate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* WPS Status */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    WPS Registered Employee?
-                  </label>
-                  <select
-                    value={formData.wpsEmployee}
-                    onChange={(e) => setFormData({ ...formData, wpsEmployee: e.target.value as WPSStatus })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Yes">Yes (WPS Salary Registered)</option>
-                    <option value="No">No (Non-WPS)</option>
-                  </select>
-                </div>
-
-                {/* WPS Salary */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    WPS Registered Salary (OMR)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    value={formData.wpsSalary}
-                    onChange={(e) => setFormData({ ...formData, wpsSalary: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Actual Gross Benchmark */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Actual Gross Salary Benchmark (OMR)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    value={formData.actualSalary}
-                    onChange={(e) => setFormData({ ...formData, actualSalary: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Recover From */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Recover Excess WPS From
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.recoverFrom}
-                    onChange={(e) => setFormData({ ...formData, recoverFrom: e.target.value })}
-                    placeholder="e.g. DGO, SMI, NC, Supplier"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Date of Joining */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Date of Joining
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.dateOfJoining}
-                    onChange={(e) => setFormData({ ...formData, dateOfJoining: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Save Employee
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Designation & Salary History Modal */}
       {isHistoryModalOpen && historyData && (
@@ -1103,19 +948,6 @@ export const EmployeeMasterView: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Employee Identification & Compliance Modal */}
-      {selectedComplianceEmp && (
-        <EmployeeIdentificationModal
-          employee={selectedComplianceEmp}
-          isOpen={isComplianceModalOpen}
-          onClose={() => {
-            setIsComplianceModalOpen(false);
-            setSelectedComplianceEmp(null);
-          }}
-          onUpdated={fetchEmployees}
-        />
       )}
     </div>
   );

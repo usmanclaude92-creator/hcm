@@ -26,10 +26,19 @@ import {
   AlertOctagon,
   ChevronRight,
   Download,
+  FolderOpen,
+  UploadCloud,
+  Briefcase,
+  Info,
+  Users,
+  ArrowLeft,
 } from 'lucide-react';
 import { apiRequest, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ComplianceBadge } from '../compliance/ComplianceBadge';
+import { FileUploadComponent } from '../common/FileUploadComponent';
+import { DocumentPreviewModal } from '../common/DocumentPreviewModal';
+import { EmployeeDocumentRepository } from './EmployeeDocumentRepository';
 import type {
   Employee,
   EmployeeCivilId,
@@ -38,14 +47,31 @@ import type {
   EmployeeGovernmentDocument,
   EmployeePersonalDetails,
   DrivingLicenceCategory,
+  EmployeeType,
+  NationalityType,
+  WageType,
+  EmployeeCompany,
+  SalaryPaidBy,
+  WPSStatus,
 } from '../../types/index';
 
-interface EmployeeIdentificationModalProps {
-  employee: Employee;
+export type EmployeeRecordTab =
+  | 'employment'
+  | 'civil-id'
+  | 'driving-licence'
+  | 'visa'
+  | 'govt-docs'
+  | 'personal'
+  | 'documents';
+
+export interface EmployeeIdentificationModalProps {
+  employee?: Employee | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdated?: () => void;
-  initialTab?: 'civil-id' | 'driving-licence' | 'visa' | 'govt-docs' | 'personal';
+  initialTab?: EmployeeRecordTab;
+  mode?: 'inline' | 'modal';
+  backLabel?: string;
 }
 
 export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalProps> = ({
@@ -53,19 +79,109 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   isOpen,
   onClose,
   onUpdated,
-  initialTab = 'civil-id',
+  initialTab = 'employment',
+  mode = 'inline',
+  backLabel = 'Back to List',
 }) => {
   const { canWrite, isAdmin, isManager, hasPermission } = useAuth();
   const canViewSensitive = isAdmin || isManager || hasPermission('compliance.view');
 
-  const [activeTab, setActiveTab] = useState<'civil-id' | 'driving-licence' | 'visa' | 'govt-docs' | 'personal'>(
-    initialTab
-  );
+  const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(employee || null);
+  const [activeTab, setActiveTab] = useState<EmployeeRecordTab>(initialTab);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [docCount, setDocCount] = useState<number>(0);
+
+  // Employment Form State
+  const [employmentForm, setEmploymentForm] = useState({
+    employeeId: employee?.employeeId || '',
+    employeeName: employee?.employeeName || '',
+    employeeType: employee?.employeeType || ('Staff' as EmployeeType),
+    nationalityType: employee?.nationalityType || ('Expat' as NationalityType),
+    wageType: employee?.wageType || ('Fixed Monthly' as WageType),
+    designation: employee?.designation || '',
+    employeeCompany: employee?.employeeCompany || ('DGO' as EmployeeCompany),
+    salaryPaidBy: employee?.salaryPaidBy || ('DGO' as SalaryPaidBy),
+    monthlySalaryOrRate:
+      employee?.monthlySalaryOrRate !== undefined
+        ? Number(employee.monthlySalaryOrRate).toFixed(3)
+        : '0.000',
+    wpsEmployee: employee?.wpsEmployee || ('Yes' as WPSStatus),
+    wpsSalary:
+      employee?.wpsSalary !== undefined ? Number(employee.wpsSalary).toFixed(3) : '0.000',
+    actualSalary:
+      employee?.actualSalary !== undefined ? Number(employee.actualSalary).toFixed(3) : '0.000',
+    recoverFrom: employee?.recoverFrom || '',
+    dateOfJoining: employee?.dateOfJoining || new Date().toISOString().split('T')[0],
+    dateOfLeaving: employee?.dateOfLeaving || '',
+    isActive: employee?.isActive ?? true,
+  });
+
+  // Sync state when props change
+  useEffect(() => {
+    setCurrentEmployee(employee || null);
+    if (employee) {
+      setEmploymentForm({
+        employeeId: employee.employeeId,
+        employeeName: employee.employeeName,
+        employeeType: employee.employeeType,
+        nationalityType: employee.nationalityType,
+        wageType: employee.wageType,
+        designation: employee.designation,
+        employeeCompany: employee.employeeCompany,
+        salaryPaidBy: employee.salaryPaidBy,
+        monthlySalaryOrRate:
+          employee.monthlySalaryOrRate !== undefined
+            ? Number(employee.monthlySalaryOrRate).toFixed(3)
+            : '0.000',
+        wpsEmployee: employee.wpsEmployee,
+        wpsSalary:
+          employee.wpsSalary !== undefined ? Number(employee.wpsSalary).toFixed(3) : '0.000',
+        actualSalary:
+          employee.actualSalary !== undefined ? Number(employee.actualSalary).toFixed(3) : '0.000',
+        recoverFrom: employee.recoverFrom || '',
+        dateOfJoining: employee.dateOfJoining || new Date().toISOString().split('T')[0],
+        dateOfLeaving: employee.dateOfLeaving || '',
+        isActive: employee.isActive ?? true,
+      });
+    } else {
+      setEmploymentForm({
+        employeeId: '',
+        employeeName: '',
+        employeeType: 'Staff',
+        nationalityType: 'Expat',
+        wageType: 'Fixed Monthly',
+        designation: '',
+        employeeCompany: 'DGO',
+        salaryPaidBy: 'DGO',
+        monthlySalaryOrRate: '0.000',
+        wpsEmployee: 'Yes',
+        wpsSalary: '0.000',
+        actualSalary: '0.000',
+        recoverFrom: '',
+        dateOfJoining: new Date().toISOString().split('T')[0],
+        dateOfLeaving: '',
+        isActive: true,
+      });
+    }
+    setActiveTab(initialTab);
+  }, [employee, initialTab, isOpen]);
+
+  // Document Lightbox Preview State
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    url?: string | null;
+    fileName?: string | null;
+    title?: string;
+    documentType?: string;
+    documentNumber?: string;
+    expiryDate?: string;
+    status?: any;
+    remarks?: string;
+  }>({ isOpen: false });
 
   // Compliance Data State
   const [complianceData, setComplianceData] = useState<any>(null);
@@ -120,12 +236,12 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   const [visaForm, setVisaForm] = useState({
     visaNumber: '',
-    tradeOnVisa: employee.designation || '',
+    tradeOnVisa: employee?.designation || '',
     visaProfessionCode: '',
     visaType: 'Employment Visa',
     issueDate: '',
     expiryDate: '',
-    sponsor: employee.employeeCompany || 'DGO',
+    sponsor: employee?.employeeCompany || 'DGO',
     sponsorshipType: 'Corporate',
     issuingAuthority: 'Royal Oman Police - Passports & Residence',
     country: 'Oman',
@@ -141,13 +257,13 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     issueDate: '',
     expiryDate: '',
     issuingAuthority: '',
-    country: employee.nationalityType === 'Omani' ? 'Oman' : '',
+    country: employee?.nationalityType === 'Omani' ? 'Oman' : '',
     documentAttachment: '',
     remarks: '',
   });
 
   const [personalForm, setPersonalForm] = useState<EmployeePersonalDetails>({
-    employeeId: employee.employeeId,
+    employeeId: employee?.employeeId || '',
     dateOfBirth: '',
     gender: 'Male',
     maritalStatus: 'Single',
@@ -168,10 +284,14 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const fetchCompliance = async () => {
+    if (!currentEmployee) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      const data = await apiRequest(`/api/employees/${encodeURIComponent(employee.employeeId)}/compliance`);
+      const data = await apiRequest(`/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/compliance`);
       setComplianceData(data);
 
       if (data.currentCivilId) {
@@ -207,12 +327,12 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       if (data.currentVisa) {
         setVisaForm({
           visaNumber: data.currentVisa.visaNumber || '',
-          tradeOnVisa: data.currentVisa.tradeOnVisa || employee.designation,
+          tradeOnVisa: data.currentVisa.tradeOnVisa || currentEmployee.designation,
           visaProfessionCode: data.currentVisa.visaProfessionCode || '',
           visaType: data.currentVisa.visaType || 'Employment Visa',
           issueDate: data.currentVisa.issueDate || '',
           expiryDate: data.currentVisa.expiryDate || '',
-          sponsor: data.currentVisa.sponsor || employee.employeeCompany,
+          sponsor: data.currentVisa.sponsor || currentEmployee.employeeCompany,
           sponsorshipType: data.currentVisa.sponsorshipType || 'Corporate',
           issuingAuthority: data.currentVisa.issuingAuthority || 'Royal Oman Police - Passports & Residence',
           country: data.currentVisa.country || 'Oman',
@@ -250,10 +370,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentEmployee) {
       fetchCompliance();
     }
-  }, [isOpen, employee.employeeId]);
+  }, [isOpen, currentEmployee?.employeeId]);
 
   if (!isOpen) return null;
 
@@ -265,14 +385,50 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     return `${val.slice(0, 2)}${'*'.repeat(Math.max(4, val.length - 4))}${val.slice(-2)}`;
   };
 
+  // Handler for Employment Profile Save
+  const handleSaveEmployment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      if (currentEmployee) {
+        const res = await apiRequest(`/api/employees/${currentEmployee.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(employmentForm),
+        });
+        setCurrentEmployee(res);
+        setSuccessMessage('Employment & WPS Payroll parameters updated successfully.');
+      } else {
+        const res = await apiRequest('/api/employees', {
+          method: 'POST',
+          body: JSON.stringify(employmentForm),
+        });
+        setCurrentEmployee(res);
+        setSuccessMessage('New employee registered successfully. You can now configure identification & compliance records.');
+      }
+
+      if (onUpdated) {
+        onUpdated();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to save employee profile.');
+    } finally {
+      setSaving(false);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    }
+  };
+
   // Handlers for Civil ID
   const handleSaveCivilId = async (isRenew = false) => {
+    if (!currentEmployee) return;
     try {
       setSaving(true);
       setError(null);
       const endpoint = isRenew
-        ? `/api/employees/${encodeURIComponent(employee.employeeId)}/civil-id/renew`
-        : `/api/employees/${encodeURIComponent(employee.employeeId)}/civil-id`;
+        ? `/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/civil-id/renew`
+        : `/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/civil-id`;
 
       await apiRequest(endpoint, {
         method: 'POST',
@@ -293,12 +449,13 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   // Handlers for Driving Licence
   const handleSaveDrivingLicence = async (isRenew = false) => {
+    if (!currentEmployee) return;
     try {
       setSaving(true);
       setError(null);
       const endpoint = isRenew
-        ? `/api/employees/${encodeURIComponent(employee.employeeId)}/driving-licence/renew`
-        : `/api/employees/${encodeURIComponent(employee.employeeId)}/driving-licence`;
+        ? `/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/driving-licence/renew`
+        : `/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/driving-licence`;
 
       const payload = isRenew
         ? { ...dlForm, oldLicenceId: complianceData?.currentDrivingLicence?.id }
@@ -349,10 +506,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   // Handlers for Government Documents
   const handleAddGovtDoc = async () => {
+    if (!currentEmployee) return;
     try {
       setSaving(true);
       setError(null);
-      await apiRequest(`/api/employees/${encodeURIComponent(employee.employeeId)}/government-documents`, {
+      await apiRequest(`/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/government-documents`, {
         method: 'POST',
         body: JSON.stringify(newGovtDoc),
       });
@@ -365,7 +523,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         issueDate: '',
         expiryDate: '',
         issuingAuthority: '',
-        country: employee.nationalityType === 'Omani' ? 'Oman' : '',
+        country: currentEmployee.nationalityType === 'Omani' ? 'Oman' : '',
         documentAttachment: '',
         remarks: '',
       });
@@ -380,12 +538,13 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   };
 
   const handleDeleteGovtDoc = async (docId: string) => {
+    if (!currentEmployee) return;
     if (!confirm('Are you sure you want to delete this document record?')) return;
     try {
       setSaving(true);
       setError(null);
       await apiRequest(
-        `/api/employees/${encodeURIComponent(employee.employeeId)}/government-documents/${encodeURIComponent(docId)}`,
+        `/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/government-documents/${encodeURIComponent(docId)}`,
         { method: 'DELETE' }
       );
       setSuccessMessage('Document removed.');
@@ -401,10 +560,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   // Handlers for Personal Details
   const handleSavePersonal = async () => {
+    if (!currentEmployee) return;
     try {
       setSaving(true);
       setError(null);
-      await apiRequest(`/api/employees/${encodeURIComponent(employee.employeeId)}/personal-details`, {
+      await apiRequest(`/api/employees/${encodeURIComponent(currentEmployee.employeeId)}/personal-details`, {
         method: 'POST',
         body: JSON.stringify(personalForm),
       });
@@ -438,58 +598,87 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
-        {/* Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-              <ShieldCheck size={22} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white tracking-tight">
-                  {employee.employeeName}
-                </h2>
-                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                  {employee.employeeId}
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded text-xs font-medium ${
-                    employee.nationalityType === 'Omani'
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                      : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
-                  }`}
-                >
-                  {employee.nationalityType}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                {employee.designation} • {employee.employeeCompany} (Paid by {employee.salaryPaidBy})
-              </p>
-            </div>
-          </div>
+  const isModalMode = mode === 'modal';
 
-          <div className="flex items-center gap-3">
-            {complianceData?.overallCompliance && (
-              <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-                <span className="text-xs text-slate-400">Overall Compliance:</span>
-                <ComplianceBadge
-                  status={complianceData.overallCompliance.status}
-                  showDays={false}
-                  size="sm"
-                />
-              </div>
-            )}
+  const renderContent = () => (
+    <div className={`bg-white rounded-xl border border-slate-200 w-full overflow-hidden flex flex-col ${
+      isModalMode ? 'shadow-2xl max-w-5xl max-h-[92vh] animate-in fade-in zoom-in-95 duration-150' : 'shadow-xs'
+    }`}>
+      {/* Unified Header */}
+      <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          {!isModalMode && (
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors cursor-pointer text-xs font-semibold border border-slate-700 shrink-0 mr-1"
+              title="Return to list view"
             >
-              <X size={20} />
+              <ArrowLeft size={15} />
+              <span>{backLabel}</span>
             </button>
+          )}
+          <div className="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+            {currentEmployee ? <ShieldCheck size={22} /> : <Users size={22} />}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold text-white tracking-tight">
+                {currentEmployee ? currentEmployee.employeeName : 'Register New Employee'}
+              </h2>
+              {currentEmployee ? (
+                <>
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                    {currentEmployee.employeeId}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      currentEmployee.nationalityType === 'Omani'
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+                    }`}
+                  >
+                    {currentEmployee.nationalityType}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+                    {currentEmployee.employeeType}
+                  </span>
+                </>
+              ) : (
+                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-950 text-blue-300 border border-blue-800">
+                  + New Employee Record
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {currentEmployee
+                ? `${currentEmployee.designation || 'Staff'} • ${currentEmployee.employeeCompany} (Paid by ${currentEmployee.salaryPaidBy}) • Status: ${currentEmployee.isActive ? 'Active' : 'Inactive'}`
+                : 'Create employee master profile, wage parameters, WPS registry, and compliance records'}
+            </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-3">
+          {complianceData?.overallCompliance && currentEmployee && (
+            <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+              <span className="text-xs text-slate-400">Overall Compliance:</span>
+              <ComplianceBadge
+                status={complianceData.overallCompliance.status}
+                showDays={false}
+                size="sm"
+              />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Close Form"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      </div>
 
         {/* Global Notifications */}
         {error && (
@@ -506,25 +695,39 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         )}
 
         {/* Trade Discrepancy Alert Banner */}
-        {complianceData?.tradeDiscrepancy?.hasWarning && (
+        {complianceData?.tradeDiscrepancy?.hasWarning && currentEmployee && (
           <div className="px-6 py-3 bg-amber-50 border-b border-amber-200 flex items-start gap-3">
             <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
             <div className="flex-1 text-xs">
               <span className="font-semibold text-amber-900">Trade Discrepancy Warning: </span>
               <span className="text-amber-800">{complianceData.tradeDiscrepancy.message}</span>
               <p className="text-[11px] text-amber-700 mt-0.5">
-                Internal designation is <strong>{employee.designation}</strong>, whereas registered Trade on Visa is{' '}
+                Internal designation is <strong>{currentEmployee.designation}</strong>, whereas registered Trade on Visa is{' '}
                 <strong>{complianceData.currentVisa?.tradeOnVisa}</strong>. Under Oman Labour Regulations, high discrepancy risk may attract inspection penalties.
               </p>
             </div>
           </div>
         )}
 
-        {/* Navigation Tabs */}
+        {/* Category Navigation Tabs */}
         <div className="flex items-center px-6 border-b border-slate-200 bg-slate-50 gap-1 overflow-x-auto shrink-0">
+          {/* TAB 0: EMPLOYMENT & PAYROLL */}
+          <button
+            onClick={() => setActiveTab('employment')}
+            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'employment'
+                ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+            }`}
+          >
+            <Briefcase size={15} />
+            <span>Employment & Payroll</span>
+          </button>
+
+          {/* TAB 1: CIVIL ID */}
           <button
             onClick={() => setActiveTab('civil-id')}
-            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'civil-id'
                 ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
@@ -537,9 +740,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             )}
           </button>
 
+          {/* TAB 2: DRIVING LICENCE */}
           <button
             onClick={() => setActiveTab('driving-licence')}
-            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'driving-licence'
                 ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
@@ -552,10 +756,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             )}
           </button>
 
-          {employee.nationalityType === 'Expat' && (
+          {/* TAB 3: VISA & TRADE */}
+          {(!currentEmployee || currentEmployee.nationalityType === 'Expat') && (
             <button
               onClick={() => setActiveTab('visa')}
-              className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === 'visa'
                   ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
@@ -569,9 +774,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             </button>
           )}
 
+          {/* TAB 4: GOVT DOCS */}
           <button
             onClick={() => setActiveTab('govt-docs')}
-            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'govt-docs'
                 ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
@@ -584,9 +790,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             </span>
           </button>
 
+          {/* TAB 5: PERSONAL */}
           <button
             onClick={() => setActiveTab('personal')}
-            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'personal'
                 ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
@@ -595,10 +802,26 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             <User size={15} />
             <span>Personal & Emergency Contacts</span>
           </button>
+
+          {/* TAB 6: DOCUMENTS REPOSITORY */}
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'documents'
+                ? 'border-indigo-600 text-indigo-600 bg-white shadow-xs'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+            }`}
+          >
+            <FolderOpen size={15} className="text-indigo-600" />
+            <span>Document Repository & Storage</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+              {docCount || complianceData?.governmentDocuments?.length || 0}
+            </span>
+          </button>
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <div className={`p-6 bg-slate-50/50 flex-1 ${isModalMode ? 'overflow-y-auto max-h-[calc(92vh-160px)]' : ''}`}>
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-3">
               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -606,6 +829,436 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             </div>
           ) : (
             <>
+              {/* TAB 0: EMPLOYMENT & PAYROLL PROFILE */}
+              {activeTab === 'employment' && (
+                <form onSubmit={handleSaveEmployment} className="space-y-6">
+                  {/* Category 1: Basic Identifiers & Status */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Building className="text-blue-600" size={18} />
+                        <h3 className="font-bold text-slate-800 text-sm">
+                          Core Identification & Employment Placement
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500 font-medium">Record Status:</span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            employmentForm.isActive
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {employmentForm.isActive ? 'Active Employee' : 'Inactive / Terminated'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Employee ID */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Employee ID <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          disabled={!!currentEmployee}
+                          value={employmentForm.employeeId}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              employeeId: e.target.value.toUpperCase(),
+                            })
+                          }
+                          placeholder="e.g. EMP001"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs uppercase font-mono font-bold focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      {/* Employee Full Name */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Employee Full Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={employmentForm.employeeName}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, employeeName: e.target.value })
+                          }
+                          placeholder="e.g. Suresh Kumar"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Designation / Role */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Designation / Role <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={employmentForm.designation}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, designation: e.target.value })
+                          }
+                          placeholder="e.g. Carpenter, Mason, Site Engineer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Employee Type */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Employee Type <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={employmentForm.employeeType}
+                          onChange={(e) => {
+                            const t = e.target.value as EmployeeType;
+                            setEmploymentForm({
+                              ...employmentForm,
+                              employeeType: t,
+                              wageType: t === 'Worker' ? 'Per Hour' : 'Fixed Monthly',
+                            });
+                          }}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="Staff">Staff (Days Worked basis)</option>
+                          <option value="Worker">Worker (Hours Worked basis)</option>
+                        </select>
+                      </div>
+
+                      {/* Nationality Type */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Nationality Type <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={employmentForm.nationalityType}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              nationalityType: e.target.value as NationalityType,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="Omani">Omani</option>
+                          <option value="Expat">Expat</option>
+                        </select>
+                      </div>
+
+                      {/* Employee Company */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Employee Company <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={employmentForm.employeeCompany}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              employeeCompany: e.target.value as EmployeeCompany,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="DGO">DGO</option>
+                          <option value="SMI">SMI</option>
+                          <option value="NC">NC</option>
+                          <option value="Supplier">Supplier</option>
+                          <option value="Azad">Azad</option>
+                        </select>
+                      </div>
+
+                      {/* Salary Paid By */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Salary Paid By <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={employmentForm.salaryPaidBy}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              salaryPaidBy: e.target.value as SalaryPaidBy,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="DGO">DGO</option>
+                          <option value="SMI">SMI</option>
+                          <option value="NC">NC</option>
+                          <option value="Supplier">Supplier</option>
+                        </select>
+                      </div>
+
+                      {/* Date of Joining */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Date of Joining <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={employmentForm.dateOfJoining}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, dateOfJoining: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Date of Leaving */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Date of Leaving (if applicable)
+                        </label>
+                        <input
+                          type="date"
+                          value={employmentForm.dateOfLeaving}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, dateOfLeaving: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Active in Payroll Checkbox */}
+                      <div className="flex items-center gap-2 sm:col-span-2 pt-6">
+                        <input
+                          type="checkbox"
+                          id="empActiveToggle"
+                          checked={employmentForm.isActive}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, isActive: e.target.checked })
+                          }
+                          className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <label
+                          htmlFor="empActiveToggle"
+                          className="text-xs font-semibold text-slate-700 cursor-pointer select-none"
+                        >
+                          Active in Active Payroll, Timesheets & Site Allocations
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 2: Wage Calculation & Compensation */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+                      <CreditCard className="text-emerald-600" size={18} />
+                      <h3 className="font-bold text-slate-800 text-sm">
+                        Wage Calculation & Compensation Basis
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Wage Calculation Type */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Wage Calculation Type <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={employmentForm.wageType}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              wageType: e.target.value as WageType,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="Fixed Monthly">Fixed Monthly</option>
+                          <option value="Per Hour">Per Hour</option>
+                        </select>
+                      </div>
+
+                      {/* Wage Rate / Monthly Salary */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          {employmentForm.employeeType === 'Worker'
+                            ? 'Hourly Wage Rate (OMR)'
+                            : 'Monthly Basic Salary (OMR)'}{' '}
+                          <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.001"
+                          required
+                          value={employmentForm.monthlySalaryOrRate}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              monthlySalaryOrRate: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Rate Info Banner */}
+                      <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 flex items-center gap-2 sm:col-span-2 lg:col-span-1">
+                        <Info size={16} className="shrink-0 text-blue-600" />
+                        <span>
+                          {employmentForm.employeeType === 'Worker'
+                            ? 'Worker timesheet payroll multiplies total hours worked by this hourly rate.'
+                            : 'Staff payroll calculates on standard monthly calendar days & attendance.'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 3: Oman Wages Protection System (WPS) */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+                      <ShieldCheck className="text-indigo-600" size={18} />
+                      <h3 className="font-bold text-slate-800 text-sm">
+                        Oman Wages Protection System (WPS) & Sponsoring Parameters
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* WPS Registered */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          WPS Registered Employee? <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          value={employmentForm.wpsEmployee}
+                          onChange={(e) =>
+                            setEmploymentForm({
+                              ...employmentForm,
+                              wpsEmployee: e.target.value as WPSStatus,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+                        >
+                          <option value="Yes">Yes (WPS Salary Registered)</option>
+                          <option value="No">No (Non-WPS)</option>
+                        </select>
+                      </div>
+
+                      {/* WPS Registered Salary */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          WPS Registered Salary (OMR)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.001"
+                          value={employmentForm.wpsSalary}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, wpsSalary: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Actual Gross Benchmark */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Actual Gross Salary Benchmark (OMR)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.001"
+                          value={employmentForm.actualSalary}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, actualSalary: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      {/* Recover Excess WPS From */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Recover Excess WPS From
+                        </label>
+                        <input
+                          type="text"
+                          value={employmentForm.recoverFrom}
+                          onChange={(e) =>
+                            setEmploymentForm({ ...employmentForm, recoverFrom: e.target.value })
+                          }
+                          placeholder="e.g. DGO, SMI, NC, Supplier"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* WPS Calculation Summary Widget */}
+                    <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Info size={15} className="text-slate-500 shrink-0" />
+                        <span className="text-slate-600">
+                          WPS Bank Transfer: <strong>OMR {Number(employmentForm.wpsSalary || 0).toFixed(3)}</strong> vs Actual Remuneration Benchmark:{' '}
+                          <strong>OMR {Number(employmentForm.actualSalary || 0).toFixed(3)}</strong>
+                        </span>
+                      </div>
+                      <div>
+                        {Number(employmentForm.wpsSalary) > Number(employmentForm.actualSalary) ? (
+                          <span className="text-amber-700 font-semibold bg-amber-100/70 px-2 py-0.5 rounded">
+                            Excess WPS of OMR {(Number(employmentForm.wpsSalary) - Number(employmentForm.actualSalary)).toFixed(3)} recoverable from {employmentForm.recoverFrom || employmentForm.employeeCompany}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 font-semibold bg-emerald-100/70 px-2 py-0.5 rounded">
+                            WPS routing matches actual payroll benchmark.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Form Action Footer */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Save size={15} />
+                      <span>{saving ? 'Saving...' : currentEmployee ? 'Save Employment Profile' : 'Register & Create Employee'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Guard message if no employee created yet and user clicks other tabs */}
+              {!currentEmployee && activeTab !== 'employment' && (
+                <div className="py-16 text-center bg-white rounded-xl border border-slate-200 p-8 shadow-xs">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                    <Building size={24} />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-800 mb-1">
+                    Save Initial Employment Profile First
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto mb-4">
+                    Please complete and save the Employment & Payroll parameters to create the employee record. Once created, Civil ID, Driving Licence, Visa, and Document compliance tabs will unlock immediately.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('employment')}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                  >
+                    <Briefcase size={14} />
+                    <span>Go to Employment & Payroll Form</span>
+                  </button>
+                </div>
+              )}
               {/* TAB 1: CIVIL ID / RESIDENT ID */}
               {activeTab === 'civil-id' && (
                 <div className="space-y-6">
@@ -705,11 +1358,36 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                             Attached Document
                           </span>
                           {complianceData.currentCivilId.documentAttachment ? (
-                            <div className="flex items-center gap-2 text-xs text-blue-600 font-medium truncate">
-                              <FileCheck size={14} className="shrink-0" />
-                              <span className="truncate">
-                                {complianceData.currentCivilId.fileName || complianceData.currentCivilId.documentAttachment}
-                              </span>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium truncate">
+                                <FileCheck size={14} className="shrink-0 text-emerald-600" />
+                                <span className="truncate">
+                                  {complianceData.currentCivilId.fileName || 'Civil ID Scan'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewModal({
+                                      isOpen: true,
+                                      url: complianceData.currentCivilId.documentAttachment,
+                                      fileName: complianceData.currentCivilId.fileName || 'Civil ID Copy',
+                                      title: 'Civil ID Document Copy',
+                                      documentType: 'Civil ID',
+                                      documentNumber: complianceData.currentCivilId.civilIdNumber,
+                                      expiryDate: complianceData.currentCivilId.expiryDate,
+                                      status: complianceData.currentCivilId.status,
+                                      remarks: complianceData.currentCivilId.remarks,
+                                    })
+                                  }
+                                  className="p-1 text-blue-600 hover:bg-blue-50 rounded text-xs font-semibold flex items-center gap-1"
+                                  title="Preview Document"
+                                >
+                                  <Eye size={13} />
+                                  <span>View</span>
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <span className="text-xs text-slate-400 italic">No attachment uploaded</span>
@@ -890,6 +1568,47 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                             {complianceData.currentDrivingLicence.bloodGroupOnLicence &&
                               ` • Blood: ${complianceData.currentDrivingLicence.bloodGroupOnLicence}`}
                           </span>
+                        </div>
+
+                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                          <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block mb-1">
+                            Attached Document
+                          </span>
+                          {complianceData.currentDrivingLicence.documentAttachment ? (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium truncate">
+                                <FileCheck size={14} className="shrink-0 text-emerald-600" />
+                                <span className="truncate">
+                                  {complianceData.currentDrivingLicence.fileName || 'Licence Scan'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewModal({
+                                      isOpen: true,
+                                      url: complianceData.currentDrivingLicence.documentAttachment,
+                                      fileName: complianceData.currentDrivingLicence.fileName || 'Driving Licence Copy',
+                                      title: 'Driving Licence Document Copy',
+                                      documentType: 'Driving Licence',
+                                      documentNumber: complianceData.currentDrivingLicence.licenceNumber,
+                                      expiryDate: complianceData.currentDrivingLicence.expiryDate,
+                                      status: complianceData.currentDrivingLicence.status,
+                                      remarks: complianceData.currentDrivingLicence.remarks,
+                                    })
+                                  }
+                                  className="p-1 text-blue-600 hover:bg-blue-50 rounded text-xs font-semibold flex items-center gap-1"
+                                  title="Preview Document"
+                                >
+                                  <Eye size={13} />
+                                  <span>View</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No attachment uploaded</span>
+                          )}
                         </div>
 
                         {complianceData.currentDrivingLicence.remarks && (
@@ -1080,6 +1799,47 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                           </span>
                         </div>
 
+                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                          <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block mb-1">
+                            Attached Document
+                          </span>
+                          {complianceData.currentVisa.documentAttachment ? (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium truncate">
+                                <FileCheck size={14} className="shrink-0 text-emerald-600" />
+                                <span className="truncate">
+                                  {complianceData.currentVisa.fileName || 'Visa Scan'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewModal({
+                                      isOpen: true,
+                                      url: complianceData.currentVisa.documentAttachment,
+                                      fileName: complianceData.currentVisa.fileName || 'Visa Document Copy',
+                                      title: 'Employment Visa Document Copy',
+                                      documentType: 'Visa',
+                                      documentNumber: complianceData.currentVisa.visaNumber,
+                                      expiryDate: complianceData.currentVisa.expiryDate,
+                                      status: complianceData.currentVisa.status,
+                                      remarks: complianceData.currentVisa.remarks,
+                                    })
+                                  }
+                                  className="p-1 text-blue-600 hover:bg-blue-50 rounded text-xs font-semibold flex items-center gap-1"
+                                  title="Preview Document"
+                                >
+                                  <Eye size={13} />
+                                  <span>View</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No attachment uploaded</span>
+                          )}
+                        </div>
+
                         {complianceData.currentVisa.remarks && (
                           <div className="col-span-full p-3 bg-slate-50 rounded-lg border border-slate-200">
                             <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block mb-1">
@@ -1200,6 +1960,34 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                                   <span>Authority: {doc.issuingAuthority || doc.country || 'Oman'}</span>
                                   <span>Expires: {formatDate(doc.expiryDate)}</span>
                                 </div>
+                                {doc.documentAttachment && (
+                                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/60 mt-1">
+                                    <div className="flex items-center gap-1 text-[11px] text-blue-600 truncate">
+                                      <FileCheck size={13} className="text-emerald-600 shrink-0" />
+                                      <span className="truncate">{doc.fileName || 'Attached Document'}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewModal({
+                                          isOpen: true,
+                                          url: doc.documentAttachment,
+                                          fileName: doc.fileName || `${doc.documentType} Copy`,
+                                          title: `${doc.documentType} Copy`,
+                                          documentType: doc.documentType,
+                                          documentNumber: doc.documentNumber,
+                                          expiryDate: doc.expiryDate,
+                                          status: doc.status,
+                                          remarks: doc.remarks,
+                                        })
+                                      }
+                                      className="text-[11px] text-blue-600 font-semibold hover:underline flex items-center gap-0.5"
+                                    >
+                                      <Eye size={12} />
+                                      <span>View</span>
+                                    </button>
+                                  </div>
+                                )}
                                 {doc.remarks && (
                                   <p className="text-[11px] text-slate-500 italic mt-1">{doc.remarks}</p>
                                 )}
@@ -1400,26 +2188,65 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   </div>
                 </div>
               )}
+
+              {/* TAB 6: DOCUMENT REPOSITORY & OBJECT STORAGE */}
+              {activeTab === 'documents' && currentEmployee && (
+                <EmployeeDocumentRepository
+                  employee={currentEmployee}
+                  onDocumentCountChange={(count) => setDocCount(count)}
+                />
+              )}
             </>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-3.5 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="text-[11px] text-slate-500">
             Governed under Oman Labour Law (Royal Decree 53/2023) & Royal Oman Police Regulations.
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-200 shadow-2xs"
           >
-            Close
+            <ArrowLeft size={14} />
+            <span>{backLabel}</span>
           </button>
         </div>
       </div>
+  );
+
+  return (
+    <>
+      {isModalMode ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          {renderContent()}
+        </div>
+      ) : (
+        renderContent()
+      )}
+
+      {/* DOCUMENT PREVIEW MODAL */}
+      {previewModal.isOpen && (
+        <DocumentPreviewModal
+          isOpen={previewModal.isOpen}
+          onClose={() => setPreviewModal({ isOpen: false })}
+          documentUrl={previewModal.url}
+          fileName={previewModal.fileName}
+          title={previewModal.title}
+          documentType={previewModal.documentType}
+          documentNumber={previewModal.documentNumber}
+          employeeName={currentEmployee?.employeeName || ''}
+          employeeId={currentEmployee?.employeeId || ''}
+          expiryDate={previewModal.expiryDate}
+          status={previewModal.status}
+          remarks={previewModal.remarks}
+        />
+      )}
 
       {/* RENEW CIVIL ID MODAL */}
-      {isRenewCidOpen && (
+      {isRenewCidOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
           <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
@@ -1510,6 +2337,27 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
+
+              {/* Document File Attachment Upload */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="font-semibold text-slate-700 block mb-1.5">
+                  Civil ID / Resident ID Document Attachment (Scan / PDF / Photo)
+                </label>
+                <FileUploadComponent
+                  employeeId={currentEmployee.employeeId}
+                  category="Civil ID"
+                  title="Upload / Replace Civil ID Document File"
+                  autoSyncCompliance={true}
+                  onUploadSuccess={(res) => {
+                    setCidForm((prev) => ({ ...prev, documentAttachment: res.fileUrl }));
+                  }}
+                />
+                {cidForm.documentAttachment && (
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                    ✓ Document attachment linked: {cidForm.documentAttachment}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
@@ -1533,7 +2381,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       )}
 
       {/* RENEW / ADD DRIVING LICENCE MODAL */}
-      {isRenewDlOpen && (
+      {isRenewDlOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
           <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
@@ -1628,6 +2476,27 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
+
+              {/* Driving Licence File Attachment Upload */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="font-semibold text-slate-700 block mb-1.5">
+                  Driving Licence Document Attachment (Scan / PDF / Photo)
+                </label>
+                <FileUploadComponent
+                  employeeId={currentEmployee.employeeId}
+                  category="Driving Licence"
+                  title="Upload / Replace Driving Licence Document File"
+                  autoSyncCompliance={true}
+                  onUploadSuccess={(res) => {
+                    setDlForm((prev) => ({ ...prev, documentAttachment: res.fileUrl }));
+                  }}
+                />
+                {dlForm.documentAttachment && (
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                    ✓ Document attachment linked: {dlForm.documentAttachment}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
@@ -1651,7 +2520,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       )}
 
       {/* RENEW VISA / AMEND TRADE MODAL */}
-      {isRenewVisaOpen && (
+      {isRenewVisaOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
           <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
@@ -1736,6 +2605,27 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
+
+              {/* Visa Document File Attachment Upload */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="font-semibold text-slate-700 block mb-1.5">
+                  Visa Document Attachment (Ministry of Labour Visa Stamp / Resident Card / PDF)
+                </label>
+                <FileUploadComponent
+                  employeeId={currentEmployee.employeeId}
+                  category="Visa"
+                  title="Upload / Replace Visa Document File"
+                  autoSyncCompliance={true}
+                  onUploadSuccess={(res) => {
+                    setVisaForm((prev) => ({ ...prev, documentAttachment: res.fileUrl }));
+                  }}
+                />
+                {visaForm.documentAttachment && (
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                    ✓ Document attachment linked: {visaForm.documentAttachment}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
@@ -1759,7 +2649,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       )}
 
       {/* ADD GOVERNMENT DOCUMENT MODAL */}
-      {isAddGovtDocOpen && (
+      {isAddGovtDocOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
           <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
@@ -1855,6 +2745,35 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
+
+              {/* Document File Attachment Upload */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="font-semibold text-slate-700 block mb-1.5">
+                  Document Attachment Scan / PDF
+                </label>
+                <FileUploadComponent
+                  employeeId={currentEmployee.employeeId}
+                  category={
+                    newGovtDoc.documentType === 'Passport'
+                      ? 'Passport'
+                      : newGovtDoc.documentType === 'Work Permit'
+                      ? 'Labour Card'
+                      : newGovtDoc.documentType === 'Employment Contract'
+                      ? 'Contract'
+                      : 'Other'
+                  }
+                  title="Upload Document File"
+                  autoSyncCompliance={true}
+                  onUploadSuccess={(res) => {
+                    setNewGovtDoc((prev) => ({ ...prev, documentAttachment: res.fileUrl }));
+                  }}
+                />
+                {newGovtDoc.documentAttachment && (
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                    ✓ Document attachment linked: {newGovtDoc.documentAttachment}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
@@ -1917,6 +2836,6 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
