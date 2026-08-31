@@ -1,6 +1,6 @@
 import express, { Express } from 'express';
 import path from 'path';
-import { db, POSTGRES_CONNECTION_STRING } from './db.js';
+import { db } from './db.js';
 import authRouter from './routes/auth.js';
 import employeesRouter from './routes/employees.js';
 import projectsRouter from './routes/projects.js';
@@ -46,7 +46,12 @@ export async function createApp(): Promise<Express> {
 
   app.get('/api/system/status', (req, res) => {
     try {
-      const isPg = Boolean(POSTGRES_CONNECTION_STRING);
+      // Report the ACTUAL live connection state (db.getStatus()'s isPostgresConnected),
+      // not merely whether a Postgres env var string is present. A set-but-unreachable
+      // connection string previously still reported "PostgreSQL (Cloud Database)" here
+      // while the app had silently fallen back to the ephemeral local JSON file --
+      // exactly the kind of silent split-brain this endpoint exists to catch.
+      const dbStatus = db.getStatus();
       const employeesCount = db.employees.getAll().length;
       const projectsCount = db.projects.getAll().length;
       const payrollsCount = db.payroll.getAll().length;
@@ -56,7 +61,8 @@ export async function createApp(): Promise<Express> {
       res.json({
         status: 'online',
         environment: process.env.NODE_ENV || 'development',
-        databaseEngine: isPg ? 'PostgreSQL (Cloud Database)' : 'Persistent Storage Engine (Cloud & Server Ready)',
+        databaseEngine: dbStatus.storageType,
+        isPostgresConnected: dbStatus.isPostgresConnected,
         currency: 'OMR (Omani Rial)',
         decimalPlaces: 3,
         systemTime: new Date().toISOString(),
