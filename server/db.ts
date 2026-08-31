@@ -3034,6 +3034,33 @@ class DatabaseManager {
         await this.persist();
         return record;
       },
+      renew: async (
+        empId: string,
+        oldDocId: string,
+        newRecord: EmployeeGovernmentDocument,
+        reason: string,
+        user: string
+      ) => {
+        const norm = normalizeEmployeeId(empId);
+        const timestamp = new Date().toISOString();
+        const oldIndex = this.inMemoryData.governmentDocuments.findIndex((d) => d.id === oldDocId);
+        if (oldIndex !== -1) {
+          this.inMemoryData.governmentDocuments[oldIndex].isCurrent = false;
+          this.inMemoryData.governmentDocuments[oldIndex].replacedDate = timestamp.slice(0, 10);
+          this.inMemoryData.governmentDocuments[oldIndex].replaceReason = reason || 'Renewed with updated document copy';
+          this.inMemoryData.governmentDocuments[oldIndex].updatedAt = timestamp;
+        }
+        newRecord.employeeId = norm;
+        newRecord.isCurrent = true;
+        newRecord.previousDocId = oldDocId;
+        newRecord.status = calculateExpiryStatus(newRecord.expiryDate);
+        newRecord.createdBy = user;
+        newRecord.createdAt = timestamp;
+        newRecord.updatedAt = timestamp;
+        this.inMemoryData.governmentDocuments.push(newRecord);
+        await this.persist();
+        return newRecord;
+      },
       update: async (id: string, updates: Partial<EmployeeGovernmentDocument>) => {
         const index = this.inMemoryData.governmentDocuments.findIndex((d) => d.id === id);
         if (index === -1) return null;

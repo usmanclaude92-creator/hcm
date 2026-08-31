@@ -22,11 +22,13 @@ import {
   Building,
   User,
   Info,
+  History,
 } from 'lucide-react';
 import { apiRequest, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { FileUploadComponent } from '../common/FileUploadComponent';
 import { DocumentPreviewModal } from '../common/DocumentPreviewModal';
+import { DocumentHistoryModal, HistoryCategory } from './DocumentHistoryModal';
 import { ComplianceBadge } from '../compliance/ComplianceBadge';
 import type { Employee, EmployeeDocument, EmployeeDocumentCategory } from '../../types/index';
 
@@ -47,6 +49,10 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  // Document History Modal State
+  const [isDocHistoryOpen, setIsDocHistoryOpen] = useState(false);
+  const [historyCategory, setHistoryCategory] = useState<HistoryCategory>('ALL');
 
   // Preview Modal
   const [previewDoc, setPreviewDoc] = useState<EmployeeDocument | null>(null);
@@ -210,6 +216,19 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setHistoryCategory('ALL');
+              setIsDocHistoryOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-2xs transition-colors"
+            title="View Document Lifecycle & Audit Trail"
+          >
+            <History className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Document Lifecycle History</span>
+          </button>
+
           <button
             type="button"
             onClick={fetchDocuments}
@@ -392,6 +411,24 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                     >
                       <Eye className="w-3.5 h-3.5" />
                       Preview
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        let cat: HistoryCategory = 'ALL';
+                        if (doc.category === 'civil-id') cat = 'civil-id';
+                        else if (doc.category === 'driving-licence') cat = 'driving-licence';
+                        else if (doc.category === 'visa') cat = 'visa';
+                        else if (doc.category === 'passport') cat = 'passport';
+                        else if (doc.category === 'govt-docs') cat = 'govt-docs';
+                        setHistoryCategory(cat);
+                        setIsDocHistoryOpen(true);
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="View Lifecycle & Version History"
+                    >
+                      <History className="w-3.5 h-3.5" />
                     </button>
 
                     <a
@@ -697,6 +734,16 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
           status={previewDoc.status}
           remarks={previewDoc.remarks}
           fileSize={previewDoc.fileSize}
+        />
+      )}
+
+      {/* DOCUMENT LIFECYCLE & VERSION HISTORY MODAL */}
+      {isDocHistoryOpen && (
+        <DocumentHistoryModal
+          isOpen={isDocHistoryOpen}
+          onClose={() => setIsDocHistoryOpen(false)}
+          employee={employee}
+          initialCategory={historyCategory}
         />
       )}
     </div>

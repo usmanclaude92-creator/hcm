@@ -32,12 +32,14 @@ import {
   Info,
   Users,
   ArrowLeft,
+  History,
 } from 'lucide-react';
 import { apiRequest, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ComplianceBadge } from '../compliance/ComplianceBadge';
 import { FileUploadComponent } from '../common/FileUploadComponent';
 import { DocumentPreviewModal } from '../common/DocumentPreviewModal';
+import { DocumentHistoryModal, HistoryCategory } from './DocumentHistoryModal';
 import { EmployeeDocumentRepository } from './EmployeeDocumentRepository';
 import type {
   Employee,
@@ -206,6 +208,15 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   const [isRenewVisaOpen, setIsRenewVisaOpen] = useState(false);
   const [isAddGovtDocOpen, setIsAddGovtDocOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+
+  // Document History Modal State
+  const [docHistoryState, setDocHistoryState] = useState<{
+    isOpen: boolean;
+    category: HistoryCategory;
+  }>({
+    isOpen: false,
+    category: 'ALL',
+  });
 
   // Form States for Direct Edits / Initial Setup
   const [cidForm, setCidForm] = useState({
@@ -480,12 +491,17 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   // Handlers for Visa
   const handleSaveVisa = async (isRenew = false) => {
+    const empId = currentEmployee?.employeeId || employee?.employeeId;
+    if (!empId) {
+      setError('No employee record selected.');
+      return;
+    }
     try {
       setSaving(true);
       setError(null);
       const endpoint = isRenew
-        ? `/api/employees/${encodeURIComponent(employee.employeeId)}/visa/renew`
-        : `/api/employees/${encodeURIComponent(employee.employeeId)}/visa`;
+        ? `/api/employees/${encodeURIComponent(empId)}/visa/renew`
+        : `/api/employees/${encodeURIComponent(empId)}/visa`;
 
       await apiRequest(endpoint, {
         method: 'POST',
@@ -1268,7 +1284,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                       <div className="flex items-center gap-2">
                         <CreditCard className="text-blue-600" size={18} />
                         <h3 className="text-sm font-bold text-slate-800">
-                          {employee.nationalityType === 'Omani'
+                          {(currentEmployee?.nationalityType || employee?.nationalityType || employmentForm.nationalityType) === 'Omani'
                             ? 'Oman National Smart Civil ID Card'
                             : 'Oman Expat Resident Identity Card'}
                         </h3>
@@ -1281,6 +1297,15 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                             showDays
                           />
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setDocHistoryState({ isOpen: true, category: 'civil-id' })}
+                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-200"
+                          title="View Civil ID Versions & Lifecycle History"
+                        >
+                          <History size={13} className="text-blue-600" />
+                          <span>Document History</span>
+                        </button>
                         {canWrite && (
                           <button
                             onClick={() => setIsRenewCidOpen(true)}
@@ -1744,7 +1769,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                             Active Job Designation
                           </span>
                           <span className="text-sm font-bold text-slate-800 block">
-                            {employee.designation}
+                            {currentEmployee?.designation || employee?.designation || employmentForm.designation || 'Staff'}
                           </span>
                           <span className="text-[10px] text-slate-500">
                             Internal Company Role
@@ -1784,7 +1809,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                             Sponsoring Entity & Type
                           </span>
                           <span className="text-xs font-semibold text-slate-800">
-                            {complianceData.currentVisa.sponsor || employee.employeeCompany} (
+                            {complianceData.currentVisa.sponsor || currentEmployee?.employeeCompany || employee?.employeeCompany || employmentForm.employeeCompany || 'DGO'} (
                             {complianceData.currentVisa.sponsorshipType || 'Corporate'})
                           </span>
                         </div>

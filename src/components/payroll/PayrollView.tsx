@@ -192,10 +192,10 @@ export const PayrollView: React.FC = () => {
       const typeCmp = (a.employeeType || '').localeCompare(b.employeeType || '');
       if (typeCmp !== 0) return typeCmp;
 
-      const nationalityRank = (n: string) => (n === 'Omani' ? 0 : 1);
-      const natRankCmp = nationalityRank(a.nationalityType) - nationalityRank(b.nationalityType);
+      const nationalityRank = (n?: string) => (n === 'Omani' ? 0 : 1);
+      const natRankCmp = nationalityRank(a?.nationalityType) - nationalityRank(b?.nationalityType);
       if (natRankCmp !== 0) return natRankCmp;
-      const natCmp = (a.nationalityType || '').localeCompare(b.nationalityType || '');
+      const natCmp = (a?.nationalityType || '').localeCompare(b?.nationalityType || '');
       if (natCmp !== 0) return natCmp;
 
       const projectCmp = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');

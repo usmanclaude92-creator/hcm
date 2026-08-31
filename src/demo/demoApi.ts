@@ -84,12 +84,12 @@ route('GET', '/api/dashboard', ({ query }) => {
   const fromMonth = query.get('fromMonth') || '';
   const toMonth = query.get('toMonth') || '';
 
-  const employees = store.employees;
-  const activeEmployees = employees.filter(e => e.isActive);
-  const workers = activeEmployees.filter(e => e.employeeType === 'Worker');
-  const staff = activeEmployees.filter(e => e.employeeType === 'Staff');
-  const omani = activeEmployees.filter(e => e.nationalityType === 'Omani');
-  const expat = activeEmployees.filter(e => e.nationalityType === 'Expat');
+  const employees = store.employees || [];
+  const activeEmployees = employees.filter(e => e && e.isActive);
+  const workers = activeEmployees.filter(e => e?.employeeType === 'Worker');
+  const staff = activeEmployees.filter(e => e?.employeeType === 'Staff');
+  const omani = activeEmployees.filter(e => e?.nationalityType === 'Omani');
+  const expat = activeEmployees.filter(e => e?.nationalityType === 'Expat');
 
   const payrolls = [...store.payrolls].sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth));
   const allMonthsAsc = [...payrolls].map(p => p.payrollMonth).sort((a, b) => a.localeCompare(b));

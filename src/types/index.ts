@@ -127,9 +127,26 @@ export interface EmployeeGovernmentDocument {
   storagePath?: string | null;
   remarks?: string;
   isCurrent: boolean;
+  replaceReason?: string | null;
+  replacedDate?: string | null;
+  previousDocId?: string | null;
+  version?: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DocumentHistoryPayload {
+  employeeId: string;
+  employeeName: string;
+  designation: string;
+  employeeCompany: string;
+  nationalityType: string;
+  civilIdHistory: EmployeeCivilId[];
+  drivingLicenceHistory: EmployeeDrivingLicence[];
+  visaHistory: EmployeeVisa[];
+  governmentDocumentsHistory: EmployeeGovernmentDocument[];
+  repositoryDocuments: EmployeeDocument[];
 }
 
 export type EmployeeDocumentCategory =

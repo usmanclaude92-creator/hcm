@@ -1525,6 +1525,109 @@ router.post('/:employeeId/government-documents', verifyAuth, requireWritePermiss
   }
 });
 
+// POST /api/employees/:employeeId/government-documents/renew - Renew an existing government document
+router.post('/:employeeId/government-documents/renew', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const {
+      previousDocId,
+      documentType,
+      documentNumber,
+      issueDate,
+      expiryDate,
+      issuingAuthority,
+      country,
+      documentAttachment,
+      fileName,
+      storagePath,
+      reasonForRenewal,
+      remarks,
+    } = req.body;
+
+    if (!documentType || !documentNumber || !expiryDate) {
+      return res.status(400).json({ error: 'Document Type, Document Number, and Expiry Date are required.' });
+    }
+
+    const newDoc: EmployeeGovernmentDocument = {
+      id: crypto.randomUUID(),
+      employeeId: norm,
+      documentType,
+      documentNumber: String(documentNumber).trim(),
+      issueDate: issueDate || '',
+      expiryDate: String(expiryDate).trim(),
+      issuingAuthority: issuingAuthority || '',
+      country: country || (emp.nationalityType === 'Omani' ? 'Oman' : ''),
+      status: calculateExpiryStatus(expiryDate),
+      documentAttachment: documentAttachment || '',
+      fileName: fileName || '',
+      storagePath: storagePath || '',
+      remarks: remarks || '',
+      isCurrent: true,
+      createdBy: req.user?.username || 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saved = await db.governmentDocuments.renew(
+      norm,
+      previousDocId || '',
+      newDoc,
+      reasonForRenewal || 'Renewed with updated document version',
+      req.user?.username || 'admin'
+    );
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'GOVERNMENT_DOCUMENT_RENEWED',
+      module: 'Compliance',
+      recordId: saved.id,
+      description: `Renewed ${documentType} (${maskSensitiveId(newDoc.documentNumber)}) for ${emp.employeeName} (${norm}). Reason: ${reasonForRenewal || 'Renewed'}`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ record: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to renew government document.' });
+  }
+});
+
+// GET /api/employees/:employeeId/document-history - Comprehensive multi-document version history & lifecycle
+router.get('/:employeeId/document-history', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const civilIdHistory = db.civilIds.getByEmployeeId(norm);
+    const drivingLicenceHistory = db.drivingLicences.getByEmployeeId(norm);
+    const visaHistory = db.visas.getByEmployeeId(norm);
+    const governmentDocumentsHistory = db.governmentDocuments.getByEmployeeId(norm);
+    const repositoryDocuments = db.documents.getByEmployeeId(norm);
+
+    res.json({
+      employeeId: emp.employeeId,
+      employeeName: emp.employeeName,
+      designation: emp.designation,
+      employeeCompany: emp.employeeCompany,
+      nationalityType: emp.nationalityType,
+      civilIdHistory,
+      drivingLicenceHistory,
+      visaHistory,
+      governmentDocumentsHistory,
+      repositoryDocuments,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch document history.' });
+  }
+});
+
 // DELETE /api/employees/:employeeId/government-documents/:docId
 router.delete('/:employeeId/government-documents/:docId', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {

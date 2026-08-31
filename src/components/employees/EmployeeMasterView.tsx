@@ -242,15 +242,18 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
   // Row order: Company -> Pay By -> WPS -> Type -> Nationality (Omani ranked first) ->
   // Employee Name (final tie-breaker) -- everything else in this cascade is plain ascending.
   const sortedEmployees = useMemo(() => {
-    const nationalityRank = (n: string) => (n === 'Omani' ? 0 : 1);
+    const nationalityRank = (n?: string) => (n === 'Omani' ? 0 : 1);
     return [...employees].sort((a, b) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
       return (
-        a.employeeCompany.localeCompare(b.employeeCompany) ||
-        a.salaryPaidBy.localeCompare(b.salaryPaidBy) ||
-        a.wpsEmployee.localeCompare(b.wpsEmployee) ||
-        a.employeeType.localeCompare(b.employeeType) ||
+        (a.employeeCompany || '').localeCompare(b.employeeCompany || '') ||
+        (a.salaryPaidBy || '').localeCompare(b.salaryPaidBy || '') ||
+        (a.wpsEmployee || '').localeCompare(b.wpsEmployee || '') ||
+        (a.employeeType || '').localeCompare(b.employeeType || '') ||
         (nationalityRank(a.nationalityType) - nationalityRank(b.nationalityType)) ||
-        a.employeeName.localeCompare(b.employeeName)
+        (a.employeeName || '').localeCompare(b.employeeName || '')
       );
     });
   }, [employees]);
