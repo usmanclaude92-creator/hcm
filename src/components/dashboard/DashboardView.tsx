@@ -248,7 +248,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {activeTab === 'workforce-deployment' ? (
-        <WorkforceDeploymentView ref={workforceViewRef} onStatusChange={(s) => setWorkforceLastUpdated(s.lastUpdated)} />
+        <WorkforceDeploymentView
+          ref={workforceViewRef}
+          onStatusChange={(s) => setWorkforceLastUpdated(s.lastUpdated)}
+          onSelectEmployee={(empId) => onNavigate('employee-ledger', { employeeId: empId })}
+        />
       ) : (
         <>
 
@@ -624,6 +628,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <DocumentExpiryMonitoringSection
             onNavigateToEmployees={(filters) => onNavigate('employees', filters)}
             onNavigateToCompliance={() => onNavigate('compliance')}
+            onNavigateToDocuments={() => onNavigate('documents')}
           />
 
           {/* Quick Action Navigation Panels */}

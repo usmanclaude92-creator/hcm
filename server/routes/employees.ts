@@ -477,23 +477,24 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     const {
       employeeId,
       employeeName,
-      employeeType,
-      nationalityType,
-      wageType,
+      employeeType = 'Staff',
+      nationalityType = 'Expat',
+      wageType = 'Fixed Monthly',
       dateOfJoining,
       dateOfLeaving,
-      designation,
-      employeeCompany,
-      salaryPaidBy,
-      monthlySalaryOrRate,
-      wpsEmployee,
-      wpsSalary,
-      actualSalary,
+      designation = 'Staff',
+      employeeCompany = 'DGO',
+      salaryPaidBy = 'DGO',
+      monthlySalaryOrRate = 0,
+      wpsEmployee = 'No',
+      wpsSalary = 0,
+      actualSalary = 0,
       recoverFrom,
+      personalDetails,
     } = req.body;
 
-    if (!employeeId || !employeeName || !employeeType || !nationalityType || !wageType || !designation || !employeeCompany || !salaryPaidBy) {
-      return res.status(400).json({ error: 'Please fill in all mandatory employee fields.' });
+    if (!employeeId || !employeeName) {
+      return res.status(400).json({ error: 'Employee ID and Full Name are required.' });
     }
 
     const normalizedId = normalizeEmployeeId(employeeId);
@@ -554,7 +555,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       wageType,
       dateOfJoining: dateOfJoining || new Date().toISOString().split('T')[0],
       dateOfLeaving: dateOfLeaving || null,
-      designation: designation.trim(),
+      designation: (designation || 'Staff').trim(),
       employeeCompany,
       salaryPaidBy,
       monthlySalaryOrRate: roundOMR(numericSalary),
@@ -568,6 +569,13 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     };
 
     await db.employees.create(newEmployee);
+
+    if (personalDetails && typeof personalDetails === 'object') {
+      await db.personalDetails.save(normalizedId, {
+        ...personalDetails,
+        employeeId: normalizedId,
+      });
+    }
 
     await db.audit.log({
       userId: req.user?.id,
@@ -610,6 +618,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       actualSalary,
       recoverFrom,
       isActive,
+      personalDetails,
     } = req.body;
 
     const updates: Partial<Employee> = {};
@@ -630,6 +639,13 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
 
     const updated = await db.employees.update(id, updates, req.user?.username);
+
+    if (personalDetails && typeof personalDetails === 'object') {
+      await db.personalDetails.save(employee.employeeId, {
+        ...personalDetails,
+        employeeId: employee.employeeId,
+      });
+    }
 
     await db.audit.log({
       userId: req.user?.id,
@@ -1654,7 +1670,160 @@ router.delete('/:employeeId/government-documents/:docId', verifyAuth, requireWri
 
 // --- PERSONAL & CONTACT DETAILS ---
 
-// GET /api/employees/:employeeId/personal-details
+const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = db.employees.findByEmployeeId(norm);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const payload = req.body || {};
+    const saved = await db.personalDetails.save(norm, payload);
+
+    // Synchronize critical documents with compliance modules if provided
+    const timestamp = new Date().toISOString();
+
+    // 1. Civil ID Sync
+    if (payload.civilIdNumber || payload.civilIdAttachment || payload.civilIdExpiryDate) {
+      const currentCid = db.civilIds.getCurrent(norm);
+      if (currentCid) {
+        await db.civilIds.update(currentCid.id, {
+          ...(payload.civilIdNumber ? { civilIdNumber: String(payload.civilIdNumber).trim() } : {}),
+          ...(payload.civilIdExpiryDate ? { expiryDate: payload.civilIdExpiryDate } : {}),
+          ...(payload.civilIdAttachment ? { documentAttachment: payload.civilIdAttachment } : {}),
+          ...(payload.civilIdFileName ? { fileName: payload.civilIdFileName } : {}),
+          ...(payload.civilIdStoragePath ? { storagePath: payload.civilIdStoragePath } : {}),
+          updatedAt: timestamp,
+        });
+      } else if (payload.civilIdNumber || payload.civilIdExpiryDate) {
+        await db.civilIds.create({
+          id: crypto.randomUUID(),
+          employeeId: norm,
+          civilIdNumber: payload.civilIdNumber ? String(payload.civilIdNumber).trim() : 'PENDING',
+          issueDate: payload.civilIdIssueDate || '',
+          expiryDate: payload.civilIdExpiryDate || new Date(Date.now() + 365 * 86400000 * 2).toISOString().slice(0, 10),
+          status: payload.civilIdExpiryDate ? calculateExpiryStatus(payload.civilIdExpiryDate) : 'Valid',
+          issuingAuthority: 'Royal Oman Police',
+          country: 'Oman',
+          documentAttachment: payload.civilIdAttachment || '',
+          fileName: payload.civilIdFileName || '',
+          storagePath: payload.civilIdStoragePath || '',
+          remarks: 'Registered via Personal Information form',
+          isCurrent: true,
+          createdBy: req.user?.username || 'admin',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+    }
+
+    // 2. Passport Sync
+    if (payload.passportNumber || payload.passportAttachment || payload.passportExpiryDate) {
+      const currentPassport = db.governmentDocuments.getByEmployeeId(norm).find((d) => d.documentType === 'Passport' && d.isCurrent);
+      if (currentPassport) {
+        await db.governmentDocuments.update(currentPassport.id, {
+          ...(payload.passportNumber ? { documentNumber: String(payload.passportNumber).trim() } : {}),
+          ...(payload.passportExpiryDate ? { expiryDate: payload.passportExpiryDate } : {}),
+          ...(payload.passportAttachment ? { documentAttachment: payload.passportAttachment } : {}),
+          ...(payload.passportFileName ? { fileName: payload.passportFileName } : {}),
+          ...(payload.passportStoragePath ? { storagePath: payload.passportStoragePath } : {}),
+          updatedAt: timestamp,
+        });
+      } else if (payload.passportNumber || payload.passportExpiryDate || payload.passportAttachment) {
+        await db.governmentDocuments.create({
+          id: crypto.randomUUID(),
+          employeeId: norm,
+          documentType: 'Passport',
+          documentNumber: payload.passportNumber ? String(payload.passportNumber).trim() : 'PENDING',
+          issueDate: payload.passportIssueDate || '',
+          expiryDate: payload.passportExpiryDate || new Date(Date.now() + 365 * 86400000 * 5).toISOString().slice(0, 10),
+          issuingAuthority: 'Immigration & Passports Authority',
+          country: emp.nationalityType === 'Omani' ? 'Oman' : '',
+          status: payload.passportExpiryDate ? calculateExpiryStatus(payload.passportExpiryDate) : 'Valid',
+          documentAttachment: payload.passportAttachment || '',
+          fileName: payload.passportFileName || '',
+          storagePath: payload.passportStoragePath || '',
+          remarks: 'Registered via Personal Information form',
+          isCurrent: true,
+          createdBy: req.user?.username || 'admin',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+    }
+
+    // 3. Visa Sync (for Expats)
+    if (payload.visaNumber || payload.visaAttachment || payload.visaExpiryDate) {
+      const currentVisa = db.visas.getCurrent(norm);
+      if (currentVisa) {
+        await db.visas.update(currentVisa.id, {
+          ...(payload.visaNumber ? { visaNumber: String(payload.visaNumber).trim() } : {}),
+          ...(payload.visaExpiryDate ? { expiryDate: payload.visaExpiryDate } : {}),
+          ...(payload.visaAttachment ? { documentAttachment: payload.visaAttachment } : {}),
+          ...(payload.visaFileName ? { fileName: payload.visaFileName } : {}),
+          ...(payload.visaStoragePath ? { storagePath: payload.visaStoragePath } : {}),
+          updatedAt: timestamp,
+        });
+      } else if (payload.visaNumber || payload.visaExpiryDate || payload.visaAttachment) {
+        await db.visas.create({
+          id: crypto.randomUUID(),
+          employeeId: norm,
+          visaNumber: payload.visaNumber ? String(payload.visaNumber).trim() : 'PENDING',
+          tradeOnVisa: emp.designation || 'Worker',
+          visaProfessionCode: '',
+          visaType: 'Employment Visa',
+          issueDate: payload.visaIssueDate || '',
+          expiryDate: payload.visaExpiryDate || new Date(Date.now() + 365 * 86400000 * 2).toISOString().slice(0, 10),
+          sponsor: emp.employeeCompany,
+          sponsorshipType: 'Corporate',
+          issuingAuthority: 'Royal Oman Police - Passports & Residence',
+          country: 'Oman',
+          status: payload.visaExpiryDate ? calculateExpiryStatus(payload.visaExpiryDate) : 'Valid',
+          documentAttachment: payload.visaAttachment || '',
+          fileName: payload.visaFileName || '',
+          storagePath: payload.visaStoragePath || '',
+          remarks: 'Registered via Personal Information form',
+          isCurrent: true,
+          effectiveFrom: payload.visaIssueDate || timestamp.slice(0, 10),
+          createdBy: req.user?.username || 'admin',
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+    }
+
+    // 4. Driving Licence Sync
+    if (payload.drivingLicenceNumber || payload.drivingLicenceAttachment || payload.drivingLicenceExpiryDate) {
+      const currentDl = db.drivingLicences.getCurrent(norm);
+      if (currentDl) {
+        await db.drivingLicences.update(currentDl.id, {
+          ...(payload.drivingLicenceNumber ? { licenceNumber: String(payload.drivingLicenceNumber).trim() } : {}),
+          ...(payload.drivingLicenceExpiryDate ? { expiryDate: payload.drivingLicenceExpiryDate } : {}),
+          ...(payload.drivingLicenceAttachment ? { documentAttachment: payload.drivingLicenceAttachment } : {}),
+          ...(payload.drivingLicenceFileName ? { fileName: payload.drivingLicenceFileName } : {}),
+          ...(payload.drivingLicenceStoragePath ? { storagePath: payload.drivingLicenceStoragePath } : {}),
+          updatedAt: timestamp,
+        });
+      }
+    }
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'admin',
+      userRole: req.user?.role || 'Administrator',
+      action: 'PERSONAL_DETAILS_UPDATED',
+      module: 'Employee Master',
+      description: `Updated personal details & critical document attachments for ${emp.employeeName} (${norm}).`,
+      ipAddress: req.ip,
+    });
+
+    res.json({ details: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to save personal details.' });
+  }
+};
+
+// GET /api/employees/:employeeId/personal-details & /personal
 router.get('/:employeeId/personal-details', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.params;
@@ -1665,30 +1834,20 @@ router.get('/:employeeId/personal-details', verifyAuth, (req: AuthRequest, res: 
   }
 });
 
-// POST /api/employees/:employeeId/personal-details
-router.post('/:employeeId/personal-details', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+router.get('/:employeeId/personal', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.params;
-    const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
-    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
-
-    const saved = await db.personalDetails.save(norm, req.body);
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'admin',
-      userRole: req.user?.role || 'Administrator',
-      action: 'PERSONAL_DETAILS_UPDATED',
-      module: 'Employee Master',
-      description: `Updated personal & emergency contact details for ${emp.employeeName} (${norm}).`,
-      ipAddress: req.ip,
-    });
-
-    res.json({ details: saved });
+    const details = db.personalDetails.get(employeeId);
+    res.json({ details: details || null });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to save personal details.' });
+    res.status(500).json({ error: err.message });
   }
 });
+
+// POST & PUT routes for personal details
+router.post('/:employeeId/personal-details', verifyAuth, requireWritePermission, handleSavePersonalDetails);
+router.put('/:employeeId/personal-details', verifyAuth, requireWritePermission, handleSavePersonalDetails);
+router.post('/:employeeId/personal', verifyAuth, requireWritePermission, handleSavePersonalDetails);
+router.put('/:employeeId/personal', verifyAuth, requireWritePermission, handleSavePersonalDetails);
 
 export default router;

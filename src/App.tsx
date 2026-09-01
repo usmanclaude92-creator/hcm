@@ -21,6 +21,7 @@ import { SalaryPayrollReportView } from './components/reports/SalaryPayrollRepor
 import { AuditLogsView } from './components/audit/AuditLogsView';
 import { UserManagementView } from './components/users/UserManagementView';
 import { ComplianceDashboardView } from './components/compliance/ComplianceDashboardView';
+import { DocumentRepositoryView } from './components/documents/DocumentRepositoryView';
 
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading, isDemoMode } = useAuth();
@@ -61,6 +62,13 @@ const MainApp: React.FC = () => {
         );
       case 'compliance':
         return <ComplianceDashboardView />;
+      case 'documents':
+      case 'document-repository':
+        return (
+          <DocumentRepositoryView
+            onNavigateToEmployee={(empId) => handleNavigate('employees', { search: empId })}
+          />
+        );
       case 'projects':
         return <ProjectMasterView />;
       case 'attendance':
@@ -70,7 +78,12 @@ const MainApp: React.FC = () => {
       case 'cif':
         return <CifUploadView />;
       case 'employee-ledger':
-        return <EmployeeProfileLedgerView />;
+        return (
+          <EmployeeProfileLedgerView
+            initialEmployeeId={viewParams.employeeId || viewParams.search}
+            onBack={() => handleNavigate('dashboard')}
+          />
+        );
       case 'payroll':
         return <PayrollView />;
       case 'payments':

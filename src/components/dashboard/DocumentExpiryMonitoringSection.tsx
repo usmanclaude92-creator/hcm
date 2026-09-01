@@ -17,12 +17,14 @@ import {
   Users,
   RefreshCw,
   Search,
+  FolderOpen,
 } from 'lucide-react';
 import type { DocumentExpiryStatus } from '../../types/index';
 
 export interface DocumentExpiryMonitoringSectionProps {
   onNavigateToEmployees: (filters: { docType?: string; docStatus?: string; search?: string }) => void;
   onNavigateToCompliance?: () => void;
+  onNavigateToDocuments?: () => void;
 }
 
 interface DocCountItem {
@@ -71,6 +73,7 @@ interface ComplianceSummaryResponse {
 export const DocumentExpiryMonitoringSection: React.FC<DocumentExpiryMonitoringSectionProps> = ({
   onNavigateToEmployees,
   onNavigateToCompliance,
+  onNavigateToDocuments,
 }) => {
   const [data, setData] = useState<ComplianceSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,6 +193,16 @@ export const DocumentExpiryMonitoringSection: React.FC<DocumentExpiryMonitoringS
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
+
+            {onNavigateToDocuments && (
+              <button
+                onClick={onNavigateToDocuments}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                Document Repository
+              </button>
+            )}
 
             {onNavigateToCompliance && (
               <button

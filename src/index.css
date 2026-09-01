@@ -18,3 +18,37 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #475569;
 }
+
+/* Dedicated Single-Page Clean Print Optimization */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .no-print {
+    display: none !important;
+  }
+  #employee-summary-printable,
+  #employee-summary-printable * {
+    visibility: visible;
+  }
+  #employee-summary-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 12mm 12mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+}

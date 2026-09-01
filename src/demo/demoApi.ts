@@ -244,6 +244,142 @@ route('GET', '/api/employees/:id', ({ params }) => {
   return { ...employee, designationHistory: [], salaryHistory: [] };
 });
 
+route('GET', '/api/employees/:id/compliance', ({ params }) => {
+  const store = getDemoStore();
+  const employee = store.employees.find(e => e.id === params.id || e.employeeId === params.id);
+  if (!employee) throw new Error('Employee not found.');
+
+  const normId = employee.employeeId;
+  const isOmani = employee.nationalityType === 'Omani';
+  const numericId = parseInt(normId.replace(/\D/g, '') || '1', 10);
+  const birthYear = 1982 + (numericId % 16);
+  const birthMonth = String(1 + (numericId % 12)).padStart(2, '0');
+  const birthDay = String(1 + (numericId % 28)).padStart(2, '0');
+  const dob = `${birthYear}-${birthMonth}-${birthDay}`;
+
+  const bloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-'];
+  const bloodGroup = bloodGroups[numericId % bloodGroups.length];
+  const marital = numericId % 3 === 0 ? 'Single' : 'Married';
+  const emailName = employee.employeeName.toLowerCase().replace(/[^a-z0-9]/g, '.');
+
+  const civilIdNumber = isOmani ? `1092${String(numericId).padStart(4, '0')}` : `8091${String(numericId).padStart(4, '0')}`;
+  const passportNumber = isOmani ? `P-OM-${String(numericId).padStart(6, '0')}` : `P-EXP-${String(numericId).padStart(6, '0')}`;
+
+  const personalDetails = {
+    employeeId: normId,
+    dateOfBirth: dob,
+    dob,
+    gender: 'Male',
+    maritalStatus: marital,
+    bloodGroup,
+    mobileNumber: `+968 9${String(1000000 + numericId * 3421).slice(0, 7)}`,
+    whatsappNumber: `+968 9${String(1000000 + numericId * 3421).slice(0, 7)}`,
+    personalEmail: `${emailName}@artify.om`,
+    residentialAddress: isOmani
+      ? `Villa ${10 + numericId}, Way 2819, Al Khuwair, Muscat, Sultanate of Oman`
+      : `Al Ghubrah Labour Camp, Block ${String.fromCharCode(65 + (numericId % 4))}, Muscat, Oman`,
+    permanentAddress: isOmani ? 'Muscat Governorate, Sultanate of Oman' : 'Kerala, India',
+    emergencyContactName: isOmani ? 'Said Al-Balushi' : 'Suresh Kumar',
+    emergencyContactRelation: isOmani ? 'Brother' : 'Spouse',
+    emergencyContactPhone: `+968 9${String(2000000 + numericId * 5432).slice(0, 7)}`,
+    emergencyContacts: [
+      {
+        name: isOmani ? 'Said Al-Balushi' : 'Suresh Kumar',
+        relationship: isOmani ? 'Brother' : 'Spouse',
+        contactNumber: `+968 9${String(2000000 + numericId * 5432).slice(0, 7)}`,
+        isPrimary: true,
+      },
+    ],
+  };
+
+  const currentCivilId = {
+    id: `cid-${normId}`,
+    employeeId: normId,
+    civilIdNumber,
+    issueDate: '2023-01-15',
+    expiryDate: '2028-01-14',
+    status: 'Valid',
+    issuingAuthority: 'Royal Oman Police (ROP)',
+    country: 'Oman',
+    isCurrent: true,
+  };
+
+  const governmentDocuments = [
+    {
+      id: `gov-pass-${normId}`,
+      employeeId: normId,
+      documentType: 'Passport',
+      documentNumber: passportNumber,
+      issueDate: '2022-04-10',
+      expiryDate: '2032-04-09',
+      status: 'Valid',
+      issuingAuthority: isOmani ? 'ROP Directorate of Passport' : 'Immigration Authority',
+      country: isOmani ? 'Oman' : 'India',
+      isCurrent: true,
+    },
+  ];
+
+  return {
+    employeeId: employee.employeeId,
+    employeeName: employee.employeeName,
+    employeeType: employee.employeeType,
+    nationalityType: employee.nationalityType,
+    designation: employee.designation,
+    employeeCompany: employee.employeeCompany,
+    overallCompliance: 'Compliant',
+    currentCivilId,
+    governmentDocuments,
+    personalDetails,
+  };
+});
+
+route('GET', '/api/employees/:id/personal-details', ({ params }) => {
+  const store = getDemoStore();
+  const employee = store.employees.find(e => e.id === params.id || e.employeeId === params.id);
+  if (!employee) throw new Error('Employee not found.');
+
+  const normId = employee.employeeId;
+  const isOmani = employee.nationalityType === 'Omani';
+  const numericId = parseInt(normId.replace(/\D/g, '') || '1', 10);
+  const birthYear = 1982 + (numericId % 16);
+  const birthMonth = String(1 + (numericId % 12)).padStart(2, '0');
+  const birthDay = String(1 + (numericId % 28)).padStart(2, '0');
+  const dob = `${birthYear}-${birthMonth}-${birthDay}`;
+  const bloodGroups = ['O+', 'A+', 'B+', 'AB+', 'O-', 'A-'];
+  const bloodGroup = bloodGroups[numericId % bloodGroups.length];
+  const marital = numericId % 3 === 0 ? 'Single' : 'Married';
+  const emailName = employee.employeeName.toLowerCase().replace(/[^a-z0-9]/g, '.');
+
+  return {
+    details: {
+      employeeId: normId,
+      dateOfBirth: dob,
+      dob,
+      gender: 'Male',
+      maritalStatus: marital,
+      bloodGroup,
+      mobileNumber: `+968 9${String(1000000 + numericId * 3421).slice(0, 7)}`,
+      whatsappNumber: `+968 9${String(1000000 + numericId * 3421).slice(0, 7)}`,
+      personalEmail: `${emailName}@artify.om`,
+      residentialAddress: isOmani
+        ? `Villa ${10 + numericId}, Way 2819, Al Khuwair, Muscat, Sultanate of Oman`
+        : `Al Ghubrah Labour Camp, Block ${String.fromCharCode(65 + (numericId % 4))}, Muscat, Oman`,
+      permanentAddress: isOmani ? 'Muscat Governorate, Sultanate of Oman' : 'Kerala, India',
+      emergencyContactName: isOmani ? 'Said Al-Balushi' : 'Suresh Kumar',
+      emergencyContactRelation: isOmani ? 'Brother' : 'Spouse',
+      emergencyContactPhone: `+968 9${String(2000000 + numericId * 5432).slice(0, 7)}`,
+      emergencyContacts: [
+        {
+          name: isOmani ? 'Said Al-Balushi' : 'Suresh Kumar',
+          relationship: isOmani ? 'Brother' : 'Spouse',
+          contactNumber: `+968 9${String(2000000 + numericId * 5432).slice(0, 7)}`,
+          isPrimary: true,
+        },
+      ],
+    },
+  };
+});
+
 route('POST', '/api/employees', ({ body, role }) => {
   assertWrite(role);
   const store = getDemoStore();

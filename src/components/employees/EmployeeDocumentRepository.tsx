@@ -56,6 +56,17 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
 
   // Preview Modal
   const [previewDoc, setPreviewDoc] = useState<EmployeeDocument | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number>(-1);
+
+  const handleOpenPreview = (doc: EmployeeDocument, index?: number) => {
+    setPreviewDoc(doc);
+    if (index !== undefined) {
+      setPreviewIndex(index);
+    } else {
+      const idx = filteredDocuments.findIndex((d) => d.id === doc.id);
+      setPreviewIndex(idx);
+    }
+  };
 
   // Upload Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -336,7 +347,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {filteredDocuments.map((doc) => {
+          {filteredDocuments.map((doc, index) => {
             const isPdf = doc.fileName?.toLowerCase().endsWith('.pdf') || doc.mimeType?.includes('pdf');
             return (
               <div
@@ -346,19 +357,27 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreview(doc, index)}
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
                           isPdf
                             ? 'bg-rose-50 text-rose-600 border border-rose-200'
                             : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                         }`}
+                        title="Quick View File"
                       >
                         {isPdf ? 'PDF' : 'DOC'}
-                      </div>
+                      </button>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-slate-900 truncate" title={doc.title}>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPreview(doc, index)}
+                          className="text-xs font-bold text-slate-900 truncate block text-left hover:text-indigo-600 cursor-pointer"
+                          title={doc.title}
+                        >
                           {doc.title}
-                        </h4>
+                        </button>
                         <p className="text-[11px] text-slate-500 truncate">
                           {doc.documentType} • {formatBytes(doc.fileSize)}
                         </p>
@@ -405,9 +424,9 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
-                      onClick={() => setPreviewDoc(doc)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-                      title="Preview Document"
+                      onClick={() => handleOpenPreview(doc, index)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                      title="Quick-View Document"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       Preview
@@ -722,18 +741,40 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
       {previewDoc && (
         <DocumentPreviewModal
           isOpen={Boolean(previewDoc)}
-          onClose={() => setPreviewDoc(null)}
+          onClose={() => {
+            setPreviewDoc(null);
+            setPreviewIndex(-1);
+          }}
           documentUrl={previewDoc.fileUrl || `/api/storage/file/${encodeURIComponent(previewDoc.storagePath)}`}
           fileName={previewDoc.fileName}
           title={previewDoc.title}
           documentType={previewDoc.documentType}
+          category={previewDoc.category}
           documentNumber={previewDoc.documentNumber}
           employeeName={employee.employeeName}
           employeeId={employee.employeeId}
+          employeeCompany={employee.company}
+          department={employee.department}
+          designation={employee.designation}
           expiryDate={previewDoc.expiryDate}
           status={previewDoc.status}
           remarks={previewDoc.remarks}
           fileSize={previewDoc.fileSize}
+          mimeType={previewDoc.mimeType}
+          uploadedAt={previewDoc.uploadedAt}
+          uploadedBy={previewDoc.uploadedBy}
+          documentsList={filteredDocuments}
+          currentIndex={
+            previewIndex >= 0
+              ? previewIndex
+              : filteredDocuments.findIndex((d) => d.id === previewDoc.id)
+          }
+          onNavigateIndex={(newIdx) => {
+            if (newIdx >= 0 && newIdx < filteredDocuments.length) {
+              setPreviewIndex(newIdx);
+              setPreviewDoc(filteredDocuments[newIdx]);
+            }
+          }}
         />
       )}
 

@@ -204,6 +204,325 @@ router.get('/signed-url', verifyAuth, async (req: AuthRequest, res: Response) =>
   }
 });
 
+function computeDaysRemaining(dateStr?: string | null): number | null {
+  if (!dateStr) return null;
+  const exp = new Date(dateStr);
+  if (isNaN(exp.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  exp.setHours(0, 0, 0, 0);
+  return Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * GET /api/storage/documents - Centralized repository query for all uploaded employee documents
+ */
+router.get('/documents', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      category,
+      documentType,
+      status,
+      search,
+      company,
+      employeeId,
+      sortBy = 'uploadedAt',
+      sortOrder = 'desc',
+    } = req.query as Record<string, string>;
+
+    const allEmployees = db.employees.getAll();
+    const empMap = new Map(allEmployees.map((e) => [normalizeEmployeeId(e.employeeId), e]));
+
+    // 1. Gather all documents from explicit documents table
+    const explicitDocs = db.documents.getAll();
+    const docList: any[] = [];
+    const seenSignatures = new Set<string>();
+
+    for (const doc of explicitDocs) {
+      const normEmpId = normalizeEmployeeId(doc.employeeId);
+      const emp = empMap.get(normEmpId);
+      const days = computeDaysRemaining(doc.expiryDate);
+      const docStatus = doc.expiryDate ? calculateExpiryStatus(doc.expiryDate) : 'Permanent';
+
+      // Record signature to avoid duplicates with statutory tables
+      const sig = `${normEmpId}_${doc.category}_${doc.documentNumber || doc.fileName}`;
+      seenSignatures.add(sig);
+
+      docList.push({
+        ...doc,
+        employeeName: emp?.employeeName || 'General / Organization',
+        employeeCompany: emp?.employeeCompany || 'All Companies',
+        department: (emp as any)?.department || '',
+        designation: emp?.designation || '',
+        nationalityType: emp?.nationalityType || 'Expat',
+        employeeStatus: emp ? (emp.isActive ? 'Active' : 'Inactive') : 'Active',
+        status: docStatus,
+        daysRemaining: days,
+      });
+    }
+
+    // 2. Synthesize statutory documents with attachments if not in explicit table
+    // A) Civil IDs
+    const civilIds = db.civilIds.getAll();
+    for (const cid of civilIds) {
+      if (cid.documentAttachment || cid.storagePath) {
+        const normEmpId = normalizeEmployeeId(cid.employeeId);
+        const sig = `${normEmpId}_civil-id_${cid.civilIdNumber || cid.fileName}`;
+        if (!seenSignatures.has(sig)) {
+          seenSignatures.add(sig);
+          const emp = empMap.get(normEmpId);
+          const days = computeDaysRemaining(cid.expiryDate);
+          docList.push({
+            id: `cid_${cid.id}`,
+            employeeId: normEmpId,
+            employeeName: emp?.employeeName || 'Unknown Employee',
+            employeeCompany: emp?.employeeCompany || 'General',
+            department: (emp as any)?.department || '',
+            designation: emp?.designation || '',
+            nationalityType: emp?.nationalityType || 'Expat',
+            employeeStatus: emp ? (emp.isActive ? 'Active' : 'Inactive') : 'Active',
+            documentType: 'Civil ID',
+            category: 'civil-id',
+            title: `Civil ID Card - ${emp?.employeeName || normEmpId}`,
+            documentNumber: cid.civilIdNumber,
+            fileName: cid.fileName || 'civil_id_scan.pdf',
+            storagePath: cid.storagePath || '',
+            fileUrl: cid.documentAttachment,
+            issueDate: cid.issueDate,
+            expiryDate: cid.expiryDate,
+            status: calculateExpiryStatus(cid.expiryDate),
+            daysRemaining: days,
+            remarks: cid.remarks || 'Royal Oman Police Resident Card',
+            uploadedBy: cid.createdBy || 'system',
+            uploadedAt: cid.createdAt || cid.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    // B) Visas
+    const visas = db.visas.getAll();
+    for (const v of visas) {
+      if (v.documentAttachment || v.storagePath) {
+        const normEmpId = normalizeEmployeeId(v.employeeId);
+        const sig = `${normEmpId}_visa_${v.visaNumber || v.fileName}`;
+        if (!seenSignatures.has(sig)) {
+          seenSignatures.add(sig);
+          const emp = empMap.get(normEmpId);
+          const days = computeDaysRemaining(v.expiryDate);
+          docList.push({
+            id: `visa_${v.id}`,
+            employeeId: normEmpId,
+            employeeName: emp?.employeeName || 'Unknown Employee',
+            employeeCompany: emp?.employeeCompany || 'General',
+            department: (emp as any)?.department || '',
+            designation: emp?.designation || '',
+            nationalityType: emp?.nationalityType || 'Expat',
+            employeeStatus: emp ? (emp.isActive ? 'Active' : 'Inactive') : 'Active',
+            documentType: 'Employment Visa',
+            category: 'visa',
+            title: `Employment Visa - ${emp?.employeeName || normEmpId}`,
+            documentNumber: v.visaNumber,
+            fileName: v.fileName || 'employment_visa_scan.pdf',
+            storagePath: v.storagePath || '',
+            fileUrl: v.documentAttachment,
+            issueDate: v.issueDate,
+            expiryDate: v.expiryDate,
+            status: calculateExpiryStatus(v.expiryDate),
+            daysRemaining: days,
+            remarks: v.remarks || `Trade on Visa: ${v.tradeOnVisa || 'General'}`,
+            uploadedBy: v.createdBy || 'system',
+            uploadedAt: v.createdAt || v.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    // C) Passports & Government Documents
+    const govDocs = db.governmentDocuments.getAll();
+    for (const g of govDocs) {
+      if (g.documentAttachment || g.storagePath) {
+        const normEmpId = normalizeEmployeeId(g.employeeId);
+        const cat = g.documentType.toLowerCase().includes('passport') ? 'passport' : 'general';
+        const sig = `${normEmpId}_${cat}_${g.documentNumber || g.fileName}`;
+        if (!seenSignatures.has(sig)) {
+          seenSignatures.add(sig);
+          const emp = empMap.get(normEmpId);
+          const days = computeDaysRemaining(g.expiryDate);
+          docList.push({
+            id: `gov_${g.id}`,
+            employeeId: normEmpId,
+            employeeName: emp?.employeeName || 'Unknown Employee',
+            employeeCompany: emp?.employeeCompany || 'General',
+            department: (emp as any)?.department || '',
+            designation: emp?.designation || '',
+            nationalityType: emp?.nationalityType || 'Expat',
+            employeeStatus: emp ? (emp.isActive ? 'Active' : 'Inactive') : 'Active',
+            documentType: g.documentType || 'Passport',
+            category: cat,
+            title: `${g.documentType} - ${emp?.employeeName || normEmpId}`,
+            documentNumber: g.documentNumber,
+            fileName: g.fileName || `${g.documentType.toLowerCase()}_scan.pdf`,
+            storagePath: g.storagePath || '',
+            fileUrl: g.documentAttachment,
+            issueDate: g.issueDate,
+            expiryDate: g.expiryDate,
+            status: calculateExpiryStatus(g.expiryDate),
+            daysRemaining: days,
+            remarks: g.remarks || `${g.issuingAuthority || 'Immigration'} (${g.country || 'Oman'})`,
+            uploadedBy: g.createdBy || 'system',
+            uploadedAt: g.createdAt || g.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    // D) Driving Licences
+    const drivingLicences = db.drivingLicences.getAll();
+    for (const dl of drivingLicences) {
+      if (dl.documentAttachment || dl.storagePath) {
+        const normEmpId = normalizeEmployeeId(dl.employeeId);
+        const sig = `${normEmpId}_driving-licence_${dl.licenceNumber || dl.fileName}`;
+        if (!seenSignatures.has(sig)) {
+          seenSignatures.add(sig);
+          const emp = empMap.get(normEmpId);
+          const days = computeDaysRemaining(dl.expiryDate);
+          docList.push({
+            id: `dl_${dl.id}`,
+            employeeId: normEmpId,
+            employeeName: emp?.employeeName || 'Unknown Employee',
+            employeeCompany: emp?.employeeCompany || 'General',
+            department: (emp as any)?.department || '',
+            designation: emp?.designation || '',
+            nationalityType: emp?.nationalityType || 'Expat',
+            employeeStatus: emp ? (emp.isActive ? 'Active' : 'Inactive') : 'Active',
+            documentType: 'Driving Licence',
+            category: 'driving-licence',
+            title: `Driving Licence - ${emp?.employeeName || normEmpId}`,
+            documentNumber: dl.licenceNumber,
+            fileName: dl.fileName || 'driving_licence_scan.pdf',
+            storagePath: dl.storagePath || '',
+            fileUrl: dl.documentAttachment,
+            issueDate: dl.issueDate,
+            expiryDate: dl.expiryDate,
+            status: calculateExpiryStatus(dl.expiryDate),
+            daysRemaining: days,
+            remarks: dl.remarks || `Category: ${dl.category || 'Light Vehicle'}`,
+            uploadedBy: dl.createdBy || 'system',
+            uploadedAt: dl.createdAt || dl.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    // Calculate Comprehensive Summary Statistics before user query filtering
+    const stats = {
+      totalDocuments: docList.length,
+      byType: {
+        passport: docList.filter((d) => d.category === 'passport' || d.documentType?.toLowerCase().includes('passport')).length,
+        visa: docList.filter((d) => d.category === 'visa' || d.documentType?.toLowerCase().includes('visa')).length,
+        civilId: docList.filter((d) => d.category === 'civil-id' || d.documentType?.toLowerCase().includes('civil')).length,
+        drivingLicence: docList.filter((d) => d.category === 'driving-licence' || d.documentType?.toLowerCase().includes('driving')).length,
+        contract: docList.filter((d) => d.category === 'contract' || d.documentType?.toLowerCase().includes('contract')).length,
+        other: docList.filter((d) => !['passport', 'visa', 'civil-id', 'driving-licence', 'contract'].includes(d.category) && !d.documentType?.toLowerCase().includes('passport') && !d.documentType?.toLowerCase().includes('visa') && !d.documentType?.toLowerCase().includes('civil')).length,
+      },
+      byStatus: {
+        valid: docList.filter((d) => d.status === 'Valid').length,
+        expiringSoon: docList.filter((d) => d.status === 'Expiring Soon').length,
+        urgent: docList.filter((d) => d.status === 'Urgent').length,
+        expired: docList.filter((d) => d.status === 'Expired').length,
+        permanent: docList.filter((d) => !d.expiryDate || d.status === 'Permanent').length,
+      },
+      uniqueEmployeesWithDocs: new Set(docList.map((d) => d.employeeId)).size,
+      totalActiveEmployees: allEmployees.filter((e) => e.isActive).length,
+    };
+
+    // Filter documents based on query params
+    let filtered = [...docList];
+
+    if (employeeId) {
+      const normQueryEmpId = normalizeEmployeeId(employeeId);
+      filtered = filtered.filter((d) => normalizeEmployeeId(d.employeeId) === normQueryEmpId);
+    }
+
+    if (company && company !== 'ALL') {
+      filtered = filtered.filter((d) => d.employeeCompany === company);
+    }
+
+    if (category && category !== 'ALL') {
+      if (category === 'passport') {
+        filtered = filtered.filter((d) => d.category === 'passport' || d.documentType?.toLowerCase().includes('passport'));
+      } else if (category === 'visa') {
+        filtered = filtered.filter((d) => d.category === 'visa' || d.documentType?.toLowerCase().includes('visa'));
+      } else if (category === 'civil-id') {
+        filtered = filtered.filter((d) => d.category === 'civil-id' || d.documentType?.toLowerCase().includes('civil'));
+      } else if (category === 'driving-licence') {
+        filtered = filtered.filter((d) => d.category === 'driving-licence' || d.documentType?.toLowerCase().includes('driving'));
+      } else if (category === 'contract') {
+        filtered = filtered.filter((d) => d.category === 'contract' || d.documentType?.toLowerCase().includes('contract'));
+      } else {
+        filtered = filtered.filter((d) => d.category === category);
+      }
+    }
+
+    if (documentType && documentType !== 'ALL') {
+      filtered = filtered.filter((d) => d.documentType === documentType);
+    }
+
+    if (status && status !== 'ALL') {
+      filtered = filtered.filter((d) => d.status === status);
+    }
+
+    if (search && search.trim()) {
+      const q = search.toLowerCase().trim();
+      filtered = filtered.filter((d) =>
+        (d.title && d.title.toLowerCase().includes(q)) ||
+        (d.documentType && d.documentType.toLowerCase().includes(q)) ||
+        (d.documentNumber && d.documentNumber.toLowerCase().includes(q)) ||
+        (d.fileName && d.fileName.toLowerCase().includes(q)) ||
+        (d.employeeId && d.employeeId.toLowerCase().includes(q)) ||
+        (d.employeeName && d.employeeName.toLowerCase().includes(q)) ||
+        (d.remarks && d.remarks.toLowerCase().includes(q))
+      );
+    }
+
+    // Sorting
+    filtered.sort((a, b) => {
+      if (sortBy === 'expiryDate') {
+        const dateA = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+        const dateB = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      if (sortBy === 'daysRemaining') {
+        const daysA = a.daysRemaining !== null ? a.daysRemaining : 999999;
+        const daysB = b.daysRemaining !== null ? b.daysRemaining : 999999;
+        return sortOrder === 'asc' ? daysA - daysB : daysB - daysA;
+      }
+      if (sortBy === 'employeeName') {
+        return sortOrder === 'asc'
+          ? (a.employeeName || '').localeCompare(b.employeeName || '')
+          : (b.employeeName || '').localeCompare(a.employeeName || '');
+      }
+      if (sortBy === 'documentType') {
+        return sortOrder === 'asc'
+          ? (a.documentType || '').localeCompare(b.documentType || '')
+          : (b.documentType || '').localeCompare(a.documentType || '');
+      }
+      const timeA = new Date(a.uploadedAt || 0).getTime();
+      const timeB = new Date(b.uploadedAt || 0).getTime();
+      return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+    });
+
+    res.json({
+      documents: filtered,
+      stats,
+      totalCount: filtered.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch centralized documents repository.' });
+  }
+});
+
 /**
  * GET /api/storage/employees/:employeeId/documents - Get all documents for an employee
  */

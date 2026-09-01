@@ -79,9 +79,10 @@ interface WorkforceDeploymentViewProps {
   // Lifts the live-poll status up to the Dashboard's own header row, which now owns the
   // LIVE badge + Refresh button UI (this view still owns all fetching/polling itself).
   onStatusChange?: (status: { lastUpdated: Date | null }) => void;
+  onSelectEmployee?: (employeeId: string) => void;
 }
 
-export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle, WorkforceDeploymentViewProps>(({ onStatusChange }, ref) => {
+export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle, WorkforceDeploymentViewProps>(({ onStatusChange, onSelectEmployee }, ref) => {
   const [grouped, setGrouped] = useState<AttendanceGroupRow[]>([]);
   const [allProjects, setAllProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -329,6 +330,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
                   employeeType={emp.employeeType}
                   overtimeHours={emp.overtimeHours}
                   attendanceStatus={emp.hasAttendanceThisMonth ? 'Present' : 'Absent'}
+                  onClick={() => onSelectEmployee?.(emp.employeeId)}
                 />
               ))}
             </div>

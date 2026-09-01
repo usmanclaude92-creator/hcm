@@ -49,14 +49,14 @@ export interface EmployeeMasterViewProps {
 }
 
 function getTabForDocType(docType?: string): EmployeeRecordTab {
-  if (!docType) return 'employment';
+  if (!docType) return 'personal';
   const lower = docType.toLowerCase();
   if (lower.includes('civil') || lower.includes('id')) return 'civil-id';
   if (lower.includes('licence') || lower.includes('license') || lower.includes('driving')) return 'driving-licence';
   if (lower.includes('visa')) return 'visa';
-  if (lower.includes('passport')) return 'personal';
+  if (lower.includes('passport')) return 'govt-docs';
   if (lower.includes('permit') || lower.includes('contract') || lower.includes('govt') || lower.includes('bataqa')) return 'govt-docs';
-  return 'employment';
+  return 'personal';
 }
 
 export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
@@ -92,7 +92,7 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
   // Unified Employee Record Form Modal
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [selectedRecordEmp, setSelectedRecordEmp] = useState<Employee | null>(null);
-  const [recordInitialTab, setRecordInitialTab] = useState<EmployeeRecordTab>('employment');
+  const [recordInitialTab, setRecordInitialTab] = useState<EmployeeRecordTab>('personal');
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [historyData, setHistoryData] = useState<any>(null);
 
@@ -133,7 +133,7 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
 
   const handleOpenAdd = () => {
     setSelectedRecordEmp(null);
-    setRecordInitialTab('employment');
+    setRecordInitialTab('personal');
     setIsRecordModalOpen(true);
   };
 
@@ -145,7 +145,7 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
     } else if (docTypeFilter !== 'ALL') {
       setRecordInitialTab(getTabForDocType(docTypeFilter));
     } else {
-      setRecordInitialTab('employment');
+      setRecordInitialTab('personal');
     }
     setIsRecordModalOpen(true);
   };

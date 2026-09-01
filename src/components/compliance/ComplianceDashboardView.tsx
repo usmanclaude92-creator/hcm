@@ -30,11 +30,13 @@ import {
   Truck,
   Check,
   ArrowLeft,
+  FolderOpen,
 } from 'lucide-react';
 import { apiRequest, formatDate } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ComplianceBadge } from './ComplianceBadge';
 import { EmployeeIdentificationModal } from '../employees/EmployeeIdentificationModal';
+import { DocumentRepositoryView } from '../documents/DocumentRepositoryView';
 import type { Employee } from '../../types/index';
 
 interface ComplianceSummary {
@@ -52,7 +54,7 @@ interface ComplianceSummary {
 export const ComplianceDashboardView: React.FC = () => {
   const { canWrite, isAdmin, isManager } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'alerts' | 'trade-matrix' | 'fleet' | 'ai-assistant'>('alerts');
+  const [activeTab, setActiveTab] = useState<'alerts' | 'repository' | 'trade-matrix' | 'fleet' | 'ai-assistant'>('alerts');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -425,6 +427,18 @@ export const ComplianceDashboardView: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('repository')}
+          className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
+            activeTab === 'repository'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <FolderOpen size={16} />
+          <span>Central Document Repository</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('trade-matrix')}
           className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'trade-matrix'
@@ -616,6 +630,15 @@ export const ComplianceDashboardView: React.FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: CENTRAL DOCUMENT REPOSITORY */}
+      {activeTab === 'repository' && (
+        <div className="pt-2">
+          <DocumentRepositoryView
+            onNavigateToEmployee={(empId) => handleOpenInspect(empId, 'Civil ID')}
+          />
         </div>
       )}
 

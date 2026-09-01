@@ -212,6 +212,27 @@ export interface EmployeePersonalDetails {
   workExperience?: string;
   hrNotes?: string;
   notes?: string;
+  // Critical Documents Attached in Personal Info Form
+  passportAttachment?: string | null;
+  passportFileName?: string | null;
+  passportStoragePath?: string | null;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  civilIdAttachment?: string | null;
+  civilIdFileName?: string | null;
+  civilIdStoragePath?: string | null;
+  civilIdNumber?: string;
+  civilIdExpiryDate?: string;
+  visaAttachment?: string | null;
+  visaFileName?: string | null;
+  visaStoragePath?: string | null;
+  visaNumber?: string;
+  visaExpiryDate?: string;
+  drivingLicenceAttachment?: string | null;
+  drivingLicenceFileName?: string | null;
+  drivingLicenceStoragePath?: string | null;
+  drivingLicenceNumber?: string;
+  drivingLicenceExpiryDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }

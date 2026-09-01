@@ -12,8 +12,18 @@ import {
   IdCard,
   ShieldCheck,
   ArrowLeft,
+  Edit3,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  HeartHandshake,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
+import { EmployeeSummaryPrintModal } from './EmployeeSummaryPrintModal';
+import { SearchableEmployeeSelect } from '../common/SearchableEmployeeSelect';
 
 type LedgerRowType = 'Salary' | 'Salary Payment' | 'Loan Disbursement' | 'Loan Recovery';
 
@@ -37,6 +47,19 @@ interface LedgerRow {
   runningLoanBalance: number;
 }
 
+function calculateAge(dobString?: string): number | null {
+  if (!dobString) return null;
+  const dob = new Date(dobString);
+  if (isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : null;
+}
+
 // Loan Disbursement -> Salary -> Loan Recovery -> Salary Payment, per explicit product decision.
 const TYPE_RANK: Record<LedgerRowType, number> = {
   'Loan Disbursement': 0,
@@ -58,11 +81,27 @@ function lastDayOfMonth(payrollMonth: string): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export const EmployeeProfileLedgerView: React.FC = () => {
+export interface EmployeeProfileLedgerViewProps {
+  initialEmployeeId?: string;
+  onBack?: () => void;
+}
+
+export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps> = ({
+  initialEmployeeId,
+  onBack,
+}) => {
   const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || '');
+
+  useEffect(() => {
+    if (initialEmployeeId) {
+      setSelectedEmployeeId(initialEmployeeId);
+    }
+  }, [initialEmployeeId]);
 
   const [employee, setEmployee] = useState<any>(null);
+  const [complianceData, setComplianceData] = useState<any>(null);
+  const [personalDetails, setPersonalDetails] = useState<any>(null);
   const [payrollRows, setPayrollRows] = useState<any[]>([]);
   const [paymentTx, setPaymentTx] = useState<any[]>([]);
   const [loans, setLoans] = useState<any[]>([]);
@@ -77,6 +116,7 @@ export const EmployeeProfileLedgerView: React.FC = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('ALL');
   const [loanStatusFilter, setLoanStatusFilter] = useState('ALL');
   const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   useEffect(() => {
     apiRequest('/api/employees')
@@ -87,6 +127,8 @@ export const EmployeeProfileLedgerView: React.FC = () => {
   const loadEmployeeData = async () => {
     if (!selectedEmployeeId) {
       setEmployee(null);
+      setComplianceData(null);
+      setPersonalDetails(null);
       setPayrollRows([]);
       setPaymentTx([]);
       setLoans([]);
@@ -103,6 +145,14 @@ export const EmployeeProfileLedgerView: React.FC = () => {
       setEmployee(emp);
     } catch (err: any) {
       setError(err.message || 'Failed to load employee profile');
+    }
+
+    try {
+      const comp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}/compliance`);
+      setComplianceData(comp);
+      setPersonalDetails(comp?.personalDetails || null);
+    } catch {
+      // Non-fatal -- personal details just fallback to employee basics
     }
 
     try {
@@ -341,11 +391,37 @@ export const EmployeeProfileLedgerView: React.FC = () => {
   };
 
   const handleExportExcel = () => {
+    const personal = complianceData?.personalDetails || personalDetails || {};
+    const civilIdNumber = complianceData?.currentCivilId?.civilIdNumber || personal?.civilIdNumber;
+    const passportDoc = (complianceData?.governmentDocuments || []).find((d: any) => d.documentType === 'Passport');
+    const passportNumber = passportDoc?.documentNumber || personal?.passportNumber;
+    const dob = personal?.dateOfBirth || personal?.dob;
+    const mobile = personal?.mobileNumber || personal?.whatsappNumber || personal?.mobile;
+    const email = personal?.personalEmail || personal?.email;
+    const primaryEmergency = Array.isArray(personal?.emergencyContacts) && personal.emergencyContacts.length > 0
+      ? personal.emergencyContacts.find((c: any) => c.isPrimary) || personal.emergencyContacts[0]
+      : null;
+    const emergencyStr = primaryEmergency?.name
+      ? `${primaryEmergency.name} (${primaryEmergency.relationship || 'Contact'}) - ${primaryEmergency.contactNumber || ''}`
+      : personal?.emergencyContactName
+      ? `${personal.emergencyContactName} - ${personal.emergencyContactPhone || ''}`
+      : '';
+
     const profileSheet = XLSX.utils.json_to_sheet([
       {
         'Employee ID': employee?.employeeId,
         'Employee Name': employee?.employeeName,
         Nationality: employee?.nationalityType,
+        'Civil ID Number': civilIdNumber || '',
+        'Passport Number': passportNumber || '',
+        'Date of Birth': dob || '',
+        Gender: personal?.gender || '',
+        'Marital Status': personal?.maritalStatus || '',
+        'Blood Group': personal?.bloodGroup || '',
+        Mobile: mobile || '',
+        Email: email || '',
+        'Residential Address': personal?.residentialAddress || personal?.currentAddress || '',
+        'Emergency Contact': emergencyStr,
         'Employment Status': employee?.isActive ? 'Active' : 'Inactive',
         'Employee Type': employee?.employeeType,
         'Joining Date': employee?.dateOfJoining,
@@ -414,23 +490,31 @@ export const EmployeeProfileLedgerView: React.FC = () => {
     <div className="space-y-6">
       {/* Header + Employee Picker + Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <IdCard className="w-5 h-5 text-blue-600" />
-          Individual Employee Profile &amp; Ledger
-        </h2>
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+              title="Back to Dashboard"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+          )}
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <IdCard className="w-5 h-5 text-blue-600" />
+            Individual Employee Profile &amp; Ledger
+          </h2>
+        </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <select
+          <SearchableEmployeeSelect
+            employees={employees}
             value={selectedEmployeeId}
-            onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select Employee...</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.employeeId}>
-                {e.employeeId} - {e.employeeName}
-              </option>
-            ))}
-          </select>
+            onChange={(empId) => setSelectedEmployeeId(empId)}
+            placeholder="Search & Select Employee..."
+            width="w-64 sm:w-72"
+          />
           {selectedEmployeeId && (
             <>
               <button
@@ -440,16 +524,17 @@ export const EmployeeProfileLedgerView: React.FC = () => {
                 <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Documents &amp; Compliance 360°
               </button>
               <button
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                onClick={() => setIsPrintModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-800 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors shadow-2xs cursor-pointer"
+                title="Print clean single-page profile summary PDF"
               >
-                <Printer className="w-3.5 h-3.5" /> Print
+                <Printer className="w-3.5 h-3.5 text-blue-600" /> Print Summary PDF
               </button>
               <button
                 onClick={handleExportPdf}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors cursor-pointer"
               >
-                <FileDown className="w-3.5 h-3.5" /> Export PDF
+                <FileDown className="w-3.5 h-3.5" /> Export Ledger PDF
               </button>
               <button
                 onClick={handleExportExcel}
@@ -475,36 +560,269 @@ export const EmployeeProfileLedgerView: React.FC = () => {
         <p className="text-xs text-slate-400">Loading employee profile...</p>
       ) : (
         <>
-          {/* Profile header: details + photo */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px] gap-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Personal Information</h4>
-                <dl className="space-y-1.5 text-xs">
-                  <div className="flex justify-between"><dt className="text-slate-500">Employee ID</dt><dd className="font-mono font-bold text-blue-600">{employee?.employeeId}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Full Name</dt><dd className="font-semibold text-slate-900">{employee?.employeeName}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Nationality</dt><dd className="text-slate-700">{employee?.nationalityType}</dd></div>
-                </dl>
+          {/* Profile header: photo on left + details */}
+          {(() => {
+            const personal = complianceData?.personalDetails || personalDetails || {};
+            const civilIdNumber = complianceData?.currentCivilId?.civilIdNumber || personal?.civilIdNumber;
+            const civilIdStatus = complianceData?.currentCivilId?.status;
+
+            const passportDoc = (complianceData?.governmentDocuments || []).find((d: any) => d.documentType === 'Passport');
+            const passportNumber = passportDoc?.documentNumber || personal?.passportNumber;
+
+            const dob = personal?.dateOfBirth || personal?.dob;
+            const age = calculateAge(dob);
+            const gender = personal?.gender;
+            const maritalStatus = personal?.maritalStatus;
+            const bloodGroup = personal?.bloodGroup;
+            const mobile = personal?.mobileNumber || personal?.whatsappNumber || personal?.mobile;
+            const email = personal?.personalEmail || personal?.email;
+            const address = personal?.residentialAddress || personal?.currentAddress;
+
+            const primaryEmergency = Array.isArray(personal?.emergencyContacts) && personal.emergencyContacts.length > 0
+              ? personal.emergencyContacts.find((c: any) => c.isPrimary) || personal.emergencyContacts[0]
+              : null;
+            const emergencyName = primaryEmergency?.name || personal?.emergencyContactName;
+            const emergencyRelation = primaryEmergency?.relationship || personal?.emergencyContactRelation;
+            const emergencyPhone = primaryEmergency?.contactNumber || personal?.emergencyContactPhone;
+
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-[190px_1fr] gap-5">
+                {/* Photo & Identity Widget */}
+                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-between text-center shrink-0">
+                  <div className="flex flex-col items-center w-full">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xl shadow-xs mb-3">
+                      {employee?.employeeName ? (
+                        employee.employeeName
+                          .split(' ')
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((n: string) => n[0])
+                          .join('')
+                          .toUpperCase()
+                      ) : (
+                        <UserRound className="w-10 h-10 text-white/80" />
+                      )}
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-900 leading-snug px-1 line-clamp-2">
+                      {employee?.employeeName}
+                    </h3>
+                    <span className="font-mono text-[11px] font-bold text-blue-600 mt-0.5">
+                      {employee?.employeeId}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 mt-2.5 px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                        employee?.isActive
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          employee?.isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                        }`}
+                      />
+                      {employee?.isActive ? 'Active Employee' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 w-full flex flex-col gap-1.5">
+                    <button
+                      onClick={() => setIsPrintModalOpen(true)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 border border-blue-700 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-2xs"
+                      title="Print single-page summary PDF"
+                    >
+                      <Printer size={13} />
+                      <span>Print Summary</span>
+                    </button>
+                    <button
+                      onClick={() => setIsComplianceModalOpen(true)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <ShieldCheck size={13} className="text-blue-600" />
+                      <span>Documents &amp; 360°</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Details Cards: Personal Info + Employment Details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* Personal Information Card */}
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
+                        <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <UserRound size={13} className="text-blue-600" />
+                          <span>Personal Information</span>
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setIsPrintModalOpen(true)}
+                            className="text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                            title="Print Personal Information Summary PDF"
+                          >
+                            <Printer size={11} className="text-blue-600" />
+                            <span>Print</span>
+                          </button>
+                          <button
+                            onClick={() => setIsComplianceModalOpen(true)}
+                            className="text-[11px] font-semibold text-slate-600 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
+                            title="Edit Personal Information"
+                          >
+                            <Edit3 size={11} />
+                            <span>Edit</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <dl className="space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Employee ID</dt>
+                          <dd className="font-mono font-bold text-blue-600">{employee?.employeeId}</dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Full Name</dt>
+                          <dd className="font-semibold text-slate-900">{employee?.employeeName}</dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Nationality</dt>
+                          <dd className="font-medium text-slate-700">{employee?.nationalityType}</dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Civil ID / National ID</dt>
+                          <dd className="font-mono font-semibold text-slate-800 flex items-center gap-1.5">
+                            <span>{civilIdNumber || '—'}</span>
+                            {civilIdStatus && (
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                  civilIdStatus === 'Valid'
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                    : civilIdStatus === 'Expired'
+                                    ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                    : 'bg-amber-100 text-amber-700 border border-amber-200'
+                                }`}
+                              >
+                                {civilIdStatus}
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                        {(passportNumber || employee?.nationalityType === 'Expat') && (
+                          <div className="flex justify-between items-center">
+                            <dt className="text-slate-500">Passport Number</dt>
+                            <dd className="font-mono text-slate-800">{passportNumber || '—'}</dd>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Date of Birth</dt>
+                          <dd className="text-slate-800">
+                            {dob ? (
+                              <span>
+                                {formatDate(dob)} {age !== null && <span className="text-slate-500 font-normal">({age} yrs)</span>}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Gender / Marital</dt>
+                          <dd className="text-slate-800">
+                            {gender || '—'} {maritalStatus ? `• ${maritalStatus}` : ''}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Blood Group</dt>
+                          <dd className="text-slate-800">
+                            {bloodGroup ? (
+                              <span className="font-bold px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px]">
+                                {bloodGroup}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Mobile Phone</dt>
+                          <dd className="text-slate-800">
+                            {mobile ? (
+                              <a href={`tel:${mobile}`} className="text-blue-600 hover:underline font-mono">
+                                {mobile}
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Personal Email</dt>
+                          <dd className="text-slate-800 max-w-[190px] truncate text-right">
+                            {email ? (
+                              <a href={`mailto:${email}`} className="text-blue-600 hover:underline">
+                                {email}
+                              </a>
+                            ) : (
+                              '—'
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-200/60">
+                          <dt className="text-slate-500 shrink-0">Residential Address</dt>
+                          <dd className="text-slate-700 text-right leading-snug text-[11px] max-w-[200px]">
+                            {address || '—'}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-200/60">
+                          <dt className="text-slate-500 shrink-0">Emergency Contact</dt>
+                          <dd className="text-slate-700 text-right leading-snug text-[11px] max-w-[200px]">
+                            {emergencyName ? (
+                              <div>
+                                <span className="font-semibold text-slate-900">{emergencyName}</span>
+                                {emergencyRelation && <span className="text-slate-500"> ({emergencyRelation})</span>}
+                                {emergencyPhone && (
+                                  <div className="text-slate-600 font-mono mt-0.5">
+                                    <a href={`tel:${emergencyPhone}`} className="hover:text-blue-600">
+                                      {emergencyPhone}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+
+                  {/* Employment Details Card */}
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
+                        <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <IdCard size={13} className="text-slate-500" />
+                          <span>Employment Details</span>
+                        </h4>
+                      </div>
+
+                      <dl className="space-y-1.5 text-xs">
+                        <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className={`font-semibold ${employee?.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{employee?.isActive ? 'Active' : 'Inactive'}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Employee Type</dt><dd className="text-slate-700">{employee?.employeeType}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Joining Date</dt><dd className="text-slate-700">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Company</dt><dd className="text-slate-700">{employee?.employeeCompany}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Designation</dt><dd className="text-slate-700">{employee?.designation}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Current Project</dt><dd className="text-slate-700">{currentProject}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Pay By</dt><dd className="text-slate-700">{employee?.salaryPaidBy}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">Wage Type</dt><dd className="text-slate-700">{employee?.wageType}</dd></div>
+                        <div className="flex justify-between"><dt className="text-slate-500">WPS Status</dt><dd className="text-slate-700">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
+                      </dl>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Employment Details</h4>
-                <dl className="space-y-1.5 text-xs">
-                  <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className={`font-semibold ${employee?.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{employee?.isActive ? 'Active' : 'Inactive'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Employee Type</dt><dd className="text-slate-700">{employee?.employeeType}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Joining Date</dt><dd className="text-slate-700">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Company</dt><dd className="text-slate-700">{employee?.employeeCompany}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Designation</dt><dd className="text-slate-700">{employee?.designation}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Current Project</dt><dd className="text-slate-700">{currentProject}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Pay By</dt><dd className="text-slate-700">{employee?.salaryPaidBy}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">Wage Type</dt><dd className="text-slate-700">{employee?.wageType}</dd></div>
-                  <div className="flex justify-between"><dt className="text-slate-500">WPS Status</dt><dd className="text-slate-700">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
-                </dl>
-              </div>
-            </div>
-            <div className="w-full h-44 lg:h-full bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center shrink-0">
-              <UserRound className="w-16 h-16 text-slate-400" />
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Payroll Information summary */}
           <div className="p-4 bg-white rounded-xl border border-slate-200">
@@ -645,6 +963,19 @@ export const EmployeeProfileLedgerView: React.FC = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Dedicated Employee Summary Print & Single-Page PDF Modal */}
+      {employee && (
+        <EmployeeSummaryPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          employee={employee}
+          personalDetails={personalDetails}
+          complianceData={complianceData}
+          summaryStats={totals}
+          currentProject={currentProject}
+        />
       )}
     </div>
   );
