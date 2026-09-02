@@ -101,6 +101,35 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
   const age = calculateAge(personalForm.dateOfBirth);
 
   // Qualifications management
+  const getQualificationDisplay = (q: any): { title: string; subtitle?: string } => {
+    if (!q) return { title: '' };
+    if (typeof q === 'string') return { title: q };
+    if (typeof q === 'object') {
+      const title = q.degree || q.title || q.name || Object.values(q).filter((v) => typeof v === 'string').join(' - ') || 'Degree';
+      const subParts: string[] = [];
+      if (q.institution) subParts.push(q.institution);
+      if (q.yearOfPassing) subParts.push(String(q.yearOfPassing));
+      if (q.grade) subParts.push(q.grade);
+      return {
+        title,
+        subtitle: subParts.length > 0 ? subParts.join(' • ') : undefined,
+      };
+    }
+    return { title: String(q) };
+  };
+
+  const getSkillDisplay = (s: any): string => {
+    if (!s) return '';
+    if (typeof s === 'string') return s;
+    if (typeof s === 'object') {
+      if (s.name) return s.name + (s.level ? ` (${s.level})` : '');
+      if (s.skillName) return s.skillName;
+      if (s.skill) return s.skill;
+      return Object.values(s).filter((v) => typeof v === 'string').join(' - ');
+    }
+    return String(s);
+  };
+
   const addQualification = () => {
     if (!newQual.trim()) return;
     const current = personalForm.qualifications || [];
@@ -1174,23 +1203,34 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
               </div>
             )}
             <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-              {(personalForm.qualifications || []).map((q, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-indigo-50 text-indigo-800 border border-indigo-100"
-                >
-                  <span>{q}</span>
-                  {canWrite && (
-                    <button
-                      type="button"
-                      onClick={() => removeQualification(idx)}
-                      className="text-indigo-400 hover:text-indigo-700"
-                    >
-                      ×
-                    </button>
-                  )}
-                </span>
-              ))}
+              {(personalForm.qualifications || []).map((q, idx) => {
+                const { title, subtitle } = getQualificationDisplay(q);
+                return (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-indigo-50 text-indigo-800 border border-indigo-100"
+                  >
+                    <span className="flex items-center gap-1">
+                      <span className="font-semibold">{title}</span>
+                      {subtitle && (
+                        <span className="text-[10px] text-indigo-600 font-normal">
+                          ({subtitle})
+                        </span>
+                      )}
+                    </span>
+                    {canWrite && (
+                      <button
+                        type="button"
+                        onClick={() => removeQualification(idx)}
+                        className="text-indigo-400 hover:text-indigo-700 ml-0.5 cursor-pointer font-bold"
+                        title="Remove qualification"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
               {(!personalForm.qualifications || personalForm.qualifications.length === 0) && (
                 <span className="text-xs text-slate-400 italic">No academic degrees recorded.</span>
               )}
@@ -1228,23 +1268,27 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
               </div>
             )}
             <div className="flex flex-wrap gap-1.5 min-h-[36px]">
-              {(personalForm.skills || []).map((s, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-amber-50 text-amber-800 border border-amber-100"
-                >
-                  <span>{s}</span>
-                  {canWrite && (
-                    <button
-                      type="button"
-                      onClick={() => removeSkill(idx)}
-                      className="text-amber-400 hover:text-amber-700"
-                    >
-                      ×
-                    </button>
-                  )}
-                </span>
-              ))}
+              {(personalForm.skills || []).map((s, idx) => {
+                const text = getSkillDisplay(s);
+                return (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-amber-50 text-amber-800 border border-amber-100"
+                  >
+                    <span>{text}</span>
+                    {canWrite && (
+                      <button
+                        type="button"
+                        onClick={() => removeSkill(idx)}
+                        className="text-amber-400 hover:text-amber-700 ml-0.5 cursor-pointer font-bold"
+                        title="Remove skill"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
               {(!personalForm.skills || personalForm.skills.length === 0) && (
                 <span className="text-xs text-slate-400 italic">No technical skills recorded.</span>
               )}

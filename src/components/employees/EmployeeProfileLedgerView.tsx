@@ -20,10 +20,20 @@ import {
   HeartHandshake,
   CheckCircle2,
   AlertCircle,
+  Landmark,
+  TrendingUp,
+  Briefcase,
+  Plus,
+  Zap,
+  CreditCard,
+  Building,
 } from 'lucide-react';
 import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
 import { EmployeeSummaryPrintModal } from './EmployeeSummaryPrintModal';
 import { SearchableEmployeeSelect } from '../common/SearchableEmployeeSelect';
+import { AddLoanQuickModal } from './quick-actions/AddLoanQuickModal';
+import { UpdateSalaryQuickModal } from './quick-actions/UpdateSalaryQuickModal';
+import { AssignProjectQuickModal } from './quick-actions/AssignProjectQuickModal';
 
 type LedgerRowType = 'Salary' | 'Salary Payment' | 'Loan Disbursement' | 'Loan Recovery';
 
@@ -117,6 +127,17 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
   const [loanStatusFilter, setLoanStatusFilter] = useState('ALL');
   const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isAddLoanModalOpen, setIsAddLoanModalOpen] = useState(false);
+  const [isUpdateSalaryModalOpen, setIsUpdateSalaryModalOpen] = useState(false);
+  const [isAssignProjectModalOpen, setIsAssignProjectModalOpen] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (actionFeedback) {
+      const timer = setTimeout(() => setActionFeedback(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionFeedback]);
 
   useEffect(() => {
     apiRequest('/api/employees')
@@ -517,6 +538,41 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
           />
           {selectedEmployeeId && (
             <>
+              {/* Quick Actions Group */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5 flex items-center gap-1">
+                  <Zap size={11} className="text-amber-500 fill-amber-500" />
+                  <span>Actions:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddLoanModalOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                  title="Issue new loan or salary advance"
+                >
+                  <Landmark className="w-3.5 h-3.5 text-purple-600" />
+                  <span>+ Add Loan</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateSalaryModalOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                  title="Update salary rate and compensation"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Update Salary</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAssignProjectModalOpen(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                  title="Assign workforce project deployment"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Assign Project</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => setIsComplianceModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer"
@@ -546,6 +602,32 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
           )}
         </div>
       </div>
+
+      {actionFeedback && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
+            actionFeedback.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle size={16} className="text-rose-600 shrink-0" />
+            )}
+            <span className="font-semibold">{actionFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionFeedback(null)}
+            className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1.5 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">{error}</div>
@@ -626,21 +708,54 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                   </div>
 
                   <div className="mt-4 w-full flex flex-col gap-1.5">
-                    <button
-                      onClick={() => setIsPrintModalOpen(true)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 border border-blue-700 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-2xs"
-                      title="Print single-page summary PDF"
-                    >
-                      <Printer size={13} />
-                      <span>Print Summary</span>
-                    </button>
-                    <button
-                      onClick={() => setIsComplianceModalOpen(true)}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer shadow-2xs"
-                    >
-                      <ShieldCheck size={13} className="text-blue-600" />
-                      <span>Documents &amp; 360°</span>
-                    </button>
+                    {/* Quick Action Buttons on Photo card */}
+                    <div className="pt-2 border-t border-slate-200/80 w-full flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left pl-1">
+                        Quick Actions
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddLoanModalOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Landmark size={13} className="text-purple-600" />
+                        <span>+ Add Loan</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsUpdateSalaryModalOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <TrendingUp size={13} className="text-emerald-600" />
+                        <span>Update Salary</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAssignProjectModalOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Briefcase size={13} className="text-blue-600" />
+                        <span>Assign Project</span>
+                      </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200/80 w-full flex flex-col gap-1.5">
+                      <button
+                        onClick={() => setIsPrintModalOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 border border-blue-700 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-2xs"
+                        title="Print single-page summary PDF"
+                      >
+                        <Printer size={13} />
+                        <span>Print Summary</span>
+                      </button>
+                      <button
+                        onClick={() => setIsComplianceModalOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <ShieldCheck size={13} className="text-blue-600" />
+                        <span>Documents &amp; 360°</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -804,6 +919,14 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                           <IdCard size={13} className="text-slate-500" />
                           <span>Employment Details</span>
                         </h4>
+                        <button
+                          type="button"
+                          onClick={() => setIsAssignProjectModalOpen(true)}
+                          className="text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Briefcase size={11} className="text-blue-600" />
+                          <span>Assign Project</span>
+                        </button>
                       </div>
 
                       <dl className="space-y-1.5 text-xs">
@@ -812,7 +935,20 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                         <div className="flex justify-between"><dt className="text-slate-500">Joining Date</dt><dd className="text-slate-700">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
                         <div className="flex justify-between"><dt className="text-slate-500">Company</dt><dd className="text-slate-700">{employee?.employeeCompany}</dd></div>
                         <div className="flex justify-between"><dt className="text-slate-500">Designation</dt><dd className="text-slate-700">{employee?.designation}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Current Project</dt><dd className="text-slate-700">{currentProject}</dd></div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Current Project</dt>
+                          <dd className="text-slate-700 flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900">{currentProject}</span>
+                            <button
+                              type="button"
+                              onClick={() => setIsAssignProjectModalOpen(true)}
+                              className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
+                              title="Reassign or change project"
+                            >
+                              Change
+                            </button>
+                          </dd>
+                        </div>
                         <div className="flex justify-between"><dt className="text-slate-500">Pay By</dt><dd className="text-slate-700">{employee?.salaryPaidBy}</dd></div>
                         <div className="flex justify-between"><dt className="text-slate-500">Wage Type</dt><dd className="text-slate-700">{employee?.wageType}</dd></div>
                         <div className="flex justify-between"><dt className="text-slate-500">WPS Status</dt><dd className="text-slate-700">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
@@ -826,18 +962,44 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
 
           {/* Payroll Information summary */}
           <div className="p-4 bg-white rounded-xl border border-slate-200">
-            <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Payroll Information</h4>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+              <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Payroll Information</h4>
+              <button
+                type="button"
+                onClick={() => setIsUpdateSalaryModalOpen(true)}
+                className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <TrendingUp size={12} className="text-emerald-600" />
+                <span>Update Salary / Rate</span>
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div><span className="text-slate-500 block">Salary / Rate</span><strong className="font-mono">OMR {formatOMR(employee?.monthlySalaryOrRate)}</strong></div>
+              <div>
+                <span className="text-slate-500 block">Salary / Rate</span>
+                <div className="flex items-center gap-1.5">
+                  <strong className="font-mono text-slate-900">OMR {formatOMR(employee?.monthlySalaryOrRate)}</strong>
+                  <span className="text-[10px] text-slate-400">({employee?.wageType})</span>
+                </div>
+              </div>
               <div><span className="text-slate-500 block">Current Gross</span><strong className="font-mono">{latestPayroll ? `OMR ${formatOMR(latestPayroll.grossSalary)}` : '—'}</strong></div>
               <div><span className="text-slate-500 block">Current Net</span><strong className="font-mono text-blue-700">{latestPayroll ? `OMR ${formatOMR(latestPayroll.netSalary)}` : '—'}</strong></div>
-              <div><span className="text-slate-500 block">WPS Status</span><strong>{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</strong></div>
+              <div><span className="text-slate-500 block">WPS Status</span><strong>{employee?.wpsEmployee === 'Yes' ? 'WPS Enrolled' : 'Non-WPS'}</strong></div>
             </div>
           </div>
 
           {/* Ledger */}
           <div>
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight mb-3">Employee Salary &amp; Loan Ledger</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">Employee Salary &amp; Loan Ledger</h3>
+              <button
+                type="button"
+                onClick={() => setIsAddLoanModalOpen(true)}
+                className="text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Landmark size={13} className="text-purple-600" />
+                <span>+ Issue Loan</span>
+              </button>
+            </div>
 
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
@@ -967,15 +1129,57 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
 
       {/* Dedicated Employee Summary Print & Single-Page PDF Modal */}
       {employee && (
-        <EmployeeSummaryPrintModal
-          isOpen={isPrintModalOpen}
-          onClose={() => setIsPrintModalOpen(false)}
-          employee={employee}
-          personalDetails={personalDetails}
-          complianceData={complianceData}
-          summaryStats={totals}
-          currentProject={currentProject}
-        />
+        <>
+          <EmployeeSummaryPrintModal
+            isOpen={isPrintModalOpen}
+            onClose={() => setIsPrintModalOpen(false)}
+            employee={employee}
+            personalDetails={personalDetails}
+            complianceData={complianceData}
+            summaryStats={totals}
+            currentProject={currentProject}
+          />
+
+          <AddLoanQuickModal
+            isOpen={isAddLoanModalOpen}
+            onClose={() => setIsAddLoanModalOpen(false)}
+            employee={employee}
+            onSuccess={() => {
+              loadEmployeeData();
+              setActionFeedback({
+                type: 'success',
+                message: `New loan successfully issued for ${employee.employeeName} (${employee.employeeId}). Ledger and loan balance updated.`,
+              });
+            }}
+          />
+
+          <UpdateSalaryQuickModal
+            isOpen={isUpdateSalaryModalOpen}
+            onClose={() => setIsUpdateSalaryModalOpen(false)}
+            employee={employee}
+            onSuccess={() => {
+              loadEmployeeData();
+              setActionFeedback({
+                type: 'success',
+                message: `Salary & compensation parameters updated successfully for ${employee.employeeName}.`,
+              });
+            }}
+          />
+
+          <AssignProjectQuickModal
+            isOpen={isAssignProjectModalOpen}
+            onClose={() => setIsAssignProjectModalOpen(false)}
+            employee={employee}
+            currentProject={currentProject}
+            onSuccess={() => {
+              loadEmployeeData();
+              setActionFeedback({
+                type: 'success',
+                message: `Workforce project allocation updated successfully for ${employee.employeeName}.`,
+              });
+            }}
+          />
+        </>
       )}
     </div>
   );
