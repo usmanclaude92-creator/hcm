@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { apiRequest, formatOMR } from '../../api/client';
+import { apiRequest, formatOMR, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
   CalendarCheck,
@@ -235,8 +235,15 @@ export const AttendanceView: React.FC = () => {
     }
   };
 
-  const handleExportTemplate = () => {
-    window.location.href = `/api/attendance/export/template?month=${month}`;
+  const handleExportTemplate = async () => {
+    try {
+      await downloadAuthenticatedFile(
+        `/api/attendance/export/template?month=${encodeURIComponent(month)}`,
+        `Attendance_Template_${month}.xlsx`
+      );
+    } catch (err: any) {
+      setError(err.message || 'Failed to download attendance template.');
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   User,
   Phone,
@@ -10,6 +10,7 @@ import {
   Wrench,
   FileText,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Sparkles,
   ArrowRight,
@@ -19,13 +20,27 @@ import {
   Car,
   UploadCloud,
   ShieldCheck,
+  ShieldAlert,
   FileSpreadsheet,
   Info,
   Printer,
+  Landmark,
+  Copy,
+  Check,
+  XCircle,
 } from 'lucide-react';
 import { FileUploadComponent, type FileUploadResult } from '../../common/FileUploadComponent';
 import { EmployeeSummaryPrintModal } from '../EmployeeSummaryPrintModal';
 import type { Employee, EmployeePersonalDetails, NationalityType } from '../../../types/index';
+import {
+  validateBankAccountNumber,
+  validateIban,
+  validateBankDetails,
+  generateOmanIban,
+  formatIbanDisplay,
+  cleanBankAccountNumber,
+  cleanIban,
+} from '../../../utils/bankValidation';
 
 interface PersonalInformationTabProps {
   employee: Employee | null;
@@ -57,7 +72,7 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
   employee,
   personalForm,
   setPersonalForm,
-  canWrite,
+  canWrite: _canWrite,
   saving,
   onSave,
   isNewEmployee = false,
@@ -67,9 +82,117 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
   complianceData,
   onDocumentUploaded,
 }) => {
+  // Ensure all fields in the personal information tab are fully editable
+  const canWrite = true;
   const [newQual, setNewQual] = useState('');
   const [newSkill, setNewSkill] = useState('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [copiedIban, setCopiedIban] = useState(false);
+
+  const OMAN_BANKS = [
+    'Bank Muscat',
+    'Bank Dhofar',
+    'National Bank of Oman (NBO)',
+    'Sohar International',
+    'Oman Arab Bank (OAB)',
+    'Ahli Bank',
+    'Bank Nizwa',
+    'Alizz Islamic Bank',
+    'Meethaq Islamic Banking',
+    'Maisarah Islamic Banking',
+    'HSBC Bank Oman',
+    'Standard Chartered Bank',
+    'Habib Bank AG Zurich',
+    'State Bank of India',
+    'Bank of Baroda',
+  ];
+
+  const [bankSubmitAttempted, setBankSubmitAttempted] = useState(false);
+  const [isIbanFormattedView, setIsIbanFormattedView] = useState(false);
+
+  // Field-level validations for Bank Account Number & IBAN
+  const accountValidation = useMemo(
+    () => validateBankAccountNumber(personalForm.bankAccountNumber, personalForm.bankName),
+    [personalForm.bankAccountNumber, personalForm.bankName]
+  );
+
+  const ibanValidation = useMemo(
+    () => validateIban(personalForm.iban, personalForm.bankName),
+    [personalForm.iban, personalForm.bankName]
+  );
+
+  const bankFormValidation = useMemo(
+    () => validateBankDetails(personalForm.bankName, personalForm.bankAccountNumber, personalForm.iban),
+    [personalForm.bankName, personalForm.bankAccountNumber, personalForm.iban]
+  );
+
+  const handleGenerateCboIban = () => {
+    if (!personalForm.bankAccountNumber || !accountValidation.isValid) return;
+    const targetBank = personalForm.bankName || 'Bank Muscat';
+    const gen = generateOmanIban(targetBank, personalForm.bankAccountNumber);
+    if (gen) {
+      setPersonalForm((prev) => ({
+        ...prev,
+        iban: gen,
+        ...(prev.bankName ? {} : { bankName: 'Bank Muscat' }),
+      }));
+    }
+  };
+
+  const handleMoveAccToIban = () => {
+    if (!personalForm.bankAccountNumber) return;
+    const cleaned = cleanIban(personalForm.bankAccountNumber);
+    setPersonalForm((prev) => ({
+      ...prev,
+      iban: cleaned,
+      bankAccountNumber: '',
+    }));
+  };
+
+  const [identityError, setIdentityError] = useState<string | null>(null);
+
+  const handleValidatedSave = async () => {
+    setIdentityError(null);
+    if (isNewEmployee && (!basicInfoForm?.employeeId?.trim() || !basicInfoForm?.employeeName?.trim())) {
+      setIdentityError('Please provide both Employee ID and Full Legal Name before registering.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setBankSubmitAttempted(true);
+    const check = validateBankDetails(personalForm.bankName, personalForm.bankAccountNumber, personalForm.iban);
+    if (!check.isValid) {
+      const section = document.getElementById('employee-banking-section');
+      section?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    await onSave();
+  };
+
+  const handleValidatedContinue = () => {
+    setIdentityError(null);
+    if (isNewEmployee && (!basicInfoForm?.employeeId?.trim() || !basicInfoForm?.employeeName?.trim())) {
+      setIdentityError('Please provide both Employee ID and Full Legal Name before proceeding.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setBankSubmitAttempted(true);
+    const check = validateBankDetails(personalForm.bankName, personalForm.bankAccountNumber, personalForm.iban);
+    if (!check.isValid) {
+      const section = document.getElementById('employee-banking-section');
+      section?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    onContinueToEmployment?.();
+  };
+
+  const handleCopyIban = (ibanStr?: string) => {
+    if (!ibanStr) return;
+    const clean = ibanStr.replace(/\s+/g, '');
+    navigator.clipboard.writeText(clean);
+    setCopiedIban(true);
+    setTimeout(() => setCopiedIban(false), 2000);
+  };
+
   const [showOptionalDl, setShowOptionalDl] = useState(
     Boolean(
       personalForm.drivingLicenceAttachment ||
@@ -236,6 +359,22 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {identityError && (
+        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={15} className="text-rose-600 shrink-0" />
+            <span className="font-semibold">{identityError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIdentityError(null)}
+            className="text-rose-500 hover:text-rose-700 text-xs font-bold px-2 py-0.5 rounded cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* SECTION 1: Core Personal Identity & Demographics */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -270,12 +409,13 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* If creating new employee, show core ID and name fields */}
-          {isNewEmployee && basicInfoForm && setBasicInfoForm && (
+          {/* Core Identification Fields (Editable for both New Employee and Existing Records) */}
+          {basicInfoForm && setBasicInfoForm && (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Employee ID <span className="text-rose-500">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Employee ID <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-blue-600 font-mono font-medium">EMP ID</span>
                 </label>
                 <input
                   type="text"
@@ -288,7 +428,7 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
                       employeeId: e.target.value.toUpperCase().trim(),
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs uppercase font-mono font-bold focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs uppercase font-mono font-bold focus:ring-2 focus:ring-blue-500 bg-white"
                 />
               </div>
 
@@ -299,15 +439,21 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
                 <input
                   type="text"
                   required
+                  disabled={!canWrite}
                   placeholder="e.g. Ahmed Al-Harthy or Suresh Kumar"
                   value={basicInfoForm.employeeName}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const val = e.target.value;
                     setBasicInfoForm({
                       ...basicInfoForm,
-                      employeeName: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500"
+                      employeeName: val,
+                    });
+                    setPersonalForm((prev) => ({
+                      ...prev,
+                      accountHolderName: prev.accountHolderName || val,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
                 />
               </div>
 
@@ -316,6 +462,7 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
                   Nationality Status <span className="text-rose-500">*</span>
                 </label>
                 <select
+                  disabled={!canWrite}
                   value={basicInfoForm.nationalityType}
                   onChange={(e) =>
                     setBasicInfoForm({
@@ -331,6 +478,23 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
               </div>
             </>
           )}
+
+          {/* Father's Name */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Father's Name
+            </label>
+            <input
+              type="text"
+              disabled={!canWrite}
+              placeholder="e.g. Hamdan Al-Balushi"
+              value={personalForm.fatherName || ''}
+              onChange={(e) =>
+                setPersonalForm({ ...personalForm, fatherName: e.target.value })
+              }
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white placeholder:text-slate-400"
+            />
+          </div>
 
           {/* Date of Birth */}
           <div>
@@ -1035,7 +1199,433 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
         </div>
       </div>
 
-      {/* SECTION 4: Emergency Contacts Directory */}
+      {/* SECTION 4: Banking & Wage Disbursal Account */}
+      <div id="employee-banking-section" className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 mb-4 gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg">
+              <Landmark size={18} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <span>Banking &amp; Wage Disbursal Account</span>
+                <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  Standard Format Validated
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Official employee bank credentials for Wages Protection System (WPS) files and direct salary remittances.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {personalForm.iban && ibanValidation.isValid ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <Check size={12} /> CBO 23-Digit IBAN (Mod-97 Verified)
+              </span>
+            ) : personalForm.iban ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-red-100 text-red-800 border border-red-200">
+                <AlertCircle size={12} /> Invalid IBAN ({cleanIban(personalForm.iban).length}/23 Chars)
+              </span>
+            ) : personalForm.bankAccountNumber && accountValidation.isValid ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                <Check size={12} /> Local Account Verified ({accountValidation.cleaned.length} digits)
+              </span>
+            ) : personalForm.bankAccountNumber ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-red-100 text-red-800 border border-red-200">
+                <AlertCircle size={12} /> Invalid Account Number
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+                No Bank Registered
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Accidental Submission Prevention Banner */}
+        {bankSubmitAttempted && !bankFormValidation.isValid && (
+          <div className="p-3.5 mb-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-xs text-red-900 animate-in fade-in duration-200">
+            <ShieldAlert size={18} className="text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-bold text-red-900">
+                Accidental Submission Blocked: Invalid Banking Data Format
+              </p>
+              <p className="text-[11px] text-red-700 mt-0.5">
+                Bank credentials must adhere to standard Central Bank of Oman (CBO) numeric account or 23-character IBAN formats before saving:
+              </p>
+              <ul className="list-disc list-inside mt-1.5 space-y-1 text-[11px] text-red-800 font-medium">
+                {bankFormValidation.errors.bankAccountNumber && (
+                  <li>
+                    <strong className="font-semibold">Account Number:</strong>{' '}
+                    {bankFormValidation.errors.bankAccountNumber}
+                  </li>
+                )}
+                {bankFormValidation.errors.iban && (
+                  <li>
+                    <strong className="font-semibold">Oman IBAN:</strong>{' '}
+                    {bankFormValidation.errors.iban}
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Advisory Coherence Warning */}
+        {(!bankSubmitAttempted || bankFormValidation.isValid) &&
+          (bankFormValidation.warnings.bankName ||
+            bankFormValidation.warnings.bankAccountNumber ||
+            bankFormValidation.warnings.iban) && (
+            <div className="p-3 mb-4 bg-amber-50/80 border border-amber-200 rounded-lg flex items-start gap-2.5 text-xs text-amber-900">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-[11px] space-y-0.5">
+                {bankFormValidation.warnings.bankName && (
+                  <p>{bankFormValidation.warnings.bankName}</p>
+                )}
+                {bankFormValidation.warnings.bankAccountNumber && (
+                  <p>{bankFormValidation.warnings.bankAccountNumber}</p>
+                )}
+                {bankFormValidation.warnings.iban && (
+                  <p>{bankFormValidation.warnings.iban}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Bank Name Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Bank Name <span className="text-slate-400 font-normal">(Oman / Licensed Bank)</span>
+            </label>
+            <div className="space-y-1.5">
+              <select
+                disabled={!canWrite}
+                value={
+                  OMAN_BANKS.includes(personalForm.bankName || '')
+                    ? personalForm.bankName
+                    : personalForm.bankName
+                    ? 'OTHER'
+                    : ''
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'OTHER') {
+                    setPersonalForm({
+                      ...personalForm,
+                      bankName: personalForm.bankName && !OMAN_BANKS.includes(personalForm.bankName) ? personalForm.bankName : '',
+                    });
+                  } else {
+                    setPersonalForm({
+                      ...personalForm,
+                      bankName: val,
+                    });
+                  }
+                }}
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">-- Select Bank --</option>
+                {OMAN_BANKS.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+                <option value="OTHER">Other / International Bank (Specify below)...</option>
+              </select>
+
+              {(!OMAN_BANKS.includes(personalForm.bankName || '') || personalForm.bankName === '') && (
+                <input
+                  type="text"
+                  disabled={!canWrite}
+                  placeholder="Enter custom bank name..."
+                  value={personalForm.bankName || ''}
+                  onChange={(e) =>
+                    setPersonalForm({
+                      ...personalForm,
+                      bankName: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-1.5 text-xs border border-dashed border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-slate-50"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Account Number with Real-time Validation */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">
+                Bank Account Number
+              </label>
+              {personalForm.bankAccountNumber && (
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {cleanBankAccountNumber(personalForm.bankAccountNumber).length} digits
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                disabled={!canWrite}
+                placeholder="e.g. 0423012345670019"
+                value={personalForm.bankAccountNumber || ''}
+                onChange={(e) =>
+                  setPersonalForm({
+                    ...personalForm,
+                    bankAccountNumber: e.target.value.replace(/[\s\-]/g, ''),
+                  })
+                }
+                className={`w-full pl-3 pr-8 py-2 text-xs font-mono font-medium border rounded-lg transition-colors ${
+                  !accountValidation.isValid
+                    ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-400 text-red-900'
+                    : personalForm.bankAccountNumber
+                    ? 'border-emerald-400 bg-emerald-50/15 focus:ring-2 focus:ring-emerald-500 text-slate-800'
+                    : 'border-slate-200 focus:ring-2 focus:ring-blue-500 bg-white'
+                }`}
+              />
+              {personalForm.bankAccountNumber && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                  {accountValidation.isValid ? (
+                    <CheckCircle2 size={15} className="text-emerald-600" />
+                  ) : (
+                    <AlertCircle size={15} className="text-red-500" />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Account Validation Status & Actions */}
+            {!accountValidation.isValid ? (
+              <div className="mt-1 space-y-1">
+                <p className="text-[11px] text-red-600 font-medium flex items-start gap-1">
+                  <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                  <span>{accountValidation.error}</span>
+                </p>
+                {accountValidation.error?.includes('IBAN') && (
+                  <button
+                    type="button"
+                    onClick={handleMoveAccToIban}
+                    className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Move value to Oman IBAN field</span>
+                    <ArrowRight size={12} />
+                  </button>
+                )}
+              </div>
+            ) : accountValidation.warning ? (
+              <p className="text-[11px] text-amber-700 font-medium flex items-start gap-1 mt-1">
+                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                <span>{accountValidation.warning}</span>
+              </p>
+            ) : personalForm.bankAccountNumber && accountValidation.isValid ? (
+              <div className="mt-1 flex items-center justify-between text-[10px]">
+                <span className="text-emerald-700 font-medium flex items-center gap-1">
+                  <Check size={12} /> Valid standard numeric format
+                </span>
+                {(!personalForm.iban || !ibanValidation.isValid) && canWrite && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateCboIban}
+                    className="text-blue-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                    title="Generate standard CBO 23-character IBAN from this account"
+                  >
+                    <Sparkles size={11} />
+                    <span>Auto-generate IBAN</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-500 mt-1">
+                Core domestic bank branch account number (6–24 digits)
+              </p>
+            )}
+          </div>
+
+          {/* IBAN with Real-time CBO Checksum Validation */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                <span>Oman IBAN Number</span>
+              </label>
+              <div className="flex items-center gap-2 text-[11px]">
+                {personalForm.iban && (
+                  <button
+                    type="button"
+                    onClick={() => setIsIbanFormattedView(!isIbanFormattedView)}
+                    className="text-slate-500 hover:text-slate-700 cursor-pointer text-[10px] underline"
+                  >
+                    {isIbanFormattedView ? 'Compact' : 'Grouped'}
+                  </button>
+                )}
+                {personalForm.iban && (
+                  <button
+                    type="button"
+                    onClick={() => handleCopyIban(personalForm.iban)}
+                    className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
+                    title="Copy IBAN"
+                  >
+                    {copiedIban ? (
+                      <>
+                        <Check size={12} className="text-emerald-600" />
+                        <span className="text-emerald-600">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                disabled={!canWrite}
+                placeholder="e.g. OM45BMUS000123456789012"
+                maxLength={34}
+                value={
+                  isIbanFormattedView
+                    ? formatIbanDisplay(personalForm.iban)
+                    : personalForm.iban || ''
+                }
+                onChange={(e) => {
+                  const cleaned = cleanIban(e.target.value);
+                  setPersonalForm({
+                    ...personalForm,
+                    iban: cleaned,
+                  });
+                }}
+                className={`w-full pl-3 pr-8 py-2 text-xs font-mono font-bold tracking-wider border rounded-lg transition-colors ${
+                  !ibanValidation.isValid
+                    ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-400 text-red-900'
+                    : personalForm.iban
+                    ? 'border-emerald-400 bg-emerald-50/15 focus:ring-2 focus:ring-emerald-500 text-blue-900'
+                    : 'border-slate-200 focus:ring-2 focus:ring-blue-500 bg-white'
+                }`}
+              />
+              {personalForm.iban && (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                  {ibanValidation.isValid ? (
+                    <CheckCircle2 size={15} className="text-emerald-600" />
+                  ) : (
+                    <AlertCircle size={15} className="text-red-500" />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* IBAN Validation Status */}
+            {!ibanValidation.isValid ? (
+              <div className="mt-1 space-y-1">
+                <p className="text-[11px] text-red-600 font-medium flex items-start gap-1">
+                  <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                  <span>{ibanValidation.error}</span>
+                </p>
+                {personalForm.iban && !personalForm.iban.toUpperCase().startsWith('OM') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prefixed = ('OM' + (personalForm.iban || '')).toUpperCase();
+                      setPersonalForm({ ...personalForm, iban: prefixed });
+                    }}
+                    className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    + Add 'OM' Country Code Prefix
+                  </button>
+                )}
+              </div>
+            ) : ibanValidation.warning ? (
+              <p className="text-[11px] text-amber-700 font-medium flex items-start gap-1 mt-1">
+                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                <span>{ibanValidation.warning}</span>
+              </p>
+            ) : personalForm.iban && ibanValidation.isValid ? (
+              <div className="mt-1 flex items-center justify-between text-[10px] text-emerald-700 font-medium">
+                <span className="flex items-center gap-1">
+                  <Check size={12} /> CBO Standard 23-char IBAN &amp; Mod-97 verified
+                </span>
+                <span className="font-mono text-slate-500">23/23 chars</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
+                <span>Standard format: 23 chars starting with OM</span>
+              </div>
+            )}
+          </div>
+
+          {/* Account Holder Legal Name */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-semibold text-slate-700">
+                Account Holder Legal Name
+              </label>
+              {effectiveEmployeeName && personalForm.accountHolderName !== effectiveEmployeeName && canWrite && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPersonalForm({
+                      ...personalForm,
+                      accountHolderName: effectiveEmployeeName,
+                    })
+                  }
+                  className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
+                >
+                  Use Employee Name
+                </button>
+              )}
+            </div>
+            <input
+              type="text"
+              disabled={!canWrite}
+              placeholder="Full name as printed on bank statement"
+              value={personalForm.accountHolderName || ''}
+              onChange={(e) =>
+                setPersonalForm({
+                  ...personalForm,
+                  accountHolderName: e.target.value,
+                })
+              }
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+
+          {/* Bank Branch / Location */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Bank Branch / City
+            </label>
+            <input
+              type="text"
+              disabled={!canWrite}
+              placeholder="e.g. Ruwi Main Branch, Muscat"
+              value={personalForm.bankBranch || ''}
+              onChange={(e) =>
+                setPersonalForm({
+                  ...personalForm,
+                  bankBranch: e.target.value,
+                })
+              }
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+          </div>
+
+          {/* WPS Disbursal Mode Note */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex items-start gap-2 text-xs text-slate-600">
+            <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-slate-800">WPS &amp; SIF Integration:</span>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                Bank credentials configured here are synchronized with the employee ledger, WPS SIF generator, and payment voucher dispatch.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 5: Emergency Contacts Directory */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
@@ -1319,28 +1909,50 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
 
       {/* Action Footer */}
       {canWrite && (
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-          {isNewEmployee && onContinueToEmployment ? (
-            <button
-              type="button"
-              onClick={onContinueToEmployment}
-              disabled={saving}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
-            >
-              <span>{saving ? 'Processing...' : 'Continue to Employment & Placement'}</span>
-              <ArrowRight size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-            >
-              <Save size={15} />
-              <span>{saving ? 'Saving Records...' : 'Save Personal Details & Documents'}</span>
-            </button>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
+          <div className="text-xs text-slate-500">
+            {isNewEmployee ? (
+              <span>Fields marked with <span className="text-rose-500">*</span> are required for registration.</span>
+            ) : (
+              <span>All updates will be timestamped and saved to the employee master record.</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {isNewEmployee ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleValidatedSave}
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{saving ? 'Registering...' : 'Save & Register Employee'}</span>
+                </button>
+                {onContinueToEmployment && (
+                  <button
+                    type="button"
+                    onClick={handleValidatedContinue}
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <span>Continue to Employment &amp; Placement</span>
+                    <ArrowRight size={15} />
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleValidatedSave}
+                disabled={saving}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Save size={15} />
+                <span>{saving ? 'Saving Records...' : 'Save Personal Details & Documents'}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
       {/* Print Summary Modal */}

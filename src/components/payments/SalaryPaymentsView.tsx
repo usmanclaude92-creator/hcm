@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ReceiptViewerModal } from '../common/ReceiptViewerModal';
 import {
@@ -356,12 +356,20 @@ export const SalaryPaymentsView: React.FC = () => {
     }
   };
 
-  const handleExportPayments = () => {
-    window.location.href = `/api/payments/export/data?${buildQuery()}`;
+  const handleExportPayments = async () => {
+    try {
+      await downloadAuthenticatedFile(`/api/payments/export/data?${buildQuery()}`, 'Salary_Payments_Export.xlsx');
+    } catch (err: any) {
+      alert(err.message || 'Failed to export payments.');
+    }
   };
 
-  const handleDownloadTemplate = () => {
-    window.location.href = `/api/payments/export/template?month=${month}`;
+  const handleDownloadTemplate = async () => {
+    try {
+      await downloadAuthenticatedFile(`/api/payments/export/template?month=${month}`, `Salary_Payment_Template_${month}.xlsx`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to download template.');
+    }
   };
 
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

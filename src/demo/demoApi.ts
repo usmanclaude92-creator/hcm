@@ -279,6 +279,11 @@ route('GET', '/api/employees/:id/compliance', ({ params }) => {
       ? `Villa ${10 + numericId}, Way 2819, Al Khuwair, Muscat, Sultanate of Oman`
       : `Al Ghubrah Labour Camp, Block ${String.fromCharCode(65 + (numericId % 4))}, Muscat, Oman`,
     permanentAddress: isOmani ? 'Muscat Governorate, Sultanate of Oman' : 'Kerala, India',
+    bankName: ['Bank Muscat', 'Bank Dhofar', 'National Bank of Oman', 'Sohar International', 'Oman Arab Bank'][numericId % 5],
+    bankAccountNumber: `04230${String(10000000 + numericId * 3421).slice(0, 10)}`,
+    iban: `OM${String(45 + (numericId % 50)).padStart(2, '0')}BMUS000${String(10000000000 + numericId * 87654).slice(0, 16)}`,
+    bankBranch: 'Main Branch, Muscat',
+    accountHolderName: employee.employeeName,
     emergencyContactName: isOmani ? 'Said Al-Balushi' : 'Suresh Kumar',
     emergencyContactRelation: isOmani ? 'Brother' : 'Spouse',
     emergencyContactPhone: `+968 9${String(2000000 + numericId * 5432).slice(0, 7)}`,
@@ -365,6 +370,11 @@ route('GET', '/api/employees/:id/personal-details', ({ params }) => {
         ? `Villa ${10 + numericId}, Way 2819, Al Khuwair, Muscat, Sultanate of Oman`
         : `Al Ghubrah Labour Camp, Block ${String.fromCharCode(65 + (numericId % 4))}, Muscat, Oman`,
       permanentAddress: isOmani ? 'Muscat Governorate, Sultanate of Oman' : 'Kerala, India',
+      bankName: ['Bank Muscat', 'Bank Dhofar', 'National Bank of Oman', 'Sohar International', 'Oman Arab Bank'][numericId % 5],
+      bankAccountNumber: `04230${String(10000000 + numericId * 3421).slice(0, 10)}`,
+      iban: `OM${String(45 + (numericId % 50)).padStart(2, '0')}BMUS000${String(10000000000 + numericId * 87654).slice(0, 16)}`,
+      bankBranch: 'Main Branch, Muscat',
+      accountHolderName: employee.employeeName,
       emergencyContactName: isOmani ? 'Said Al-Balushi' : 'Suresh Kumar',
       emergencyContactRelation: isOmani ? 'Brother' : 'Spouse',
       emergencyContactPhone: `+968 9${String(2000000 + numericId * 5432).slice(0, 7)}`,

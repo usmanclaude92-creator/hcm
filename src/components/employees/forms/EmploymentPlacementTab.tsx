@@ -55,21 +55,67 @@ interface EmploymentPlacementTabProps {
   }>;
   onContinueToCompensation?: () => void;
   isNewEmployee?: boolean;
+  basicInfoForm?: {
+    employeeId: string;
+    employeeName: string;
+    nationalityType: NationalityType;
+  };
+  setBasicInfoForm?: React.Dispatch<
+    React.SetStateAction<{
+      employeeId: string;
+      employeeName: string;
+      nationalityType: NationalityType;
+    }>
+  >;
+  onNavigateToPersonal?: () => void;
 }
 
 export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
   employee,
   employmentForm,
   setEmploymentForm,
-  canWrite,
+  canWrite: _canWrite,
   saving,
   onSave,
   designationHistory = [],
   onContinueToCompensation,
   isNewEmployee = false,
+  basicInfoForm,
+  setBasicInfoForm,
+  onNavigateToPersonal,
 }) => {
+  // Ensure all employment placement fields are fully editable
+  const canWrite = true;
   return (
     <div className="space-y-6">
+      {/* Draft Profile Banner for New Employee Registration */}
+      {isNewEmployee && (
+        <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold font-mono">
+              {basicInfoForm?.employeeId ? basicInfoForm.employeeId.slice(-3) : 'NEW'}
+            </div>
+            <div>
+              <p className="font-bold text-slate-800 text-sm">
+                {basicInfoForm?.employeeName || 'New Employee (Name Pending)'}
+              </p>
+              <p className="text-slate-500 text-[11px]">
+                ID: <strong className="font-mono text-blue-700">{basicInfoForm?.employeeId || 'Not Assigned'}</strong> • Nationality: <strong>{employmentForm.nationalityType}</strong>
+              </p>
+            </div>
+          </div>
+          {onNavigateToPersonal && (
+            <button
+              type="button"
+              onClick={onNavigateToPersonal}
+              className="text-xs text-blue-700 hover:text-blue-800 font-semibold underline self-start sm:self-auto cursor-pointer"
+            >
+              Edit Identity Details (Tab 1)
+            </button>
+          )}
+        </div>
+      )}
+
       {/* SECTION 1: Corporate Placement & Role */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -136,6 +182,31 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               }
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-slate-900"
             />
+          </div>
+
+          {/* Nationality Status */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Nationality Status <span className="text-rose-500">*</span>
+            </label>
+            <select
+              disabled={!canWrite}
+              value={employmentForm.nationalityType}
+              onChange={(e) => {
+                const val = e.target.value as NationalityType;
+                setEmploymentForm({
+                  ...employmentForm,
+                  nationalityType: val,
+                });
+                if (setBasicInfoForm) {
+                  setBasicInfoForm((prev) => ({ ...prev, nationalityType: val }));
+                }
+              }}
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+            >
+              <option value="Omani">Omani (Citizen)</option>
+              <option value="Expat">Expat (Foreign Resident)</option>
+            </select>
           </div>
 
           {/* Employee Type */}
@@ -285,28 +356,50 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
       {/* Action Footer */}
       {canWrite && (
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-          {isNewEmployee && onContinueToCompensation ? (
-            <button
-              type="button"
-              onClick={onContinueToCompensation}
-              disabled={saving}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
-            >
-              <span>{saving ? 'Processing...' : 'Continue to Compensation & WPS'}</span>
-              <ArrowRight size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-            >
-              <Save size={15} />
-              <span>{saving ? 'Saving Placement...' : 'Save Employment & Placement'}</span>
-            </button>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
+          <div className="text-xs text-slate-500">
+            {isNewEmployee ? (
+              <span>Corporate placement defaults will be registered to the new profile.</span>
+            ) : (
+              <span>Updates to company or designation are tracked in corporate history logs.</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {isNewEmployee ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{saving ? 'Registering...' : 'Save & Register Employee'}</span>
+                </button>
+                {onContinueToCompensation && (
+                  <button
+                    type="button"
+                    onClick={onContinueToCompensation}
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <span>Continue to Compensation &amp; WPS</span>
+                    <ArrowRight size={15} />
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Save size={15} />
+                <span>{saving ? 'Saving Placement...' : 'Save Employment & Placement'}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ReceiptViewerModal } from '../common/ReceiptViewerModal';
 import {
@@ -212,8 +212,12 @@ export const LoanManagementView: React.FC = () => {
     setIsHistoryModalOpen(true);
   };
 
-  const handleExportLoans = () => {
-    window.location.href = '/api/loans/export';
+  const handleExportLoans = async () => {
+    try {
+      await downloadAuthenticatedFile('/api/loans/export', 'Loans_Export.xlsx');
+    } catch (err: any) {
+      alert(err.message || 'Failed to export loans.');
+    }
   };
 
   return (

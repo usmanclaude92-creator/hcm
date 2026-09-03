@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
   Users,
@@ -31,6 +31,9 @@ import {
   Clock,
   CheckCircle2,
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
 } from 'lucide-react';
 import type { Employee, EmployeeType, NationalityType, WageType, EmployeeCompany, SalaryPaidBy, WPSStatus } from '../../types/index';
 import { EmployeeIdentificationModal, type EmployeeRecordTab } from './EmployeeIdentificationModal';
@@ -103,6 +106,10 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
   const [updateExisting, setUpdateExisting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  const [showTemplateGuide, setShowTemplateGuide] = useState(false);
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
+  const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fetchEmployees = async () => {
     try {
@@ -182,18 +189,48 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
     }
   };
 
-  const handleExportData = () => {
-    window.location.href = '/api/employees/export/data';
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleExportData = async () => {
+    try {
+      setIsDownloading(true);
+      await downloadAuthenticatedFile('/api/employees/export/data', 'Employees_Export.xlsx');
+    } catch (err: any) {
+      alert(err.message || 'Failed to export employee data.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  const handleDownloadTemplate = () => {
-    window.location.href = '/api/employees/export/template';
+  const handleDownloadTemplate = async () => {
+    try {
+      setIsDownloading(true);
+      await downloadAuthenticatedFile('/api/employees/export/template', 'Employee_Import_Template.xlsx');
+    } catch (err: any) {
+      alert(err.message || 'Failed to download import template.');
+    } finally {
+      setIsDownloading(false);
+      setShowTemplateDropdown(false);
+    }
+  };
+
+  const handleDownloadCsvTemplate = async () => {
+    try {
+      setIsDownloadingCsv(true);
+      await downloadAuthenticatedFile('/api/employees/export/template?format=csv', 'Employee_Import_Template.csv');
+    } catch (err: any) {
+      alert(err.message || 'Failed to download CSV template.');
+    } finally {
+      setIsDownloadingCsv(false);
+      setShowTemplateDropdown(false);
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportFile(file);
+    setUploadError(null);
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -205,7 +242,7 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
         });
         setImportPreview(res);
       } catch (err: any) {
-        alert(err.message || 'Failed to parse spreadsheet');
+        setUploadError(err.message || 'Failed to parse file. Please verify the template headers.');
       }
     };
     reader.readAsDataURL(file);
@@ -237,6 +274,8 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
     setImportFile(null);
     setImportResult(null);
     setUpdateExisting(false);
+    setShowTemplateGuide(false);
+    setUploadError(null);
   };
 
   // Row order: Company -> Pay By -> WPS -> Type -> Nationality (Omani ranked first) ->
@@ -342,17 +381,64 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleDownloadTemplate}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Import Template
-          </button>
+          {/* Import Template Dropdown */}
+          <div className="relative">
+            <div className="inline-flex rounded-lg shadow-2xs">
+              <button
+                onClick={handleDownloadTemplate}
+                disabled={isDownloading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-l-lg hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                title="Download standard Excel template with dropdown validations"
+              >
+                {isDownloading ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-500" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-blue-600" />
+                )}
+                Template (.xlsx)
+              </button>
+              <button
+                onClick={() => setShowTemplateDropdown(prev => !prev)}
+                className="px-2 py-2 text-slate-700 bg-white border-y border-r border-slate-300 rounded-r-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                title="Choose template format (.xlsx or .csv)"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {showTemplateDropdown && (
+              <div className="absolute left-0 sm:right-0 sm:left-auto mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg z-30 py-1 text-xs divide-y divide-slate-100">
+                <button
+                  type="button"
+                  onClick={() => { setShowTemplateDropdown(false); handleDownloadTemplate(); }}
+                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                >
+                  <div>
+                    <strong className="block text-slate-800 font-semibold">Excel Template</strong>
+                    <span className="text-[10px] text-slate-500">Includes data validation dropdowns</span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded-sm">.xlsx</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadCsvTemplate}
+                  disabled={isDownloadingCsv}
+                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                >
+                  <div>
+                    <strong className="block text-slate-800 font-semibold">CSV Template</strong>
+                    <span className="text-[10px] text-slate-500">Universal plain text standard</span>
+                  </div>
+                  <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-1.5 py-0.5 rounded-sm">.csv</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           <button
             onClick={handleExportData}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            disabled={isDownloading}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             Export Excel
@@ -365,7 +451,7 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors shadow-2xs cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
-                Import Excel
+                Import Employees
               </button>
 
               <button
@@ -809,17 +895,133 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
                   )}
                 </div>
               ) : !importPreview ? (
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors">
-                  <FileSpreadsheet className="w-12 h-12 text-indigo-500 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-slate-800">Select or Drag & Drop Excel Spreadsheet</p>
-                  <p className="text-xs text-slate-500 mt-1">Accepts standard .xlsx and .xls formats</p>
+                <div className="space-y-4">
+                  {/* Template download & guide quick strip */}
+                  <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h5 className="text-xs font-bold text-indigo-950">Need the official import template?</h5>
+                      <p className="text-[11px] text-indigo-700 mt-0.5">
+                        Download the structured template with standardized columns (supports both .xlsx and .csv).
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        disabled={isDownloading}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg text-xs font-semibold shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
+                      >
+                        <Download className="w-3.5 h-3.5 text-indigo-600" />
+                        Excel (.xlsx)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadCsvTemplate}
+                        disabled={isDownloadingCsv}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg text-xs font-semibold shadow-2xs cursor-pointer transition-colors disabled:opacity-50"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                        CSV (.csv)
+                      </button>
+                    </div>
+                  </div>
 
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileChange}
-                    className="mt-4 text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                  />
+                  {/* Template Specifications Collapsible */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateGuide(prev => !prev)}
+                      className="w-full px-4 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4 text-blue-600" />
+                        Template Structure & Required Columns (15 Columns)
+                      </span>
+                      {showTemplateGuide ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    </button>
+                    {showTemplateGuide && (
+                      <div className="p-4 bg-white text-xs space-y-3 max-h-64 overflow-y-auto border-t border-slate-200">
+                        <p className="text-slate-600 text-[11px] mb-2">
+                          The import template supports complete employee records across profile, banking, statutory documents, and ledger balances. Columns marked <strong>Mandatory</strong> must be filled; all other columns will safely default or populate extended records.
+                        </p>
+                        <table className="w-full text-left text-[11px]">
+                          <thead className="bg-slate-50 text-slate-600 font-semibold sticky top-0">
+                            <tr>
+                              <th className="px-2.5 py-1.5">Section</th>
+                              <th className="px-2.5 py-1.5">Column Header</th>
+                              <th className="px-2.5 py-1.5">Required?</th>
+                              <th className="px-2.5 py-1.5">Valid Values / Format</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-sans">
+                            {/* 1. Employment Profile */}
+                            <tr className="bg-slate-50/60 font-semibold text-slate-700"><td colSpan={4} className="px-2.5 py-1">1. Employment Profile</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">1</td><td className="px-2.5 py-1 font-bold">Employee ID</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600 font-mono">Unique ID (e.g. EMP001)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">2</td><td className="px-2.5 py-1 font-bold">Employee Name</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600">Full Legal Name</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">3</td><td className="px-2.5 py-1 font-bold">Father Name</td><td className="px-2.5 py-1 text-blue-600 font-medium">Recommended</td><td className="px-2.5 py-1 text-slate-600">Father's Name (for passport/ROP verification)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">4</td><td className="px-2.5 py-1 font-bold">Employee Type</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600 font-semibold">Worker, Staff</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">5</td><td className="px-2.5 py-1 font-bold">Nationality Type</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600 font-semibold">Omani, Expat</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">6</td><td className="px-2.5 py-1 font-bold">Designation</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600">Job Title (e.g. Site Engineer, Mason)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">7</td><td className="px-2.5 py-1 font-bold">Employee Company</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600 font-semibold">DGO, SMI, NC, Supplier, Azad</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">8</td><td className="px-2.5 py-1 font-bold">Salary Paid By</td><td className="px-2.5 py-1 text-emerald-600 font-medium">Auto-defaults</td><td className="px-2.5 py-1 text-slate-600 font-semibold">DGO, SMI, NC, Supplier (defaults to Company)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">9</td><td className="px-2.5 py-1 font-bold">Date of Joining</td><td className="px-2.5 py-1 text-emerald-600 font-medium">Auto-defaults</td><td className="px-2.5 py-1 text-slate-600 font-mono">YYYY-MM-DD (defaults to today if empty)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">10</td><td className="px-2.5 py-1 font-bold">Date of Leaving</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-mono">YYYY-MM-DD (leave empty if active)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">11</td><td className="px-2.5 py-1 font-bold">Employment Status</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-semibold">Active, Inactive (defaults to Active)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">12</td><td className="px-2.5 py-1 font-bold">Assigned Project</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600">Project / Site Name (e.g. Ghala Commercial Hub)</td></tr>
+
+                            {/* 2. Compensation & WPS */}
+                            <tr className="bg-slate-50/60 font-semibold text-slate-700"><td colSpan={4} className="px-2.5 py-1">2. Compensation & WPS</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">13</td><td className="px-2.5 py-1 font-bold">Wage Type</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600 font-semibold">Per Hour, Fixed Monthly</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">14</td><td className="px-2.5 py-1 font-bold">Monthly Salary / Wage Rate</td><td className="px-2.5 py-1 text-rose-600 font-bold">Mandatory</td><td className="px-2.5 py-1 text-slate-600 font-mono">Number (OMR amount, e.g. 650.000 or 2.500)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">15</td><td className="px-2.5 py-1 font-bold">WPS Employee</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-semibold">Yes, No (defaults to No)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">16</td><td className="px-2.5 py-1 font-bold">WPS Salary</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-mono">Number (defaults to Monthly Salary if WPS is Yes)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">17</td><td className="px-2.5 py-1 font-bold">Actual Salary</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-mono">Number (defaults to Monthly Salary)</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">18</td><td className="px-2.5 py-1 font-bold">Recover From</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-semibold">DGO, SMI, NC, Supplier (for excess WPS recovery)</td></tr>
+
+                            {/* 3. Banking */}
+                            <tr className="bg-slate-50/60 font-semibold text-slate-700"><td colSpan={4} className="px-2.5 py-1">3. Banking Details</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">19-21</td><td className="px-2.5 py-1 font-bold">Bank Name, Account, IBAN</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600">Bank Muscat, Dhofar, NBO, etc. & IBAN (OM...)</td></tr>
+
+                            {/* 4. Personal & Demographics */}
+                            <tr className="bg-slate-50/60 font-semibold text-slate-700"><td colSpan={4} className="px-2.5 py-1">4. Personal & Demographics</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">22-33</td><td className="px-2.5 py-1 font-bold">DOB, Gender, Marital, Blood, Phone, Address, Emergency</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600">Full demographics, local address, emergency contacts</td></tr>
+
+                            {/* 5. Statutory Documents */}
+                            <tr className="bg-slate-50/60 font-semibold text-slate-700"><td colSpan={4} className="px-2.5 py-1">5. Statutory & Government Documents</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">34-43</td><td className="px-2.5 py-1 font-bold">Civil ID, Passport, Visa, Driving Licence + Expiries</td><td className="px-2.5 py-1 text-blue-600 font-medium">Recommended</td><td className="px-2.5 py-1 text-slate-600">Document numbers & YYYY-MM-DD expiry dates for HR compliance</td></tr>
+
+                            {/* 6. Ledger & Balances */}
+                            <tr className="bg-slate-50/60 font-semibold text-slate-700"><td colSpan={4} className="px-2.5 py-1">6. Ledger & Opening Balances</td></tr>
+                            <tr><td className="px-2.5 py-1 text-slate-400 font-mono">44-46</td><td className="px-2.5 py-1 font-bold">Opening Loan Balance, Loan Recovery, Opening Salary</td><td className="px-2.5 py-1 text-slate-500">Optional</td><td className="px-2.5 py-1 text-slate-600 font-mono">OMR amounts (e.g. 200.000, 25.000). Auto-generates active loan in ledger.</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {uploadError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block font-semibold">File Upload Error</strong>
+                        <span>{uploadError}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dropzone */}
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors bg-slate-50/50">
+                    <FileSpreadsheet className="w-12 h-12 text-indigo-500 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-slate-800">Select or Drag & Drop Employee Spreadsheet</p>
+                    <p className="text-xs text-slate-500 mt-1">Accepts standard Excel (.xlsx, .xls) and Comma-Separated Values (.csv)</p>
+
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                      onChange={handleFileChange}
+                      className="mt-4 text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -853,18 +1055,20 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
                       className="w-4 h-4 text-indigo-600 rounded-sm border-slate-300 focus:ring-indigo-500"
                     />
                     <label htmlFor="updateExistingToggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                      Update Existing Employees (if Employee ID matches an existing record, update designation, salary, etc.)
+                      Update Existing Employees (if Employee ID matches an existing record, update designation, salary, father name, banking, documents, etc.)
                     </label>
                   </div>
 
                   {/* Preview Table */}
-                  <div className="border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+                  <div className="border border-slate-200 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-500 font-semibold sticky top-0">
                         <tr>
                           <th className="px-3 py-2">Row#</th>
                           <th className="px-3 py-2">Employee ID</th>
                           <th className="px-3 py-2">Name</th>
+                          <th className="px-3 py-2">Father Name</th>
+                          <th className="px-3 py-2">Company / Project</th>
                           <th className="px-3 py-2">Type</th>
                           <th className="px-3 py-2">Designation</th>
                           <th className="px-3 py-2">Salary (OMR)</th>
@@ -877,7 +1081,12 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
                           <tr key={idx} className={r.status === 'Invalid' ? 'bg-rose-50/50' : r.status === 'Existing' ? 'bg-amber-50/30' : ''}>
                             <td className="px-3 py-2 font-mono text-slate-400">{r.rowNumber}</td>
                             <td className="px-3 py-2 font-mono font-bold text-slate-900">{r.employeeId}</td>
-                            <td className="px-3 py-2">{r.employeeName}</td>
+                            <td className="px-3 py-2 font-medium text-slate-800">{r.employeeName}</td>
+                            <td className="px-3 py-2 text-slate-600">{r.fatherName || '-'}</td>
+                            <td className="px-3 py-2 text-slate-600">
+                              <span className="font-semibold">{r.employeeCompany}</span>
+                              {r.assignedProject && <span className="block text-[10px] text-slate-400">{r.assignedProject}</span>}
+                            </td>
                             <td className="px-3 py-2">{r.employeeType}</td>
                             <td className="px-3 py-2">{r.designation}</td>
                             <td className="px-3 py-2 font-mono">OMR {formatOMR(r.monthlySalaryOrRate)}</td>

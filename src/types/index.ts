@@ -184,6 +184,7 @@ export interface EmployeeDocument {
 
 export interface EmployeePersonalDetails {
   employeeId?: string;
+  fatherName?: string;
   dob?: string;
   dateOfBirth?: string;
   gender?: 'Male' | 'Female' | 'Other' | string;
@@ -207,6 +208,12 @@ export interface EmployeePersonalDetails {
     address?: string;
     isPrimary?: boolean;
   }>;
+  bankName?: string;
+  bankAccountNumber?: string;
+  iban?: string;
+  bankBranch?: string;
+  accountHolderName?: string;
+  assignedProject?: string;
   qualifications?: any;
   skills?: any;
   workExperience?: string;
@@ -306,6 +313,11 @@ export interface Employee {
   actualSalary: number;
   recoverFrom: string;
   isActive: boolean;
+  bankName?: string;
+  bankAccountNumber?: string;
+  iban?: string;
+  bankBranch?: string;
+  accountHolderName?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -109,3 +109,59 @@ export function formatDate(dateString: string | undefined | null): string {
     return dateString;
   }
 }
+
+// Authenticated file download helper for templates and reports
+export async function downloadAuthenticatedFile(
+  endpoint: string,
+  fallbackFilename: string = 'download.xlsx'
+): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Also include token in query param for routes that inspect query
+  let url = endpoint;
+  if (token) {
+    const separator = url.includes('?') ? '&' : '?';
+    url = `${url}${separator}token=${encodeURIComponent(token)}`;
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    let errorMsg = `Download failed (${response.status})`;
+    try {
+      const errJson = await response.json();
+      if (errJson?.error) errorMsg = errJson.error;
+    } catch {
+      // ignore json parse error
+    }
+    throw new Error(errorMsg);
+  }
+
+  // Extract filename from Content-Disposition header if available
+  let filename = fallbackFilename;
+  const disposition = response.headers.get('content-disposition');
+  if (disposition && disposition.includes('filename=')) {
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, '').trim();
+    }
+  }
+
+  const blob = await response.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+}

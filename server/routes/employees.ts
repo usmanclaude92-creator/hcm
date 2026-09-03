@@ -18,6 +18,7 @@ import type {
   EmployeeGovernmentDocument,
   EmployeePersonalDetails,
 } from '../../src/types/index';
+import { validateBankAccountNumber, validateIban, validateBankDetails } from '../../src/utils/bankValidation.js';
 
 const router = Router();
 
@@ -40,22 +41,155 @@ function isValidSalaryPaidBy(val: any): val is SalaryPaidBy {
 function isValidWPSStatus(val: any): val is WPSStatus {
   return ['Yes', 'No'].includes(val);
 }
+
+// Normalizers for enum and text values to be resilient against CSV/Excel casing and formatting variances
+function normalizeEmployeeType(val: any): string {
+  const s = String(val || '').trim().toLowerCase();
+  if (s === 'worker' || s === 'w' || s === 'labor' || s === 'labour') return 'Worker';
+  if (s === 'staff' || s === 's' || s === 'office' || s === 'management') return 'Staff';
+  return String(val || '').trim();
+}
+
+function normalizeNationalityType(val: any): string {
+  const s = String(val || '').trim().toLowerCase();
+  if (s === 'omani' || s === 'om' || s === 'national' || s === 'citizen') return 'Omani';
+  if (s === 'expat' || s === 'expatriate' || s === 'foreigner' || s === 'non-omani') return 'Expat';
+  return String(val || '').trim();
+}
+
+function normalizeWageType(val: any): string {
+  const s = String(val || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+  if (s.includes('hour') || s === 'hourly') return 'Per Hour';
+  if (s.includes('month') || s === 'fixed' || s === 'monthly' || s === 'fixedmonthly') return 'Fixed Monthly';
+  return String(val || '').trim();
+}
+
+function normalizeCompany(val: any): string {
+  const s = String(val || '').trim().toLowerCase();
+  if (s === 'dgo') return 'DGO';
+  if (s === 'smi') return 'SMI';
+  if (s === 'nc') return 'NC';
+  if (s === 'supplier') return 'Supplier';
+  if (s === 'azad') return 'Azad';
+  return String(val || '').trim();
+}
+
+function normalizePaidBy(val: any): string {
+  const s = String(val || '').trim().toLowerCase();
+  if (s === 'dgo') return 'DGO';
+  if (s === 'smi') return 'SMI';
+  if (s === 'nc') return 'NC';
+  if (s === 'supplier') return 'Supplier';
+  return String(val || '').trim();
+}
+
+function normalizeWPS(val: any): 'Yes' | 'No' {
+  const s = String(val || '').trim().toLowerCase();
+  if (['yes', 'y', 'true', '1'].includes(s)) return 'Yes';
+  return 'No';
+}
+
+function normalizeGender(val: any): 'Male' | 'Female' | 'Other' {
+  const s = String(val || '').trim().toLowerCase();
+  if (s.startsWith('f') || s === 'woman') return 'Female';
+  if (s.startsWith('o')) return 'Other';
+  return 'Male';
+}
+
+function normalizeMaritalStatus(val: any): 'Single' | 'Married' | 'Divorced' | 'Widowed' {
+  const s = String(val || '').trim().toLowerCase();
+  if (s.startsWith('m')) return 'Married';
+  if (s.startsWith('d')) return 'Divorced';
+  if (s.startsWith('w')) return 'Widowed';
+  return 'Single';
+}
+
+function normalizeBloodGroup(val: any): string {
+  const s = String(val || '').trim().toUpperCase().replace(/\s+/g, '');
+  const valid = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  if (valid.includes(s)) return s;
+  return s || '';
+}
+
+function cleanNumber(val: any, defaultVal = 0): number {
+  if (typeof val === 'number') return isNaN(val) ? defaultVal : val;
+  if (!val) return defaultVal;
+  const cleaned = String(val).replace(/,/g, '').replace(/[^0-9.-]/g, '').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? defaultVal : num;
+}
+
 function isValidDateString(val: any): boolean {
   if (typeof val !== 'string' || !val.trim()) return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    const [y, m, d] = val.split('-').map(Number);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+    const date = new Date(y, m - 1, d);
+    return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+  }
   const d = new Date(val);
   return !isNaN(d.getTime());
 }
 
-// Excel date cells arrive as native JS Date objects when the workbook is read with cellDates:true.
-// Normalize those (and passthrough strings) to the app's YYYY-MM-DD convention.
+// Flexible date parser supporting JS Date objects, Excel serial dates, ISO strings, and UK/Gulf DD/MM/YYYY formats
 function excelCellToDateString(val: any): string {
+  if (!val) return '';
   if (val instanceof Date && !isNaN(val.getTime())) {
     const y = val.getFullYear();
     const m = String(val.getMonth() + 1).padStart(2, '0');
     const d = String(val.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
-  return String(val || '').trim();
+  if (typeof val === 'number' && val > 20000 && val < 90000) {
+    const excelDate = new Date(Math.round((val - 25569) * 86400 * 1000));
+    if (!isNaN(excelDate.getTime())) {
+      const y = excelDate.getFullYear();
+      const m = String(excelDate.getMonth() + 1).padStart(2, '0');
+      const d = String(excelDate.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+  const s = String(val).trim();
+  if (!s) return '';
+  // YYYY-MM-DD or YYYY/MM/DD
+  const isoMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
+  }
+  // DD/MM/YYYY or DD-MM-YYYY
+  const ukMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (ukMatch) {
+    return `${ukMatch[3]}-${ukMatch[2].padStart(2, '0')}-${ukMatch[1].padStart(2, '0')}`;
+  }
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return s;
+}
+
+// Case-insensitive, space-insensitive row cell accessor
+function getRowValue(row: Record<string, any>, possibleKeys: string[]): any {
+  for (const k of possibleKeys) {
+    if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+      return row[k];
+    }
+  }
+  const normalizedRow: Record<string, any> = {};
+  for (const k of Object.keys(row)) {
+    const norm = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    normalizedRow[norm] = row[k];
+  }
+  for (const k of possibleKeys) {
+    const norm = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normalizedRow[norm] !== undefined && normalizedRow[norm] !== null && String(normalizedRow[norm]).trim() !== '') {
+      return normalizedRow[norm];
+    }
+  }
+  return '';
 }
 
 // Shared field-level validation used by both import/validate (preview) and import/confirm
@@ -64,6 +198,7 @@ function validateEmployeeFields(f: {
   employeeId: string; employeeName: string; employeeType: string; nationalityType: string;
   wageType: string; designation: string; employeeCompany: string; salaryPaidBy: string;
   salary: any; wpsSalary: any; actualSalary: any; dateOfJoining: string; dateOfLeaving: string;
+  bankName?: string; bankAccountNumber?: string; iban?: string;
 }): string | null {
   if (!f.employeeId) return 'Employee ID is required';
   if (!f.employeeName) return 'Employee Name is required';
@@ -71,15 +206,23 @@ function validateEmployeeFields(f: {
   if (!isValidNationalityType(f.nationalityType)) return `Invalid Nationality Type: '${f.nationalityType}' (Must be Omani or Expat)`;
   if (!isValidWageType(f.wageType)) return `Invalid Wage Type: '${f.wageType}' (Must be Per Hour or Fixed Monthly)`;
   if (!f.designation) return 'Designation is required';
-  if (!isValidEmployeeCompany(f.employeeCompany)) return `Invalid Employee Company: '${f.employeeCompany}' (DGO, SMI, NC, Supplier, Azad)`;
-  if (!isValidSalaryPaidBy(f.salaryPaidBy)) return `Invalid Salary Paid By: '${f.salaryPaidBy}' (DGO, SMI, NC, Supplier)`;
+  if (!isValidEmployeeCompany(f.employeeCompany)) return `Invalid Employee Company: '${f.employeeCompany}' (Must be DGO, SMI, NC, Supplier, or Azad)`;
+  if (!isValidSalaryPaidBy(f.salaryPaidBy)) return `Invalid Salary Paid By: '${f.salaryPaidBy}' (Must be DGO, SMI, NC, or Supplier)`;
   if (isNaN(Number(f.salary)) || Number(f.salary) < 0) return 'Salary / Rate must be a non-negative number';
   if (isNaN(Number(f.wpsSalary)) || Number(f.wpsSalary) < 0) return 'WPS Salary must be a non-negative number';
   if (isNaN(Number(f.actualSalary)) || Number(f.actualSalary) < 0) return 'Actual Salary must be a non-negative number';
-  if (f.dateOfJoining && !isValidDateString(f.dateOfJoining)) return `Invalid Date of Joining: '${f.dateOfJoining}'`;
-  if (f.dateOfLeaving && !isValidDateString(f.dateOfLeaving)) return `Invalid Date of Leaving: '${f.dateOfLeaving}'`;
+  if (f.dateOfJoining && !isValidDateString(f.dateOfJoining)) return `Invalid Date of Joining: '${f.dateOfJoining}' (Expected YYYY-MM-DD)`;
+  if (f.dateOfLeaving && !isValidDateString(f.dateOfLeaving)) return `Invalid Date of Leaving: '${f.dateOfLeaving}' (Expected YYYY-MM-DD)`;
   if (f.dateOfJoining && f.dateOfLeaving && isValidDateString(f.dateOfJoining) && isValidDateString(f.dateOfLeaving) && f.dateOfLeaving < f.dateOfJoining) {
     return 'Date of Leaving cannot be before Date of Joining';
+  }
+  if (f.bankAccountNumber && String(f.bankAccountNumber).trim()) {
+    const accCheck = validateBankAccountNumber(f.bankAccountNumber, f.bankName);
+    if (!accCheck.isValid) return `Invalid Bank Account Number: ${accCheck.error}`;
+  }
+  if (f.iban && String(f.iban).trim()) {
+    const ibanCheck = validateIban(f.iban, f.bankName);
+    if (!ibanCheck.isValid) return `Invalid Bank IBAN: ${ibanCheck.error}`;
   }
   return null;
 }
@@ -288,6 +431,20 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
       employees = enrichedEmployees.filter(e => e._matchedDoc !== null) as any;
     }
 
+    // Enrich each employee record with bank details & father name from personal details store
+    employees = employees.map((emp: any) => {
+      const personal = db.personalDetails.get(normalizeEmployeeId(emp.employeeId));
+      return {
+        ...emp,
+        fatherName: emp.fatherName || personal?.fatherName || '',
+        bankName: emp.bankName || personal?.bankName || '',
+        bankAccountNumber: emp.bankAccountNumber || personal?.bankAccountNumber || '',
+        iban: emp.iban || personal?.iban || '',
+        bankBranch: emp.bankBranch || personal?.bankBranch || '',
+        accountHolderName: emp.accountHolderName || personal?.accountHolderName || emp.employeeName,
+      };
+    });
+
     // Sorting
     const field = String(sortField || 'employeeId');
     const order = sortOrder === 'desc' ? -1 : 1;
@@ -304,46 +461,259 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/employees/export/template - Generate blank Excel template for import,
+// GET /api/employees/export/template - Generate blank Excel or CSV template for import,
 // with real Excel dropdown (data validation) lists for fixed-choice columns.
 router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
+    const isCsv = String(req.query.format || '').toLowerCase() === 'csv';
+
     const headers = [
+      // 1. Basic Employment Information
       'Employee ID',
       'Employee Name',
+      'Father Name',
       'Employee Type',
       'Nationality Type',
-      'Wage Type',
-      'Date of Joining',
-      'Date of Leaving',
       'Designation',
       'Employee Company',
       'Salary Paid By',
+      'Date of Joining',
+      'Date of Leaving',
+      'Employment Status',
+      'Assigned Project',
+
+      // 2. Compensation & WPS
+      'Wage Type',
       'Monthly Salary / Wage Rate',
       'WPS Employee',
       'WPS Salary',
       'Actual Salary',
       'Recover From',
+
+      // 3. Banking Details
+      'Bank Name',
+      'Bank Account Number',
+      'Bank IBAN',
+
+      // 4. Personal Information & Demographics
+      'Date of Birth',
+      'Gender',
+      'Marital Status',
+      'Blood Group',
+      'Mobile Number',
+      'WhatsApp Number',
+      'Personal Email',
+      'Residential Address',
+      'Permanent Address',
+      'Emergency Contact Name',
+      'Emergency Contact Relationship',
+      'Emergency Contact Phone',
+
+      // 5. Statutory & Government Documents
+      'Civil ID Number',
+      'Civil ID Expiry Date',
+      'Passport Number',
+      'Passport Expiry Date',
+      'Visa Number',
+      'Visa Expiry Date',
+      'Visa Trade',
+      'Visa Sponsor',
+      'Driving Licence Number',
+      'Driving Licence Expiry Date',
+
+      // 6. Ledger & Opening Balances
+      'Opening Loan Balance',
+      'Monthly Loan Recovery',
+      'Opening Salary Balance',
     ];
 
-    const colWidths = [15, 25, 15, 16, 16, 16, 16, 20, 18, 16, 26, 14, 14, 14, 18];
+    const sampleRows = [
+      [
+        'EMP001',
+        'Ahmed Al-Harthy',
+        'Said Al-Harthy',
+        'Staff',
+        'Omani',
+        'Site Engineer',
+        'DGO',
+        'DGO',
+        '2024-01-15',
+        '',
+        'Active',
+        'Ghala Commercial Hub',
+        'Fixed Monthly',
+        '650.000',
+        'Yes',
+        '650.000',
+        '650.000',
+        'DGO',
+        'Bank Muscat',
+        '0312048192019',
+        'OM62BMUS0312048192019',
+        '1988-04-12',
+        'Male',
+        'Married',
+        'O+',
+        '+968 9123 4567',
+        '+968 9123 4567',
+        'ahmed.balushi@artify.om',
+        'Villa 14, Way 2819, Al Khuwair, Muscat',
+        'Barka, South Al Batinah, Oman',
+        'Said Al-Balushi',
+        'Brother',
+        '+968 9234 5678',
+        '10928374',
+        '2027-05-14',
+        'A12345678',
+        '2029-08-20',
+        '',
+        '',
+        '',
+        '',
+        'DL-882910',
+        '2033-01-09',
+        '0.000',
+        '0.000',
+        '0.000',
+      ],
+      [
+        'EMP002',
+        'Rajesh Kumar',
+        'Ram Kumar',
+        'Worker',
+        'Expat',
+        'Electrician',
+        'SMI',
+        'SMI',
+        '2024-02-01',
+        '',
+        'Active',
+        'Mabelah Industrial Center',
+        'Per Hour',
+        '2.500',
+        'No',
+        '0.000',
+        '250.000',
+        '',
+        'Bank Dhofar',
+        '0102049102910',
+        'OM44BDHO0102049102910',
+        '1992-07-22',
+        'Male',
+        'Married',
+        'B+',
+        '+968 9876 5432',
+        '+968 9876 5432',
+        '',
+        'Al Ghubrah Labour Camp, Block B, Muscat',
+        'Kerala, India',
+        'Fatima Hassan',
+        'Spouse',
+        '+91 98765 43210',
+        '77461928',
+        '2026-08-11',
+        'M88761234',
+        '2030-02-15',
+        'VS-9928172',
+        '2026-12-31',
+        'Electrician',
+        'SMI',
+        '',
+        '',
+        '200.000',
+        '25.000',
+        '0.000',
+      ],
+    ];
+
+    if (isCsv) {
+      const escapeCsvCell = (val: any) => {
+        const s = String(val ?? '');
+        if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      const csvContent = '\uFEFF' + [
+        headers.map(escapeCsvCell).join(','),
+        ...sampleRows.map(r => r.map(escapeCsvCell).join(','))
+      ].join('\r\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="Employee_Import_Template.csv"');
+      return res.send(csvContent);
+    }
+
+    const colWidths = [
+      15, // Employee ID
+      25, // Employee Name
+      22, // Father Name
+      15, // Employee Type
+      16, // Nationality Type
+      22, // Designation
+      18, // Employee Company
+      16, // Salary Paid By
+      16, // Date of Joining
+      16, // Date of Leaving
+      18, // Employment Status
+      24, // Assigned Project
+      16, // Wage Type
+      26, // Monthly Salary / Wage Rate
+      15, // WPS Employee
+      16, // WPS Salary
+      16, // Actual Salary
+      16, // Recover From
+      20, // Bank Name
+      22, // Bank Account Number
+      28, // Bank IBAN
+      16, // Date of Birth
+      12, // Gender
+      15, // Marital Status
+      14, // Blood Group
+      18, // Mobile Number
+      18, // WhatsApp Number
+      25, // Personal Email
+      32, // Residential Address
+      32, // Permanent Address
+      22, // Emergency Contact Name
+      20, // Emergency Contact Relationship
+      20, // Emergency Contact Phone
+      18, // Civil ID Number
+      20, // Civil ID Expiry Date
+      18, // Passport Number
+      20, // Passport Expiry Date
+      18, // Visa Number
+      18, // Visa Expiry Date
+      20, // Visa Trade
+      22, // Visa Sponsor
+      22, // Driving Licence Number
+      24, // Driving Licence Expiry Date
+      22, // Opening Loan Balance
+      22, // Monthly Loan Recovery
+      22, // Opening Salary Balance
+    ];
 
     const workbook = new ExcelJS.Workbook();
 
     const sheet = workbook.addWorksheet('Employee_Import_Template');
-    sheet.columns = headers.map((h, i) => ({ header: h, width: colWidths[i] }));
+    sheet.columns = headers.map((h, i) => ({ header: h, width: colWidths[i] || 18 }));
     sheet.getRow(1).font = { bold: true };
 
-    // Real Excel dropdown validation for every data row (2-501), so the values
-    // in the spreadsheet are constrained at edit time, not just documented.
+    // Real Excel dropdown validation for every data row (2-501)
     const LAST_ROW = 501;
     const dropdowns: { col: string; values: string[]; allowBlank?: boolean }[] = [
-      { col: 'C', values: ['Worker', 'Staff'] },
-      { col: 'D', values: ['Omani', 'Expat'] },
-      { col: 'E', values: ['Per Hour', 'Fixed Monthly'] },
-      { col: 'I', values: ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'] },
-      { col: 'J', values: ['DGO', 'SMI', 'NC', 'Supplier'] },
-      { col: 'L', values: ['Yes', 'No'], allowBlank: true },
+      { col: 'D', values: ['Worker', 'Staff'] },
+      { col: 'E', values: ['Omani', 'Expat'] },
+      { col: 'G', values: ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'] },
+      { col: 'H', values: ['DGO', 'SMI', 'NC', 'Supplier'] },
+      { col: 'K', values: ['Active', 'Inactive'], allowBlank: true },
+      { col: 'M', values: ['Per Hour', 'Fixed Monthly'] },
+      { col: 'O', values: ['Yes', 'No'], allowBlank: true },
+      { col: 'R', values: ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'], allowBlank: true },
+      { col: 'W', values: ['Male', 'Female', 'Other'], allowBlank: true },
+      { col: 'X', values: ['Single', 'Married', 'Divorced', 'Widowed'], allowBlank: true },
+      { col: 'Y', values: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'], allowBlank: true },
     ];
 
     for (const { col, values, allowBlank } of dropdowns) {
@@ -359,36 +729,91 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
       }
     }
 
-    // Date format hint for the two date columns
-    for (const col of ['F', 'G']) {
+    // Date format hint for date columns (I, J, V, AI, AK, AM, AQ)
+    for (const col of ['I', 'J', 'V', 'AI', 'AK', 'AM', 'AQ']) {
       for (let row = 2; row <= LAST_ROW; row++) {
         sheet.getCell(`${col}${row}`).numFmt = 'yyyy-mm-dd';
       }
     }
 
+    // Number format hint for numeric OMR columns (N, P, Q, AR, AS, AT)
+    for (const col of ['N', 'P', 'Q', 'AR', 'AS', 'AT']) {
+      for (let row = 2; row <= LAST_ROW; row++) {
+        sheet.getCell(`${col}${row}`).numFmt = '#,##0.000';
+      }
+    }
+
+    // Add sample rows to worksheet
+    sampleRows.forEach(rowVals => {
+      sheet.addRow(rowVals);
+    });
+
     const instructionsSheet = workbook.addWorksheet('Instructions & Dropdowns');
     instructionsSheet.columns = [
-      { header: 'FIELD', width: 25 },
-      { header: 'ACCEPTED VALUES / FORMAT', width: 50 },
+      { header: 'SECTION', width: 22 },
+      { header: 'FIELD NAME', width: 26 },
+      { header: 'ACCEPTED VALUES / FORMAT', width: 55 },
       { header: 'REQUIRED?', width: 18 },
     ];
     instructionsSheet.getRow(1).font = { bold: true };
     instructionsSheet.addRows([
-      ['Employee ID', 'Unique alphanumeric ID (e.g. EMP001). Spaces/case are normalized automatically.', 'Yes (Mandatory)'],
-      ['Employee Name', 'Full Name of Employee', 'Yes (Mandatory)'],
-      ['Employee Type', 'Worker, Staff (dropdown enabled on the template sheet)', 'Yes (Mandatory)'],
-      ['Nationality Type', 'Omani, Expat (dropdown enabled)', 'Yes (Mandatory)'],
-      ['Wage Type', 'Per Hour, Fixed Monthly (dropdown enabled)', 'Yes (Mandatory)'],
-      ['Date of Joining', 'YYYY-MM-DD (e.g. 2024-01-15)', 'Yes (Mandatory)'],
-      ['Date of Leaving', 'YYYY-MM-DD (Leave blank if active). Cannot be before Date of Joining.', 'No (Optional)'],
-      ['Designation', 'Job Title (e.g. Site Engineer, Mason)', 'Yes (Mandatory)'],
-      ['Employee Company', 'DGO, SMI, NC, Supplier, Azad (dropdown enabled)', 'Yes (Mandatory)'],
-      ['Salary Paid By', 'DGO, SMI, NC, Supplier (dropdown enabled)', 'Yes (Mandatory)'],
-      ['Monthly Salary / Wage Rate', 'OMR amount, cannot be negative (e.g. 650.000 for Staff, 2.000 for Worker)', 'Yes (Mandatory)'],
-      ['WPS Employee', 'Yes, No (dropdown enabled)', 'Yes (Mandatory)'],
-      ['WPS Salary', 'WPS registered salary amount, cannot be negative (e.g. 700.000)', 'Optional (Default 0)'],
-      ['Actual Salary', 'Gross salary benchmark in OMR, cannot be negative', 'Optional (Default 0)'],
-      ['Recover From', 'Company/Entity to recover excess WPS (e.g. DGO)', 'Optional'],
+      // Basic Info
+      ['1. Employment Profile', 'Employee ID', 'Unique alphanumeric ID (e.g. EMP001). Normalized automatically.', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Employee Name', 'Full Legal Name of Employee (English)', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Father Name', 'Father\'s Name (as in Passport / Official Records)', 'Recommended'],
+      ['1. Employment Profile', 'Employee Type', 'Worker, Staff (dropdown enabled)', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Nationality Type', 'Omani, Expat (dropdown enabled)', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Designation', 'Job Title (e.g. Site Engineer, Mason, Electrician)', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Employee Company', 'DGO, SMI, NC, Supplier, Azad (dropdown enabled)', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Salary Paid By', 'DGO, SMI, NC, Supplier (dropdown enabled)', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Date of Joining', 'YYYY-MM-DD (e.g. 2024-01-15). Defaults to today if empty.', 'Yes (Mandatory)'],
+      ['1. Employment Profile', 'Date of Leaving', 'YYYY-MM-DD (leave blank if active). Cannot be before Date of Joining.', 'No (Optional)'],
+      ['1. Employment Profile', 'Employment Status', 'Active, Inactive (defaults to Active)', 'Optional (Default Active)'],
+      ['1. Employment Profile', 'Assigned Project', 'Project Name or Site (e.g. Ghala Commercial Hub)', 'No (Optional)'],
+
+      // Compensation & WPS
+      ['2. Compensation & WPS', 'Wage Type', 'Per Hour, Fixed Monthly (dropdown enabled)', 'Yes (Mandatory)'],
+      ['2. Compensation & WPS', 'Monthly Salary / Wage Rate', 'OMR amount (e.g. 650.000 for Staff, 2.500 for hourly Worker)', 'Yes (Mandatory)'],
+      ['2. Compensation & WPS', 'WPS Employee', 'Yes, No (dropdown enabled)', 'Yes (Mandatory)'],
+      ['2. Compensation & WPS', 'WPS Salary', 'WPS registered salary amount in OMR (e.g. 650.000)', 'Optional (Default 0)'],
+      ['2. Compensation & WPS', 'Actual Salary', 'Gross salary benchmark in OMR (defaults to Monthly Salary)', 'Optional (Default 0)'],
+      ['2. Compensation & WPS', 'Recover From', 'Company/Entity to recover excess WPS from (e.g. DGO, SMI, NC)', 'Optional'],
+
+      // Banking
+      ['3. Banking Details', 'Bank Name', 'Bank Name in Oman (e.g. Bank Muscat, Bank Dhofar, NBO)', 'Optional'],
+      ['3. Banking Details', 'Bank Account Number', 'Bank Account Number for direct wage deposit', 'Optional'],
+      ['3. Banking Details', 'Bank IBAN', 'International Bank Account Number (e.g. OM62BMUS...)', 'Optional'],
+
+      // Personal & Demographic
+      ['4. Personal & Contact', 'Date of Birth', 'YYYY-MM-DD (e.g. 1990-05-15). Auto-computes age in profile.', 'Optional'],
+      ['4. Personal & Contact', 'Gender', 'Male, Female, Other (dropdown enabled)', 'Optional (Default Male)'],
+      ['4. Personal & Contact', 'Marital Status', 'Single, Married, Divorced, Widowed (dropdown enabled)', 'Optional (Default Single)'],
+      ['4. Personal & Contact', 'Blood Group', 'A+, A-, B+, B-, AB+, AB-, O+, O- (dropdown enabled)', 'Optional'],
+      ['4. Personal & Contact', 'Mobile Number', 'Contact phone number (e.g. +968 9123 4567)', 'Optional'],
+      ['4. Personal & Contact', 'WhatsApp Number', 'WhatsApp contact number (e.g. +968 9123 4567)', 'Optional'],
+      ['4. Personal & Contact', 'Personal Email', 'Personal email address for correspondence', 'Optional'],
+      ['4. Personal & Contact', 'Residential Address', 'Current accommodation / camp address in Oman', 'Optional'],
+      ['4. Personal & Contact', 'Permanent Address', 'Home country / permanent hometown address', 'Optional'],
+      ['4. Personal & Contact', 'Emergency Contact Name', 'Name of primary emergency contact person', 'Optional'],
+      ['4. Personal & Contact', 'Emergency Contact Relationship', 'Relationship (e.g. Spouse, Brother, Father, Friend)', 'Optional'],
+      ['4. Personal & Contact', 'Emergency Contact Phone', 'Emergency contact phone number', 'Optional'],
+
+      // Statutory Documents
+      ['5. Statutory Documents', 'Civil ID Number', 'Civil ID / Resident Card Number (e.g. 10928374)', 'Recommended'],
+      ['5. Statutory Documents', 'Civil ID Expiry Date', 'YYYY-MM-DD. Auto-monitored in HR Compliance dashboard.', 'Recommended'],
+      ['5. Statutory Documents', 'Passport Number', 'Passport Number (e.g. A12345678)', 'Recommended for Expats'],
+      ['5. Statutory Documents', 'Passport Expiry Date', 'YYYY-MM-DD. Auto-monitored in HR Compliance dashboard.', 'Recommended for Expats'],
+      ['5. Statutory Documents', 'Visa Number', 'Visa Number (e.g. VS-9928172)', 'Recommended for Expats'],
+      ['5. Statutory Documents', 'Visa Expiry Date', 'YYYY-MM-DD. Auto-monitored in HR Compliance dashboard.', 'Recommended for Expats'],
+      ['5. Statutory Documents', 'Visa Trade', 'Trade / profession registered on visa (e.g. Civil Engineer)', 'Optional'],
+      ['5. Statutory Documents', 'Visa Sponsor', 'Sponsoring company name (e.g. Artify Engineering LLC)', 'Optional'],
+      ['5. Statutory Documents', 'Driving Licence Number', 'Oman or Gulf Driving Licence Number (e.g. DL-882910)', 'Optional'],
+      ['5. Statutory Documents', 'Driving Licence Expiry Date', 'YYYY-MM-DD. Auto-monitored in HR Compliance dashboard.', 'Optional'],
+
+      // Ledger & Opening Balances
+      ['6. Ledger & Balances', 'Opening Loan Balance', 'Opening Loan Balance in OMR (e.g. 300.000 or 0). Creates active loan in ledger.', 'Optional (Default 0)'],
+      ['6. Ledger & Balances', 'Monthly Loan Recovery', 'Monthly loan recovery deduction in OMR (e.g. 50.000)', 'Optional (Default 0)'],
+      ['6. Ledger & Balances', 'Opening Salary Balance', 'Initial outstanding salary balance in OMR', 'Optional (Default 0)'],
     ]);
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -400,39 +825,98 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
   }
 });
 
-// GET /api/employees/export/data - Export all/filtered employees to Excel
+// GET /api/employees/export/data - Export all/filtered employees to Excel or CSV with full profile & ledger details
 router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
+    const isCsv = String(req.query.format || '').toLowerCase() === 'csv';
     const employees = db.employees.getAll();
 
-    // Column names/order match the import template exactly, so an exported file can be
-    // re-imported unmodified. "Status" is appended as a bonus trailing column, not part of
-    // the A-O structure the import parser keys off of.
-    const data = employees.map(e => ({
-      'Employee ID': e.employeeId,
-      'Employee Name': e.employeeName,
-      'Employee Type': e.employeeType,
-      'Nationality Type': e.nationalityType,
-      'Wage Type': e.wageType,
-      'Date of Joining': e.dateOfJoining,
-      'Date of Leaving': e.dateOfLeaving || '',
-      'Designation': e.designation,
-      'Employee Company': e.employeeCompany,
-      'Salary Paid By': e.salaryPaidBy,
-      'Monthly Salary / Wage Rate': roundOMR(e.monthlySalaryOrRate).toFixed(3),
-      'WPS Employee': e.wpsEmployee,
-      'WPS Salary': roundOMR(e.wpsSalary).toFixed(3),
-      'Actual Salary': roundOMR(e.actualSalary).toFixed(3),
-      'Recover From': e.recoverFrom || '',
-      'Status': e.isActive ? 'Active' : 'Inactive',
-    }));
+    // Column names/order match the comprehensive import template exactly, so an exported file can be
+    // re-imported unmodified.
+    const data = employees.map(e => {
+      const norm = normalizeEmployeeId(e.employeeId);
+      const personal = db.personalDetails.get(norm) || db.personalDetails.get(e.employeeId) || {};
+      const civilId = db.civilIds.getAll().find(c => normalizeEmployeeId(c.employeeId) === norm && c.isCurrent);
+      const passport = db.governmentDocuments.getAll().find(g => normalizeEmployeeId(g.employeeId) === norm && g.documentType === 'Passport' && g.isCurrent);
+      const visa = db.visas.getAll().find(v => normalizeEmployeeId(v.employeeId) === norm && v.isCurrent);
+      const dl = db.drivingLicences.getAll().find(d => normalizeEmployeeId(d.employeeId) === norm && d.isCurrent);
+      const activeLoan = db.loans.getAll().find(l => normalizeEmployeeId(l.employeeId) === norm && l.status === 'Active');
+
+      const primaryEmerg = Array.isArray(personal.emergencyContacts) && personal.emergencyContacts.length > 0
+        ? (personal.emergencyContacts.find((c: any) => c.isPrimary) || personal.emergencyContacts[0])
+        : null;
+
+      return {
+        'Employee ID': e.employeeId,
+        'Employee Name': e.employeeName,
+        'Father Name': personal.fatherName || '',
+        'Employee Type': e.employeeType,
+        'Nationality Type': e.nationalityType,
+        'Designation': e.designation,
+        'Employee Company': e.employeeCompany,
+        'Salary Paid By': e.salaryPaidBy,
+        'Date of Joining': e.dateOfJoining,
+        'Date of Leaving': e.dateOfLeaving || '',
+        'Employment Status': e.isActive ? 'Active' : 'Inactive',
+        'Assigned Project': personal.assignedProject || '',
+        'Wage Type': e.wageType,
+        'Monthly Salary / Wage Rate': roundOMR(e.monthlySalaryOrRate).toFixed(3),
+        'WPS Employee': e.wpsEmployee,
+        'WPS Salary': roundOMR(e.wpsSalary).toFixed(3),
+        'Actual Salary': roundOMR(e.actualSalary).toFixed(3),
+        'Recover From': e.recoverFrom || '',
+        'Bank Name': personal.bankName || e.bankName || '',
+        'Bank Account Number': personal.bankAccountNumber || e.bankAccountNumber || '',
+        'Bank IBAN': personal.iban || e.iban || '',
+        'Date of Birth': personal.dateOfBirth || personal.dob || '',
+        'Gender': personal.gender || 'Male',
+        'Marital Status': personal.maritalStatus || 'Single',
+        'Blood Group': personal.bloodGroup || '',
+        'Mobile Number': personal.mobileNumber || personal.mobile || '',
+        'WhatsApp Number': personal.whatsappNumber || '',
+        'Personal Email': personal.personalEmail || personal.email || '',
+        'Residential Address': personal.residentialAddress || personal.currentAddress || '',
+        'Permanent Address': personal.permanentAddress || '',
+        'Emergency Contact Name': primaryEmerg?.name || personal.emergencyContactName || '',
+        'Emergency Contact Relationship': primaryEmerg?.relationship || personal.emergencyContactRelation || '',
+        'Emergency Contact Phone': primaryEmerg?.contactNumber || personal.emergencyContactPhone || '',
+        'Civil ID Number': civilId?.civilIdNumber || personal.civilIdNumber || '',
+        'Civil ID Expiry Date': civilId?.expiryDate || personal.civilIdExpiryDate || '',
+        'Passport Number': passport?.documentNumber || personal.passportNumber || '',
+        'Passport Expiry Date': passport?.expiryDate || personal.passportExpiryDate || '',
+        'Visa Number': visa?.visaNumber || personal.visaNumber || '',
+        'Visa Expiry Date': visa?.expiryDate || personal.visaExpiryDate || '',
+        'Visa Trade': visa?.tradeOnVisa || '',
+        'Visa Sponsor': visa?.sponsor || '',
+        'Driving Licence Number': dl?.licenceNumber || personal.drivingLicenceNumber || '',
+        'Driving Licence Expiry Date': dl?.expiryDate || personal.drivingLicenceExpiryDate || '',
+        'Opening Loan Balance': activeLoan ? roundOMR(activeLoan.loanAmount).toFixed(3) : '0.000',
+        'Monthly Loan Recovery': activeLoan ? roundOMR(activeLoan.monthlyRecoveryAmount).toFixed(3) : '0.000',
+        'Opening Salary Balance': '0.000',
+      };
+    });
+
+    if (isCsv) {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="Employee_Master_${new Date().toISOString().split('T')[0]}.csv"`);
+      return res.send('\uFEFF' + csv);
+    }
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
-      { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
-      { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 16 }, { wch: 16 },
-      { wch: 24 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }
+      { wch: 14 }, { wch: 24 }, { wch: 22 }, { wch: 14 }, { wch: 14 },
+      { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 15 }, { wch: 15 },
+      { wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 24 }, { wch: 14 },
+      { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 22 },
+      { wch: 26 }, { wch: 15 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
+      { wch: 18 }, { wch: 18 }, { wch: 24 }, { wch: 28 }, { wch: 28 },
+      { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+      { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
+      { wch: 22 }, { wch: 20 }, { wch: 22 }, { wch: 20 }, { wch: 20 },
+      { wch: 20 }
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Employee_Master');
 
@@ -460,9 +944,16 @@ router.get('/:id', verifyAuth, (req: AuthRequest, res: Response) => {
 
     const designationHistory = db.employees.getDesignationHistory(employee.employeeId);
     const salaryHistory = db.employees.getSalaryHistory(employee.employeeId);
+    const personal = db.personalDetails.get(normalizeEmployeeId(employee.employeeId));
 
     res.json({
       ...employee,
+      fatherName: (employee as any).fatherName || personal?.fatherName || '',
+      bankName: employee.bankName || personal?.bankName || '',
+      bankAccountNumber: employee.bankAccountNumber || personal?.bankAccountNumber || '',
+      iban: employee.iban || personal?.iban || '',
+      bankBranch: employee.bankBranch || personal?.bankBranch || '',
+      accountHolderName: employee.accountHolderName || personal?.accountHolderName || employee.employeeName,
       designationHistory,
       salaryHistory,
     });
@@ -490,6 +981,11 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       wpsSalary = 0,
       actualSalary = 0,
       recoverFrom,
+      bankName,
+      bankAccountNumber,
+      iban,
+      bankBranch,
+      accountHolderName,
       personalDetails,
     } = req.body;
 
@@ -546,6 +1042,25 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     }
 
     const timestamp = new Date().toISOString();
+    const finalBankName = bankName ? String(bankName).trim() : (personalDetails?.bankName ? String(personalDetails.bankName).trim() : '');
+    const finalBankAccountNumber = bankAccountNumber ? String(bankAccountNumber).trim() : (personalDetails?.bankAccountNumber ? String(personalDetails.bankAccountNumber).trim() : '');
+    const finalIban = iban ? String(iban).trim().toUpperCase() : (personalDetails?.iban ? String(personalDetails.iban).trim().toUpperCase() : '');
+    const finalBankBranch = bankBranch ? String(bankBranch).trim() : (personalDetails?.bankBranch ? String(personalDetails.bankBranch).trim() : '');
+    const finalAccountHolderName = accountHolderName ? String(accountHolderName).trim() : (personalDetails?.accountHolderName ? String(personalDetails.accountHolderName).trim() : employeeName.trim());
+
+    if (finalBankAccountNumber) {
+      const accCheck = validateBankAccountNumber(finalBankAccountNumber, finalBankName);
+      if (!accCheck.isValid) {
+        return res.status(400).json({ error: `Invalid Bank Account Number: ${accCheck.error}` });
+      }
+    }
+    if (finalIban) {
+      const ibanCheck = validateIban(finalIban, finalBankName);
+      if (!ibanCheck.isValid) {
+        return res.status(400).json({ error: `Invalid Bank IBAN: ${ibanCheck.error}` });
+      }
+    }
+
     const newEmployee: Employee = {
       id: crypto.randomUUID(),
       employeeId: normalizedId,
@@ -564,18 +1079,27 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       actualSalary: roundOMR(Number(actualSalary) || numericSalary),
       recoverFrom: recoverFrom ? recoverFrom.trim() : (wpsEmployee === 'Yes' ? employeeCompany : ''),
       isActive: true,
+      bankName: finalBankName,
+      bankAccountNumber: finalBankAccountNumber,
+      iban: finalIban,
+      bankBranch: finalBankBranch,
+      accountHolderName: finalAccountHolderName,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
 
     await db.employees.create(newEmployee);
 
-    if (personalDetails && typeof personalDetails === 'object') {
-      await db.personalDetails.save(normalizedId, {
-        ...personalDetails,
-        employeeId: normalizedId,
-      });
-    }
+    const mergedPersonal = {
+      ...(personalDetails && typeof personalDetails === 'object' ? personalDetails : {}),
+      employeeId: normalizedId,
+      bankName: finalBankName,
+      bankAccountNumber: finalBankAccountNumber,
+      iban: finalIban,
+      bankBranch: finalBankBranch,
+      accountHolderName: finalAccountHolderName,
+    };
+    await db.personalDetails.save(normalizedId, mergedPersonal);
 
     await db.audit.log({
       userId: req.user?.id,
@@ -618,6 +1142,11 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       actualSalary,
       recoverFrom,
       isActive,
+      bankName,
+      bankAccountNumber,
+      iban,
+      bankBranch,
+      accountHolderName,
       personalDetails,
     } = req.body;
 
@@ -638,14 +1167,41 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (recoverFrom !== undefined) updates.recoverFrom = recoverFrom.trim();
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
 
+    const targetBankName = bankName !== undefined ? String(bankName).trim() : (employee.bankName || '');
+    if (bankAccountNumber !== undefined && String(bankAccountNumber).trim()) {
+      const accCheck = validateBankAccountNumber(String(bankAccountNumber).trim(), targetBankName);
+      if (!accCheck.isValid) {
+        return res.status(400).json({ error: `Invalid Bank Account Number: ${accCheck.error}` });
+      }
+    }
+    if (iban !== undefined && String(iban).trim()) {
+      const ibanCheck = validateIban(String(iban).trim(), targetBankName);
+      if (!ibanCheck.isValid) {
+        return res.status(400).json({ error: `Invalid Bank IBAN: ${ibanCheck.error}` });
+      }
+    }
+
+    if (bankName !== undefined) updates.bankName = String(bankName).trim();
+    if (bankAccountNumber !== undefined) updates.bankAccountNumber = String(bankAccountNumber).trim();
+    if (iban !== undefined) updates.iban = String(iban).trim().toUpperCase();
+    if (bankBranch !== undefined) updates.bankBranch = String(bankBranch).trim();
+    if (accountHolderName !== undefined) updates.accountHolderName = String(accountHolderName).trim();
+
     const updated = await db.employees.update(id, updates, req.user?.username);
 
-    if (personalDetails && typeof personalDetails === 'object') {
-      await db.personalDetails.save(employee.employeeId, {
-        ...personalDetails,
-        employeeId: employee.employeeId,
-      });
-    }
+    // Synchronize to personal details store
+    const existingPersonal = db.personalDetails.get(employee.employeeId) || {};
+    const mergedPersonal = {
+      ...existingPersonal,
+      ...(personalDetails && typeof personalDetails === 'object' ? personalDetails : {}),
+      ...(bankName !== undefined ? { bankName: String(bankName).trim() } : {}),
+      ...(bankAccountNumber !== undefined ? { bankAccountNumber: String(bankAccountNumber).trim() } : {}),
+      ...(iban !== undefined ? { iban: String(iban).trim().toUpperCase() } : {}),
+      ...(bankBranch !== undefined ? { bankBranch: String(bankBranch).trim() } : {}),
+      ...(accountHolderName !== undefined ? { accountHolderName: String(accountHolderName).trim() } : {}),
+      employeeId: employee.employeeId,
+    };
+    await db.personalDetails.save(employee.employeeId, mergedPersonal);
 
     await db.audit.log({
       userId: req.user?.id,
@@ -692,22 +1248,42 @@ router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (re
   }
 });
 
-// POST /api/employees/import/validate - Parse and validate uploaded Excel file
+// POST /api/employees/import/validate - Parse and validate uploaded Excel or CSV file
 router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
   try {
     const { fileData } = req.body; // Base64 data from client
     if (!fileData) {
-      return res.status(400).json({ error: 'No Excel file data received.' });
+      return res.status(400).json({ error: 'No Excel or CSV file data received.' });
     }
 
     const buffer = Buffer.from(fileData.replace(/^data:.*?;base64,/, ''), 'base64');
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
+
+    // Smart sheet detection: find the sheet containing employee headers or data,
+    // avoiding reading the 'Instructions & Dropdowns' sheet if it happens to be first.
+    let targetSheetName = workbook.SheetNames[0];
+    for (const name of workbook.SheetNames) {
+      if (name.toLowerCase().includes('instruction')) continue;
+      const ws = workbook.Sheets[name];
+      if (!ws) continue;
+      const sample = XLSX.utils.sheet_to_json(ws, { header: 1, range: 0, defval: '' }) as any[][];
+      if (sample && sample[0] && Array.isArray(sample[0])) {
+        const hasEmpHeader = sample[0].some((cell: any) => {
+          const c = String(cell || '').toLowerCase().replace(/[^a-z]/g, '');
+          return c.includes('employeeid') || c.includes('employeename') || c === 'empid' || c === 'id';
+        });
+        if (hasEmpHeader) {
+          targetSheetName = name;
+          break;
+        }
+      }
+    }
+
+    const worksheet = workbook.Sheets[targetSheetName];
     const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
     if (rawRows.length === 0) {
-      return res.status(400).json({ error: 'The uploaded spreadsheet contains no data rows.' });
+      return res.status(400).json({ error: 'The uploaded file contains no data rows.' });
     }
 
     const seenIdsInFile = new Set<string>();
@@ -721,23 +1297,76 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       const row = rawRows[i];
       const rowNumber = i + 2; // Accounting for 1-based header row
 
-      const rawId = String(row['Employee ID'] || row['EmployeeID'] || row['employee_id'] || '').trim();
-      const rawName = String(row['Employee Name'] || row['EmployeeName'] || row['employee_name'] || '').trim();
-      const rawType = String(row['Employee Type'] || row['Type'] || '').trim();
-      const rawNat = String(row['Nationality Type'] || row['Nationality'] || '').trim();
-      const rawWage = String(row['Wage Type'] || row['WageType'] || '').trim();
-      const rawDoj = excelCellToDateString(row['Date of Joining'] || row['DOJ']);
-      const rawDol = excelCellToDateString(row['Date of Leaving'] || row['DOL']);
-      const rawDesig = String(row['Designation'] || '').trim();
-      const rawComp = String(row['Employee Company'] || row['Company'] || '').trim();
-      const rawPaidBy = String(row['Salary Paid By'] || row['PaidBy'] || '').trim();
-      const rawSalary = row['Monthly Salary / Wage Rate'] || row['Salary'] || row['Rate'] || 0;
-      const rawWps = String(row['WPS Employee'] || row['WPS'] || 'No').trim();
-      const rawWpsSalary = row['WPS Salary'] || 0;
-      const rawActual = row['Actual Salary'] || rawSalary;
-      const rawRecover = String(row['Recover From'] || '').trim();
+      // 1. Basic Employment Information
+      const rawId = String(getRowValue(row, ['Employee ID', 'EmployeeID', 'employee_id', 'Emp ID', 'EmpID', 'ID']) || '').trim();
+      const rawName = String(getRowValue(row, ['Employee Name', 'EmployeeName', 'employee_name', 'Full Name', 'Name']) || '').trim();
+      const rawFather = String(getRowValue(row, ['Father Name', 'FatherName', 'father_name', 'Fathers Name', "Father's Name", 'Father']) || '').trim();
+      const rawType = normalizeEmployeeType(getRowValue(row, ['Employee Type', 'EmployeeType', 'employee_type', 'Type', 'Emp Type']));
+      const rawNat = normalizeNationalityType(getRowValue(row, ['Nationality Type', 'NationalityType', 'nationality_type', 'Nationality', 'Nation']));
+      const rawDesig = String(getRowValue(row, ['Designation', 'designation', 'Job Title', 'JobTitle', 'Position', 'Role']) || '').trim();
+      const rawComp = normalizeCompany(getRowValue(row, ['Employee Company', 'EmployeeCompany', 'employee_company', 'Company', 'Emp Company']));
+      const rawPaidByInput = normalizePaidBy(getRowValue(row, ['Salary Paid By', 'SalaryPaidBy', 'salary_paid_by', 'Paid By', 'PaidBy']));
+      const rawPaidBy = rawPaidByInput || (['DGO', 'SMI', 'NC', 'Supplier'].includes(rawComp) ? rawComp : 'DGO');
+      const rawDoj = excelCellToDateString(getRowValue(row, ['Date of Joining', 'DateOfJoining', 'date_of_joining', 'DOJ', 'Joining Date', 'Join Date']));
+      const rawDol = excelCellToDateString(getRowValue(row, ['Date of Leaving', 'DateOfLeaving', 'date_of_leaving', 'DOL', 'Leaving Date', 'Leave Date']));
+      const rawStatusStr = String(getRowValue(row, ['Employment Status', 'EmploymentStatus', 'Status', 'Is Active']) || '').trim().toLowerCase();
+      const isActive = !rawStatusStr.includes('inact') && !rawStatusStr.includes('left') && !rawStatusStr.includes('term');
+      const rawProject = String(getRowValue(row, ['Assigned Project', 'AssignedProject', 'Project', 'Project Name', 'Site']) || '').trim();
+
+      // 2. Compensation & WPS
+      const rawWage = normalizeWageType(getRowValue(row, ['Wage Type', 'WageType', 'wage_type', 'Wage', 'Pay Type']));
+      const rawSalary = cleanNumber(getRowValue(row, ['Monthly Salary / Wage Rate', 'Monthly Salary', 'Wage Rate', 'Salary', 'Rate', 'Basic Salary', 'WageRate', 'MonthlySalary']), 0);
+      const rawWps = normalizeWPS(getRowValue(row, ['WPS Employee', 'WPSEmployee', 'wps_employee', 'WPS', 'Is WPS']));
+      const rawWpsSalaryInput = cleanNumber(getRowValue(row, ['WPS Salary', 'WPSSalary', 'wps_salary']), 0);
+      const rawWpsSalary = rawWps === 'Yes' ? (rawWpsSalaryInput > 0 ? rawWpsSalaryInput : rawSalary) : 0;
+      const rawActualInput = cleanNumber(getRowValue(row, ['Actual Salary', 'ActualSalary', 'actual_salary']), 0);
+      const rawActual = rawActualInput > 0 ? rawActualInput : rawSalary;
+      const rawRecover = normalizeCompany(getRowValue(row, ['Recover From', 'RecoverFrom', 'recover_from', 'Recovery Company'])) || (rawWps === 'Yes' ? rawComp : '');
+
+      // 3. Banking Details
+      const rawBankName = String(getRowValue(row, ['Bank Name', 'BankName', 'bank_name', 'Bank']) || '').trim();
+      const rawBankAccount = String(getRowValue(row, ['Bank Account Number', 'BankAccountNumber', 'bank_account_number', 'Account Number', 'Account No', 'Bank Account']) || '').trim();
+      const rawIban = String(getRowValue(row, ['Bank IBAN', 'BankIBAN', 'IBAN', 'iban', 'Bank Iban']) || '').trim().toUpperCase();
+
+      // 4. Personal Information & Demographics
+      const rawDob = excelCellToDateString(getRowValue(row, ['Date of Birth', 'DateOfBirth', 'date_of_birth', 'DOB', 'Birth Date']));
+      const rawGender = normalizeGender(getRowValue(row, ['Gender', 'gender', 'Sex', 'sex']));
+      const rawMarital = normalizeMaritalStatus(getRowValue(row, ['Marital Status', 'MaritalStatus', 'marital_status']));
+      const rawBlood = normalizeBloodGroup(getRowValue(row, ['Blood Group', 'BloodGroup', 'blood_group', 'Blood']));
+      const rawMobile = String(getRowValue(row, ['Mobile Number', 'MobileNumber', 'mobile_number', 'Mobile', 'Phone', 'Phone Number']) || '').trim();
+      const rawWhatsapp = String(getRowValue(row, ['WhatsApp Number', 'WhatsAppNumber', 'whatsapp_number', 'WhatsApp', 'Whatsapp']) || '').trim();
+      const rawEmail = String(getRowValue(row, ['Personal Email', 'PersonalEmail', 'personal_email', 'Email', 'Email Address']) || '').trim();
+      const rawResAddress = String(getRowValue(row, ['Residential Address', 'ResidentialAddress', 'residential_address', 'Current Address', 'Accommodation', 'Address']) || '').trim();
+      const rawPermAddress = String(getRowValue(row, ['Permanent Address', 'PermanentAddress', 'permanent_address', 'Home Address']) || '').trim();
+      const rawEmergName = String(getRowValue(row, ['Emergency Contact Name', 'EmergencyContactName', 'emergency_contact_name', 'Emergency Contact']) || '').trim();
+      const rawEmergRel = String(getRowValue(row, ['Emergency Contact Relationship', 'EmergencyContactRelationship', 'emergency_contact_relationship', 'Relationship', 'Relation']) || '').trim();
+      const rawEmergPhone = String(getRowValue(row, ['Emergency Contact Phone', 'EmergencyContactPhone', 'emergency_contact_phone', 'Emergency Phone']) || '').trim();
+
+      // 5. Statutory & Government Documents
+      const rawCivilId = String(getRowValue(row, ['Civil ID Number', 'CivilIDNumber', 'Civil ID', 'CivilId', 'Civil ID No', 'Resident Card', 'civil_id_number']) || '').trim();
+      const rawCivilIdExp = excelCellToDateString(getRowValue(row, ['Civil ID Expiry Date', 'CivilIDExpiryDate', 'Civil ID Expiry', 'civil_id_expiry_date']));
+      const rawPassport = String(getRowValue(row, ['Passport Number', 'PassportNumber', 'Passport', 'Passport No', 'passport_number']) || '').trim();
+      const rawPassportExp = excelCellToDateString(getRowValue(row, ['Passport Expiry Date', 'PassportExpiryDate', 'Passport Expiry', 'passport_expiry_date']));
+      const rawVisa = String(getRowValue(row, ['Visa Number', 'VisaNumber', 'Visa No', 'Visa', 'visa_number']) || '').trim();
+      const rawVisaExp = excelCellToDateString(getRowValue(row, ['Visa Expiry Date', 'VisaExpiryDate', 'Visa Expiry', 'visa_expiry_date']));
+      const rawVisaTrade = String(getRowValue(row, ['Visa Trade', 'VisaTrade', 'Trade On Visa', 'visa_trade']) || '').trim();
+      const rawVisaSponsor = String(getRowValue(row, ['Visa Sponsor', 'VisaSponsor', 'Sponsor', 'visa_sponsor']) || '').trim();
+      const rawDL = String(getRowValue(row, ['Driving Licence Number', 'DrivingLicenceNumber', 'Driving License Number', 'Driving Licence', 'Driving License', 'DL Number', 'driving_licence_number']) || '').trim();
+      const rawDLExp = excelCellToDateString(getRowValue(row, ['Driving Licence Expiry Date', 'DrivingLicenceExpiryDate', 'Driving License Expiry Date', 'DL Expiry Date', 'DL Expiry', 'driving_licence_expiry_date']));
+
+      // 6. Ledger & Opening Balances
+      const rawOpeningLoan = cleanNumber(getRowValue(row, ['Opening Loan Balance', 'OpeningLoanBalance', 'opening_loan_balance', 'Loan Balance', 'Loan Amount']), 0);
+      const rawLoanRecovery = cleanNumber(getRowValue(row, ['Monthly Loan Recovery', 'MonthlyLoanRecovery', 'monthly_loan_recovery', 'Loan Recovery', 'Monthly Deduction']), 0);
+      const rawOpeningSalary = cleanNumber(getRowValue(row, ['Opening Salary Balance', 'OpeningSalaryBalance', 'opening_salary_balance', 'Salary Balance']), 0);
+
+      // Skip completely empty rows that Excel often generates at the bottom
+      if (!rawId && !rawName && !rawDesig && !rawType) {
+        continue;
+      }
 
       const normalizedId = normalizeEmployeeId(rawId);
+      const finalDoj = rawDoj || new Date().toISOString().split('T')[0];
+      const finalDol = rawDol || null;
 
       // Validation Checks
       let status: 'New' | 'Existing' | 'Duplicate' | 'Invalid' = 'New';
@@ -755,8 +1384,11 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
         salary: rawSalary,
         wpsSalary: rawWpsSalary,
         actualSalary: rawActual,
-        dateOfJoining: rawDoj,
-        dateOfLeaving: rawDol,
+        dateOfJoining: finalDoj,
+        dateOfLeaving: rawDol || '',
+        bankName: rawBankName,
+        bankAccountNumber: rawBankAccount,
+        iban: rawIban,
       });
 
       if (fieldError) {
@@ -783,19 +1415,50 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
         rowNumber,
         employeeId: normalizedId || rawId,
         employeeName: rawName,
+        fatherName: rawFather,
         employeeType: rawType,
         nationalityType: rawNat,
         wageType: rawWage,
-        dateOfJoining: rawDoj || new Date().toISOString().split('T')[0],
-        dateOfLeaving: rawDol || null,
+        dateOfJoining: finalDoj,
+        dateOfLeaving: finalDol,
         designation: rawDesig,
         employeeCompany: rawComp,
         salaryPaidBy: rawPaidBy,
         monthlySalaryOrRate: roundOMR(Number(rawSalary) || 0),
-        wpsEmployee: rawWps.toLowerCase() === 'yes' ? 'Yes' : 'No',
+        wpsEmployee: rawWps,
         wpsSalary: roundOMR(Number(rawWpsSalary) || 0),
         actualSalary: roundOMR(Number(rawActual) || Number(rawSalary) || 0),
-        recoverFrom: rawRecover || (rawWps.toLowerCase() === 'yes' ? rawComp : ''),
+        recoverFrom: rawRecover || (rawWps === 'Yes' ? rawComp : ''),
+        assignedProject: rawProject,
+        isActive,
+        bankName: rawBankName,
+        bankAccountNumber: rawBankAccount,
+        iban: rawIban,
+        dateOfBirth: rawDob,
+        gender: rawGender,
+        maritalStatus: rawMarital,
+        bloodGroup: rawBlood,
+        mobileNumber: rawMobile,
+        whatsappNumber: rawWhatsapp,
+        personalEmail: rawEmail,
+        residentialAddress: rawResAddress,
+        permanentAddress: rawPermAddress,
+        emergencyContactName: rawEmergName,
+        emergencyContactRelationship: rawEmergRel,
+        emergencyContactPhone: rawEmergPhone,
+        civilIdNumber: rawCivilId,
+        civilIdExpiryDate: rawCivilIdExp,
+        passportNumber: rawPassport,
+        passportExpiryDate: rawPassportExp,
+        visaNumber: rawVisa,
+        visaExpiryDate: rawVisaExp,
+        visaTrade: rawVisaTrade,
+        visaSponsor: rawVisaSponsor,
+        drivingLicenceNumber: rawDL,
+        drivingLicenceExpiryDate: rawDLExp,
+        openingLoanBalance: rawOpeningLoan,
+        monthlyLoanRecovery: rawLoanRecovery,
+        openingSalaryBalance: rawOpeningSalary,
         status,
         reason,
       });
@@ -803,7 +1466,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
 
     res.json({
       summary: {
-        totalRows: rawRows.length,
+        totalRows: previewRows.length,
         newCount,
         existingCount,
         duplicateCount,
@@ -812,7 +1475,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       rows: previewRows,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to parse Excel file.' });
+    res.status(500).json({ error: err.message || 'Failed to parse file.' });
   }
 });
 
@@ -837,8 +1500,9 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
         continue;
       }
 
-      // Defense-in-depth: re-validate every row server-side, since this payload is client-supplied
-      // and must not be trusted purely on the say-so of an earlier /import/validate call.
+      // Defense-in-depth: re-validate every row server-side
+      const rowDoj = r.dateOfJoining || timestamp.split('T')[0];
+      const rowDol = r.dateOfLeaving || '';
       const fieldError = validateEmployeeFields({
         employeeId: normalizeEmployeeId(r.employeeId),
         employeeName: r.employeeName,
@@ -851,8 +1515,11 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
         salary: r.monthlySalaryOrRate,
         wpsSalary: r.wpsSalary,
         actualSalary: r.actualSalary,
-        dateOfJoining: r.dateOfJoining,
-        dateOfLeaving: r.dateOfLeaving,
+        dateOfJoining: rowDoj,
+        dateOfLeaving: rowDol,
+        bankName: r.bankName,
+        bankAccountNumber: r.bankAccountNumber,
+        iban: r.iban,
       });
 
       if (fieldError) {
@@ -882,10 +1549,12 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
               wpsSalary: roundOMR(Number(r.wpsSalary)),
               actualSalary: roundOMR(Number(r.actualSalary)),
               recoverFrom: r.recoverFrom,
+              isActive: r.isActive !== undefined ? Boolean(r.isActive) : existing.isActive,
             }, req.user?.username);
             updatedCount++;
           } else {
             skippedCount++;
+            continue;
           }
         } else {
           const newEmp: Employee = {
@@ -905,12 +1574,193 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
             wpsSalary: roundOMR(Number(r.wpsSalary) || 0),
             actualSalary: roundOMR(Number(r.actualSalary) || Number(r.monthlySalaryOrRate) || 0),
             recoverFrom: r.recoverFrom || (r.wpsEmployee === 'Yes' ? r.employeeCompany : ''),
-            isActive: true,
+            isActive: r.isActive !== undefined ? Boolean(r.isActive) : true,
             createdAt: timestamp,
             updatedAt: timestamp,
           };
           await db.employees.create(newEmp);
           importedCount++;
+        }
+
+        // Commit Personal Details (including Father Name, Demographics, Banking, and Contacts)
+        const existingPersonal = db.personalDetails.get(normId) || {};
+        const emergencyContacts = [...(existingPersonal.emergencyContacts || [])];
+        if (r.emergencyContactName || r.emergencyContactPhone) {
+          const contactObj = {
+            name: r.emergencyContactName || 'Emergency Contact',
+            relationship: r.emergencyContactRelationship || 'Contact',
+            contactNumber: r.emergencyContactPhone || '',
+            isPrimary: true,
+          };
+          if (emergencyContacts.length > 0) {
+            emergencyContacts[0] = contactObj;
+          } else {
+            emergencyContacts.push(contactObj);
+          }
+        }
+
+        const updatedPersonal: EmployeePersonalDetails = {
+          ...existingPersonal,
+          employeeId: normId,
+          fatherName: r.fatherName || existingPersonal.fatherName || '',
+          dateOfBirth: r.dateOfBirth || existingPersonal.dateOfBirth,
+          dob: r.dateOfBirth || existingPersonal.dob,
+          gender: r.gender || existingPersonal.gender || 'Male',
+          maritalStatus: r.maritalStatus || existingPersonal.maritalStatus || 'Single',
+          bloodGroup: r.bloodGroup || existingPersonal.bloodGroup,
+          mobileNumber: r.mobileNumber || existingPersonal.mobileNumber,
+          whatsappNumber: r.whatsappNumber || existingPersonal.whatsappNumber,
+          personalEmail: r.personalEmail || existingPersonal.personalEmail,
+          residentialAddress: r.residentialAddress || existingPersonal.residentialAddress,
+          permanentAddress: r.permanentAddress || existingPersonal.permanentAddress,
+          bankName: r.bankName || existingPersonal.bankName,
+          bankAccountNumber: r.bankAccountNumber || existingPersonal.bankAccountNumber,
+          iban: r.iban || existingPersonal.iban,
+          assignedProject: r.assignedProject || existingPersonal.assignedProject,
+          emergencyContacts: emergencyContacts.length > 0 ? emergencyContacts : existingPersonal.emergencyContacts,
+          civilIdNumber: r.civilIdNumber || existingPersonal.civilIdNumber,
+          civilIdExpiryDate: r.civilIdExpiryDate || existingPersonal.civilIdExpiryDate,
+          passportNumber: r.passportNumber || existingPersonal.passportNumber,
+          passportExpiryDate: r.passportExpiryDate || existingPersonal.passportExpiryDate,
+          visaNumber: r.visaNumber || existingPersonal.visaNumber,
+          visaExpiryDate: r.visaExpiryDate || existingPersonal.visaExpiryDate,
+          drivingLicenceNumber: r.drivingLicenceNumber || existingPersonal.drivingLicenceNumber,
+          drivingLicenceExpiryDate: r.drivingLicenceExpiryDate || existingPersonal.drivingLicenceExpiryDate,
+          updatedAt: timestamp,
+        };
+        await db.personalDetails.save(normId, updatedPersonal);
+
+        // Commit Statutory Records: Civil ID
+        if (r.civilIdNumber) {
+          const existingCivil = db.civilIds.getAll().find(c => normalizeEmployeeId(c.employeeId) === normId);
+          if (existingCivil) {
+            await db.civilIds.update(existingCivil.id, {
+              civilIdNumber: r.civilIdNumber,
+              expiryDate: r.civilIdExpiryDate || existingCivil.expiryDate,
+              country: 'Oman',
+            });
+          } else {
+            await db.civilIds.create({
+              id: crypto.randomUUID(),
+              employeeId: normId,
+              civilIdNumber: r.civilIdNumber,
+              issueDate: '',
+              expiryDate: r.civilIdExpiryDate || '',
+              issuingAuthority: 'ROP',
+              country: 'Oman',
+              status: 'Valid',
+              isCurrent: true,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+              createdBy: req.user?.username || 'Import',
+            });
+          }
+        }
+
+        // Commit Statutory Records: Passport
+        if (r.passportNumber) {
+          const existingPassport = db.governmentDocuments.getAll().find(g => normalizeEmployeeId(g.employeeId) === normId && g.documentType === 'Passport');
+          if (existingPassport) {
+            await db.governmentDocuments.update(existingPassport.id, {
+              documentNumber: r.passportNumber,
+              expiryDate: r.passportExpiryDate || existingPassport.expiryDate,
+            });
+          } else {
+            await db.governmentDocuments.create({
+              id: crypto.randomUUID(),
+              employeeId: normId,
+              documentType: 'Passport',
+              documentNumber: r.passportNumber,
+              issueDate: '',
+              expiryDate: r.passportExpiryDate || '',
+              status: 'Valid',
+              isCurrent: true,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+              createdBy: req.user?.username || 'Import',
+            });
+          }
+        }
+
+        // Commit Statutory Records: Visa
+        if (r.visaNumber) {
+          const existingVisa = db.visas.getAll().find(v => normalizeEmployeeId(v.employeeId) === normId);
+          if (existingVisa) {
+            await db.visas.update(existingVisa.id, {
+              visaNumber: r.visaNumber,
+              expiryDate: r.visaExpiryDate || existingVisa.expiryDate,
+              tradeOnVisa: r.visaTrade || existingVisa.tradeOnVisa,
+              sponsor: r.visaSponsor || existingVisa.sponsor,
+            });
+          } else {
+            await db.visas.create({
+              id: crypto.randomUUID(),
+              employeeId: normId,
+              visaNumber: r.visaNumber,
+              visaType: 'Work Visa',
+              sponsor: r.visaSponsor || r.employeeCompany,
+              issueDate: '',
+              expiryDate: r.visaExpiryDate || '',
+              effectiveFrom: r.dateOfJoining || timestamp.slice(0, 10),
+              status: 'Valid',
+              isCurrent: true,
+              tradeOnVisa: r.visaTrade || r.designation,
+              issuingAuthority: 'ROP Immigration',
+              country: 'Oman',
+              createdAt: timestamp,
+              updatedAt: timestamp,
+              createdBy: req.user?.username || 'Import',
+            });
+          }
+        }
+
+        // Commit Statutory Records: Driving Licence
+        if (r.drivingLicenceNumber) {
+          const existingDL = db.drivingLicences.getAll().find(d => normalizeEmployeeId(d.employeeId) === normId);
+          if (existingDL) {
+            await db.drivingLicences.update(existingDL.id, {
+              licenceNumber: r.drivingLicenceNumber,
+              expiryDate: r.drivingLicenceExpiryDate || existingDL.expiryDate,
+            });
+          } else {
+            await db.drivingLicences.create({
+              id: crypto.randomUUID(),
+              employeeId: normId,
+              licenceNumber: r.drivingLicenceNumber,
+              category: 'Light Vehicle',
+              issuingCountry: 'Oman',
+              issuingAuthority: 'ROP',
+              issueDate: '',
+              expiryDate: r.drivingLicenceExpiryDate || '',
+              status: 'Valid',
+              isCurrent: true,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+              createdBy: req.user?.username || 'Import',
+            });
+          }
+        }
+
+        // Commit Ledger / Opening Loan Balance
+        const loanAmt = Number(r.openingLoanBalance);
+        if (loanAmt > 0) {
+          const hasActiveLoan = db.loans.getAll().some(l => normalizeEmployeeId(l.employeeId) === normId && l.status === 'Active');
+          if (!hasActiveLoan) {
+            const recoveryAmt = Number(r.monthlyLoanRecovery) > 0 ? Number(r.monthlyLoanRecovery) : Math.min(50, loanAmt);
+            await db.loans.create({
+              id: crypto.randomUUID(),
+              employeeId: normId,
+              employeeName: r.employeeName,
+              loanAmount: loanAmt,
+              loanDate: r.dateOfJoining || timestamp.slice(0, 10),
+              monthlyRecoveryAmount: recoveryAmt,
+              monthlyDeduction: recoveryAmt,
+              status: 'Active',
+              remarks: 'Opening Loan Balance from Employee Import',
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            });
+          }
         }
       } catch (rowErr: any) {
         errors.push({ rowNumber: r.rowNumber, employeeId: r.employeeId, employeeName: r.employeeName, errorType: 'Database Error', description: rowErr.message || 'Failed to save this row.' });
@@ -1678,7 +2528,47 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const payload = req.body || {};
+
+    const targetBankName = payload.bankName !== undefined ? String(payload.bankName).trim() : (emp.bankName || '');
+    if (payload.bankAccountNumber !== undefined && String(payload.bankAccountNumber).trim()) {
+      const accCheck = validateBankAccountNumber(String(payload.bankAccountNumber).trim(), targetBankName);
+      if (!accCheck.isValid) {
+        return res.status(400).json({ error: `Invalid Bank Account Number: ${accCheck.error}` });
+      }
+    }
+    if (payload.iban !== undefined && String(payload.iban).trim()) {
+      const ibanCheck = validateIban(String(payload.iban).trim(), targetBankName);
+      if (!ibanCheck.isValid) {
+        return res.status(400).json({ error: `Invalid Bank IBAN: ${ibanCheck.error}` });
+      }
+    }
+
     const saved = await db.personalDetails.save(norm, payload);
+
+    // Synchronize employeeName and nationalityType if updated from personal info tab
+    if (payload.employeeName || payload.nationalityType) {
+      await db.employees.update(emp.id, {
+        ...(payload.employeeName && typeof payload.employeeName === 'string' ? { employeeName: payload.employeeName.trim() } : {}),
+        ...(payload.nationalityType && isValidNationalityType(payload.nationalityType) ? { nationalityType: payload.nationalityType } : {}),
+      });
+    }
+
+    // Synchronize bank details back to employee record if provided
+    if (
+      payload.bankName !== undefined ||
+      payload.bankAccountNumber !== undefined ||
+      payload.iban !== undefined ||
+      payload.bankBranch !== undefined ||
+      payload.accountHolderName !== undefined
+    ) {
+      await db.employees.update(emp.id, {
+        ...(payload.bankName !== undefined ? { bankName: String(payload.bankName).trim() } : {}),
+        ...(payload.bankAccountNumber !== undefined ? { bankAccountNumber: String(payload.bankAccountNumber).trim() } : {}),
+        ...(payload.iban !== undefined ? { iban: String(payload.iban).trim().toUpperCase() } : {}),
+        ...(payload.bankBranch !== undefined ? { bankBranch: String(payload.bankBranch).trim() } : {}),
+        ...(payload.accountHolderName !== undefined ? { accountHolderName: String(payload.accountHolderName).trim() } : {}),
+      });
+    }
 
     // Synchronize critical documents with compliance modules if provided
     const timestamp = new Date().toISOString();

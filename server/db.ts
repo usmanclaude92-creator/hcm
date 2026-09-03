@@ -1677,6 +1677,7 @@ class DatabaseManager {
     const initialPersonalDetails: Record<string, EmployeePersonalDetails> = {
       EMP001: {
         employeeId: 'EMP001',
+        fatherName: 'Hamdan Al-Balushi',
         dateOfBirth: '1988-04-12',
         gender: 'Male',
         maritalStatus: 'Married',
@@ -1699,6 +1700,7 @@ class DatabaseManager {
       },
       EMP002: {
         employeeId: 'EMP002',
+        fatherName: 'Ali Hassan',
         dateOfBirth: '1992-07-22',
         gender: 'Male',
         maritalStatus: 'Married',
@@ -1715,6 +1717,7 @@ class DatabaseManager {
       },
       EMP003: {
         employeeId: 'EMP003',
+        fatherName: 'Tariq Mehmood',
         dateOfBirth: '1995-11-05',
         gender: 'Male',
         maritalStatus: 'Single',

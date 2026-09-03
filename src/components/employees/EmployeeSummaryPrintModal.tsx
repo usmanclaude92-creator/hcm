@@ -281,6 +281,12 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
                 </div>
                 <div className="p-3 space-y-1.5 bg-white">
                   <div className="flex justify-between border-b border-slate-100 pb-1">
+                    <span className="text-slate-500">Father's Name:</span>
+                    <span className="font-semibold text-slate-800">
+                      {personal?.fatherName || '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-1">
                     <span className="text-slate-500">Date of Birth &amp; Age:</span>
                     <span className="font-semibold text-slate-800">
                       {dob ? `${formatDate(dob)} ${age !== null ? `(${age} yrs)` : ''}` : '—'}

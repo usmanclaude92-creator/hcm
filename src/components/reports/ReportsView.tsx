@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import {
   FileBarChart,
   Download,
@@ -48,16 +48,32 @@ export const ReportsView: React.FC = () => {
     fetchReport();
   }, [activeTab, month]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (activeTab === 'projects') return;
 
     let url = '';
-    if (activeTab === 'payroll') url = `/api/reports/payroll?month=${month}&exportFormat=excel`;
-    else if (activeTab === 'payments') url = `/api/reports/payments?month=${month}&exportFormat=excel`;
-    else if (activeTab === 'wps') url = `/api/reports/wps?month=${month}&exportFormat=excel`;
-    else if (activeTab === 'loans') url = `/api/reports/loans?exportFormat=excel`;
+    let fallbackFilename = 'Report.xlsx';
+    if (activeTab === 'payroll') {
+      url = `/api/reports/payroll?month=${encodeURIComponent(month)}&exportFormat=excel`;
+      fallbackFilename = `Payroll_Report_${month}.xlsx`;
+    } else if (activeTab === 'payments') {
+      url = `/api/reports/payments?month=${encodeURIComponent(month)}&exportFormat=excel`;
+      fallbackFilename = `Payments_Report_${month}.xlsx`;
+    } else if (activeTab === 'wps') {
+      url = `/api/reports/wps?month=${encodeURIComponent(month)}&exportFormat=excel`;
+      fallbackFilename = `WPS_Report_${month}.xlsx`;
+    } else if (activeTab === 'loans') {
+      url = `/api/reports/loans?exportFormat=excel`;
+      fallbackFilename = `Loans_Report.xlsx`;
+    }
 
-    window.location.href = url;
+    if (!url) return;
+
+    try {
+      await downloadAuthenticatedFile(url, fallbackFilename);
+    } catch (err: any) {
+      alert(err.message || 'Failed to export report.');
+    }
   };
 
   const handlePrint = () => {

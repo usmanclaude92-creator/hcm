@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -24,9 +24,12 @@ import {
   TrendingUp,
   Briefcase,
   Plus,
-  Zap,
   CreditCard,
   Building,
+  Camera,
+  Maximize2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { EmployeeIdentificationModal } from './EmployeeIdentificationModal';
 import { EmployeeSummaryPrintModal } from './EmployeeSummaryPrintModal';
@@ -34,6 +37,7 @@ import { SearchableEmployeeSelect } from '../common/SearchableEmployeeSelect';
 import { AddLoanQuickModal } from './quick-actions/AddLoanQuickModal';
 import { UpdateSalaryQuickModal } from './quick-actions/UpdateSalaryQuickModal';
 import { AssignProjectQuickModal } from './quick-actions/AssignProjectQuickModal';
+import { ImageCropModal } from './ImageCropModal';
 
 type LedgerRowType = 'Salary' | 'Salary Payment' | 'Loan Disbursement' | 'Loan Recovery';
 
@@ -131,6 +135,82 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
   const [isUpdateSalaryModalOpen, setIsUpdateSalaryModalOpen] = useState(false);
   const [isAssignProjectModalOpen, setIsAssignProjectModalOpen] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [selectedImageForCrop, setSelectedImageForCrop] = useState<string | null>(null);
+  const [photoFit, setPhotoFit] = useState<'cover' | 'contain'>('cover');
+
+  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedEmployeeId) return;
+
+    if (!file.type.startsWith('image/')) {
+      setActionFeedback({ type: 'error', message: 'Please select a valid image file (JPG, PNG, WEBP).' });
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setActionFeedback({ type: 'error', message: 'Image file size should be less than 15MB.' });
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      try {
+        await apiRequest(`/api/employees/${selectedEmployeeId}/personal-details`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            ...(personalDetails || {}),
+            photoUrl: dataUrl,
+          }),
+        });
+
+        setPersonalDetails((prev: any) => ({ ...(prev || {}), photoUrl: dataUrl }));
+        setEmployee((prev: any) => (prev ? { ...prev, photoUrl: dataUrl } : prev));
+        setActionFeedback({ type: 'success', message: 'Profile photo updated and fitted to box.' });
+      } catch (err: any) {
+        setActionFeedback({ type: 'error', message: err.message || 'Failed to update profile photo.' });
+      } finally {
+        setIsUploadingPhoto(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.onerror = () => {
+      setIsUploadingPhoto(false);
+      setActionFeedback({ type: 'error', message: 'Error reading selected image.' });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveCroppedPhoto = async (croppedDataUrl: string) => {
+    if (!selectedEmployeeId) return;
+
+    setIsUploadingPhoto(true);
+    setIsCropModalOpen(false);
+
+    try {
+      await apiRequest(`/api/employees/${selectedEmployeeId}/personal-details`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...(personalDetails || {}),
+          photoUrl: croppedDataUrl,
+        }),
+      });
+
+      setPersonalDetails((prev: any) => ({ ...(prev || {}), photoUrl: croppedDataUrl }));
+      setEmployee((prev: any) => (prev ? { ...prev, photoUrl: croppedDataUrl } : prev));
+      setActionFeedback({ type: 'success', message: 'Profile photo cropped and updated successfully.' });
+    } catch (err: any) {
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to update profile photo.' });
+    } finally {
+      setIsUploadingPhoto(false);
+      setSelectedImageForCrop(null);
+    }
+  };
 
   useEffect(() => {
     if (actionFeedback) {
@@ -432,6 +512,7 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
       {
         'Employee ID': employee?.employeeId,
         'Employee Name': employee?.employeeName,
+        'Father Name': personal?.fatherName || '',
         Nationality: employee?.nationalityType,
         'Civil ID Number': civilIdNumber || '',
         'Passport Number': passportNumber || '',
@@ -452,6 +533,11 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
         'Pay By': employee?.salaryPaidBy,
         'Wage Type': employee?.wageType,
         'WPS Status': employee?.wpsEmployee,
+        'Bank Name': personal?.bankName || employee?.bankName || '',
+        'Bank Account Number': personal?.bankAccountNumber || employee?.bankAccountNumber || '',
+        'IBAN': personal?.iban || employee?.iban || '',
+        'Bank Branch': personal?.bankBranch || employee?.bankBranch || '',
+        'Account Holder Name': personal?.accountHolderName || employee?.accountHolderName || employee?.employeeName || '',
       },
     ]);
     const ledgerSheet = XLSX.utils.json_to_sheet(
@@ -538,41 +624,6 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
           />
           {selectedEmployeeId && (
             <>
-              {/* Quick Actions Group */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5 flex items-center gap-1">
-                  <Zap size={11} className="text-amber-500 fill-amber-500" />
-                  <span>Actions:</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setIsAddLoanModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                  title="Issue new loan or salary advance"
-                >
-                  <Landmark className="w-3.5 h-3.5 text-purple-600" />
-                  <span>+ Add Loan</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsUpdateSalaryModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                  title="Update salary rate and compensation"
-                >
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Update Salary</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAssignProjectModalOpen(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                  title="Assign workforce project deployment"
-                >
-                  <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Assign Project</span>
-                </button>
-              </div>
-
               <button
                 onClick={() => setIsComplianceModalOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer"
@@ -666,103 +717,96 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
             const emergencyName = primaryEmergency?.name || personal?.emergencyContactName;
             const emergencyRelation = primaryEmergency?.relationship || personal?.emergencyContactRelation;
             const emergencyPhone = primaryEmergency?.contactNumber || personal?.emergencyContactPhone;
+            const photo = personal?.photoUrl || personal?.avatarUrl || employee?.photoUrl || employee?.avatarUrl;
 
             return (
-              <div className="grid grid-cols-1 lg:grid-cols-[190px_1fr] gap-5">
-                {/* Photo & Identity Widget */}
-                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-between text-center shrink-0">
-                  <div className="flex flex-col items-center w-full">
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-xl shadow-xs mb-3">
-                      {employee?.employeeName ? (
-                        employee.employeeName
-                          .split(' ')
-                          .filter(Boolean)
-                          .slice(0, 2)
-                          .map((n: string) => n[0])
-                          .join('')
-                          .toUpperCase()
+              <div className="grid grid-cols-1 lg:grid-cols-10 gap-5">
+                {/* Profile Photo Widget (Ratio: 2 of 10) */}
+                <div className="lg:col-span-2 w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-center self-stretch">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                    aria-label="Upload Profile Photo"
+                  />
+
+                  <div
+                    className="relative group cursor-pointer w-full h-full min-h-[220px] flex items-center justify-center focus-within:ring-2 focus-within:ring-blue-500 focus:outline-hidden bg-slate-100/70 overflow-hidden"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Click to update profile photo"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                  >
+                    {photo ? (
+                      <img
+                        src={photo}
+                        alt={employee?.employeeName || 'Profile Photo'}
+                        className={`w-full h-full ${photoFit === 'contain' ? 'object-contain' : 'object-cover'} transition-transform duration-200 group-hover:scale-102`}
+                      />
+                    ) : (
+                      <div className="w-full h-full min-h-[220px] bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-bold text-4xl sm:text-5xl shadow-xs transition-transform duration-200 group-hover:scale-105">
+                        {employee?.employeeName ? (
+                          employee.employeeName
+                            .split(' ')
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((n: string) => n[0])
+                            .join('')
+                            .toUpperCase()
+                        ) : (
+                          <UserRound className="w-16 h-16 text-white/80" />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Subtle Camera Overlay on Hover / Focus */}
+                    <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1.5 p-2">
+                      {isUploadingPhoto ? (
+                        <RotateCcw className="w-6 h-6 animate-spin text-white" />
                       ) : (
-                        <UserRound className="w-10 h-10 text-white/80" />
+                        <>
+                          <Camera size={22} className="text-white drop-shadow-xs" />
+                          <span className="text-xs font-semibold text-white drop-shadow-xs">Update Photo</span>
+                        </>
                       )}
                     </div>
-                    <h3 className="text-xs font-bold text-slate-900 leading-snug px-1 line-clamp-2">
-                      {employee?.employeeName}
-                    </h3>
-                    <span className="font-mono text-[11px] font-bold text-blue-600 mt-0.5">
-                      {employee?.employeeId}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 mt-2.5 px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                        employee?.isActive
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}
+
+                    {/* Subtle Corner Camera Badge Indicator (visible by default, fades on hover) */}
+                    <div
+                      className="absolute bottom-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-700 p-2 rounded-full shadow-md border border-slate-200/90 transition-all duration-200 group-hover:opacity-0 pointer-events-none"
+                      aria-hidden="true"
                     >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          employee?.isActive ? 'bg-emerald-500' : 'bg-slate-400'
-                        }`}
-                      />
-                      {employee?.isActive ? 'Active Employee' : 'Inactive'}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 w-full flex flex-col gap-1.5">
-                    {/* Quick Action Buttons on Photo card */}
-                    <div className="pt-2 border-t border-slate-200/80 w-full flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left pl-1">
-                        Quick Actions
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddLoanModalOpen(true)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <Landmark size={13} className="text-purple-600" />
-                        <span>+ Add Loan</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsUpdateSalaryModalOpen(true)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <TrendingUp size={13} className="text-emerald-600" />
-                        <span>Update Salary</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsAssignProjectModalOpen(true)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <Briefcase size={13} className="text-blue-600" />
-                        <span>Assign Project</span>
-                      </button>
+                      <Camera size={13} className="text-slate-600" />
                     </div>
 
-                    <div className="pt-2 border-t border-slate-200/80 w-full flex flex-col gap-1.5">
+                    {/* Fit / Fill Switcher Button on hover */}
+                    {photo && (
                       <button
-                        onClick={() => setIsPrintModalOpen(true)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-white bg-blue-600 border border-blue-700 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-2xs"
-                        title="Print single-page summary PDF"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPhotoFit((prev) => (prev === 'cover' ? 'contain' : 'cover'));
+                        }}
+                        className="absolute top-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-700 px-2 py-1 rounded-md shadow-md border border-slate-200 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 cursor-pointer z-10"
+                        title={photoFit === 'cover' ? 'Fit entire image (Contain)' : 'Fill box (Cover)'}
                       >
-                        <Printer size={13} />
-                        <span>Print Summary</span>
+                        <Maximize2 size={11} />
+                        <span>{photoFit === 'cover' ? 'Fit' : 'Fill'}</span>
                       </button>
-                      <button
-                        onClick={() => setIsComplianceModalOpen(true)}
-                        className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <ShieldCheck size={13} className="text-blue-600" />
-                        <span>Documents &amp; 360°</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Details Cards: Personal Info + Employment Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {/* Personal Information Card */}
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                {/* Personal Information Card (Ratio: 4 of 10) */}
+                <div className="lg:col-span-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
                         <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
@@ -797,6 +841,10 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                         <div className="flex justify-between items-center">
                           <dt className="text-slate-500">Full Name</dt>
                           <dd className="font-semibold text-slate-900">{employee?.employeeName}</dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-slate-500">Father's Name</dt>
+                          <dd className="font-semibold text-slate-800">{personal?.fatherName || '—'}</dd>
                         </div>
                         <div className="flex justify-between items-center">
                           <dt className="text-slate-500">Nationality</dt>
@@ -911,49 +959,48 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                     </div>
                   </div>
 
-                  {/* Employment Details Card */}
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
-                        <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                          <IdCard size={13} className="text-slate-500" />
-                          <span>Employment Details</span>
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => setIsAssignProjectModalOpen(true)}
-                          className="text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <Briefcase size={11} className="text-blue-600" />
-                          <span>Assign Project</span>
-                        </button>
-                      </div>
-
-                      <dl className="space-y-1.5 text-xs">
-                        <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className={`font-semibold ${employee?.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{employee?.isActive ? 'Active' : 'Inactive'}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Employee Type</dt><dd className="text-slate-700">{employee?.employeeType}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Joining Date</dt><dd className="text-slate-700">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Company</dt><dd className="text-slate-700">{employee?.employeeCompany}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Designation</dt><dd className="text-slate-700">{employee?.designation}</dd></div>
-                        <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Current Project</dt>
-                          <dd className="text-slate-700 flex items-center gap-1.5">
-                            <span className="font-semibold text-slate-900">{currentProject}</span>
-                            <button
-                              type="button"
-                              onClick={() => setIsAssignProjectModalOpen(true)}
-                              className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
-                              title="Reassign or change project"
-                            >
-                              Change
-                            </button>
-                          </dd>
-                        </div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Pay By</dt><dd className="text-slate-700">{employee?.salaryPaidBy}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">Wage Type</dt><dd className="text-slate-700">{employee?.wageType}</dd></div>
-                        <div className="flex justify-between"><dt className="text-slate-500">WPS Status</dt><dd className="text-slate-700">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
-                      </dl>
+                {/* Employment Details Card (Ratio: 4 of 10) */}
+                <div className="lg:col-span-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
+                      <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                        <IdCard size={13} className="text-slate-500" />
+                        <span>Employment Details</span>
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsAssignProjectModalOpen(true)}
+                        className="text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Briefcase size={11} className="text-blue-600" />
+                        <span>Assign Project</span>
+                      </button>
                     </div>
+
+                    <dl className="space-y-1.5 text-xs">
+                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className={`font-semibold ${employee?.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{employee?.isActive ? 'Active' : 'Inactive'}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Employee Type</dt><dd className="text-slate-700">{employee?.employeeType}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Joining Date</dt><dd className="text-slate-700">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Company</dt><dd className="text-slate-700">{employee?.employeeCompany}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Designation</dt><dd className="text-slate-700">{employee?.designation}</dd></div>
+                      <div className="flex justify-between items-center">
+                        <dt className="text-slate-500">Current Project</dt>
+                        <dd className="text-slate-700 flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900">{currentProject}</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAssignProjectModalOpen(true)}
+                            className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
+                            title="Reassign or change project"
+                          >
+                            Change
+                          </button>
+                        </dd>
+                      </div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Pay By</dt><dd className="text-slate-700">{employee?.salaryPaidBy}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Wage Type</dt><dd className="text-slate-700">{employee?.wageType}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">WPS Status</dt><dd className="text-slate-700">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
+                    </dl>
                   </div>
                 </div>
               </div>
@@ -986,6 +1033,80 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
               <div><span className="text-slate-500 block">WPS Status</span><strong>{employee?.wpsEmployee === 'Yes' ? 'WPS Enrolled' : 'Non-WPS'}</strong></div>
             </div>
           </div>
+
+          {/* Bank & Wage Disbursal Details Card */}
+          {(() => {
+            const personal = complianceData?.personalDetails || personalDetails || {};
+            const bankName = personal?.bankName || employee?.bankName;
+            const bankAcc = personal?.bankAccountNumber || employee?.bankAccountNumber;
+            const iban = personal?.iban || employee?.iban;
+            const branch = personal?.bankBranch || employee?.bankBranch;
+            const holder = personal?.accountHolderName || employee?.accountHolderName;
+
+            return (
+              <div className="p-4 bg-white rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 bg-emerald-50 text-emerald-700 rounded-md">
+                      <Landmark size={14} />
+                    </div>
+                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Bank &amp; Wage Disbursal Details
+                    </h4>
+                    {iban && iban.trim().length === 23 && iban.toUpperCase().startsWith('OM') && (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        CBO Verified
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsComplianceModalOpen(true)}
+                    className="text-[11px] font-semibold text-slate-600 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
+                    title="Edit Bank & Personal Information"
+                  >
+                    <Edit3 size={11} />
+                    <span>Manage Bank</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Bank Name</span>
+                    <strong className="text-slate-900 font-semibold">{bankName || 'Not Registered'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Account Number</span>
+                    <strong className="font-mono text-slate-900">{bankAcc || '—'}</strong>
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <span className="text-slate-500 block text-[11px]">Oman IBAN</span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="font-mono text-slate-900 tracking-wider">{iban || '—'}</strong>
+                      {iban && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(iban.replace(/\s+/g, ''));
+                            alert('IBAN copied to clipboard!');
+                          }}
+                          className="text-slate-400 hover:text-blue-600 cursor-pointer p-0.5"
+                          title="Copy IBAN"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Branch / Account Holder</span>
+                    <span className="text-slate-700 truncate block">
+                      {holder ? holder : employee?.employeeName} {branch ? `• ${branch}` : ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Ledger */}
           <div>
@@ -1178,6 +1299,17 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                 message: `Workforce project allocation updated successfully for ${employee.employeeName}.`,
               });
             }}
+          />
+
+          <ImageCropModal
+            isOpen={isCropModalOpen}
+            imageSrc={selectedImageForCrop}
+            onClose={() => {
+              setIsCropModalOpen(false);
+              setSelectedImageForCrop(null);
+            }}
+            onCropComplete={handleSaveCroppedPhoto}
+            title="Center & Zoom Profile Picture"
           />
         </>
       )}

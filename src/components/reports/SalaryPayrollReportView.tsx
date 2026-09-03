@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { apiRequest, formatOMR } from '../../api/client';
+import { apiRequest, formatOMR, downloadAuthenticatedFile } from '../../api/client';
 import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDropdown';
 import { SalaryPayrollAnalytics } from './SalaryPayrollAnalytics';
 import { SalaryPayrollDetailsTable } from './SalaryPayrollDetailsTable';
@@ -186,10 +186,14 @@ export const SalaryPayrollReportView: React.FC = () => {
     return apiRequest(`/api/reports/salary-payroll?${params.toString()}`);
   };
 
-  const handleExportExcel = () => {
-    const params = buildParams(true);
-    params.set('exportFormat', 'excel');
-    window.location.href = `/api/reports/salary-payroll?${params.toString()}`;
+  const handleExportExcel = async () => {
+    try {
+      const params = buildParams(true);
+      params.set('exportFormat', 'excel');
+      await downloadAuthenticatedFile(`/api/reports/salary-payroll?${params.toString()}`, 'Salary_Payroll_Report.xlsx');
+    } catch (err: any) {
+      alert(err.message || 'Failed to export report.');
+    }
   };
 
   const handleExportPdf = async () => {

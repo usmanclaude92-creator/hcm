@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { apiRequest, formatDate } from '../../api/client';
+import { apiRequest, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
   Clock,
@@ -119,8 +119,12 @@ export const TimesheetView: React.FC = () => {
     }
   };
 
-  const handleExportTemplate = () => {
-    window.location.href = '/api/timesheets/export/template';
+  const handleExportTemplate = async () => {
+    try {
+      await downloadAuthenticatedFile('/api/timesheets/export/template', 'Timesheet_Import_Template.xlsx');
+    } catch (err: any) {
+      alert(err.message || 'Failed to download template.');
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

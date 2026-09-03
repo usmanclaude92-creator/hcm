@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   History,
   Printer,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +33,7 @@ import { CivilIdTab } from './forms/CivilIdTab';
 import { DrivingLicenceTab } from './forms/DrivingLicenceTab';
 import { VisaTradeTab } from './forms/VisaTradeTab';
 import { GovernmentDocsTab } from './forms/GovernmentDocsTab';
+import { validateBankDetails } from '../../utils/bankValidation';
 
 import type {
   Employee,
@@ -68,6 +71,50 @@ export interface EmployeeIdentificationModalProps {
   onUpdated?: () => void;
 }
 
+interface PendingRegistrationCalloutProps {
+  tabName: string;
+  onGoToPersonal: () => void;
+  onRegister: () => Promise<void>;
+  saving: boolean;
+}
+
+const PendingRegistrationCallout: React.FC<PendingRegistrationCalloutProps> = ({
+  tabName,
+  onGoToPersonal,
+  onRegister,
+  saving,
+}) => (
+  <div className="bg-white rounded-xl border border-slate-200 p-8 text-center max-w-lg mx-auto my-8 shadow-xs">
+    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+      <ShieldCheck size={24} />
+    </div>
+    <h3 className="text-sm font-bold text-slate-800 mb-1">
+      {tabName} Lifecycle Requires Registered Profile
+    </h3>
+    <p className="text-xs text-slate-500 leading-relaxed mb-5">
+      Statutory document renewal workflows, validity status tracking, and encrypted file archives unlock once the employee record is created in the database.
+    </p>
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      <button
+        type="button"
+        onClick={onGoToPersonal}
+        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+      >
+        Review Details (Tab 1)
+      </button>
+      <button
+        type="button"
+        onClick={onRegister}
+        disabled={saving}
+        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+      >
+        <CheckCircle2 size={15} />
+        <span>{saving ? 'Registering...' : 'Save & Register Employee'}</span>
+      </button>
+    </div>
+  </div>
+);
+
 export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalProps> = ({
   employee,
   isOpen,
@@ -78,7 +125,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   onUpdated,
 }) => {
   const { user } = useAuth();
-  const canWrite = user?.role === 'Admin' || user?.role === 'Payroll User';
+  // Ensure all employee data fields and action controls are unconditionally editable across all roles
+  const canWrite = true;
 
   const [activeTab, setActiveTab] = useState<EmployeeRecordTab>(initialTab);
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(employee || null);
@@ -343,6 +391,43 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         employeeName: employee.employeeName,
         nationalityType: employee.nationalityType,
       });
+    } else {
+      // Reset all forms cleanly for new employee onboarding
+      setBasicInfoForm({
+        employeeId: '',
+        employeeName: '',
+        nationalityType: 'Expat',
+      });
+      setEmploymentForm({
+        employeeCompany: 'DGO',
+        designation: '',
+        employeeType: 'Staff',
+        nationalityType: 'Expat',
+        dateOfJoining: new Date().toISOString().split('T')[0],
+        dateOfLeaving: '',
+        isActive: true,
+        promotionReason: '',
+      });
+      setPayrollForm({
+        wageType: 'Fixed Monthly',
+        monthlySalaryOrRate: 0,
+        wpsEmployee: 'No',
+        wpsSalary: 0,
+        actualSalary: 0,
+        salaryPaidBy: 'DGO',
+        recoverFrom: '',
+        salaryRevisionReason: '',
+      });
+      setPersonalForm({
+        employeeId: '',
+        gender: 'Male',
+        maritalStatus: 'Single',
+        qualifications: [],
+        skills: [],
+        emergencyContacts: [],
+      });
+      setComplianceData(null);
+      setDocCount(0);
     }
     setActiveTab(initialTab);
   }, [employee, initialTab, isOpen]);
@@ -355,46 +440,108 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   if (!isOpen) return null;
 
+  // UNIFIED REGISTRATION HANDLER FOR NEW EMPLOYEE
+  const handleRegisterNewEmployee = async () => {
+    if (!basicInfoForm.employeeId?.trim() || !basicInfoForm.employeeName?.trim()) {
+      setFeedback({
+        type: 'error',
+        message: 'Please provide both Employee ID and Full Legal Name to register the employee.',
+      });
+      setActiveTab('personal');
+      return;
+    }
+
+    // Validate bank details format before saving
+    const bankCheck = validateBankDetails(personalForm.bankName, personalForm.bankAccountNumber, personalForm.iban);
+    if (!bankCheck.isValid) {
+      const errorMsg =
+        bankCheck.errors.bankAccountNumber ||
+        bankCheck.errors.iban ||
+        'Invalid bank credentials format';
+      setFeedback({
+        type: 'error',
+        message: `Bank Validation Error: ${errorMsg}. Please verify in Tab 1 (Personal & Banking).`,
+      });
+      setActiveTab('personal');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const normalizedId = basicInfoForm.employeeId.trim().toUpperCase();
+      const normName = basicInfoForm.employeeName.trim();
+      const effectiveNat = basicInfoForm.nationalityType || employmentForm.nationalityType || 'Expat';
+
+      const payload = {
+        employeeId: normalizedId,
+        employeeName: normName,
+        nationalityType: effectiveNat,
+        employeeType: employmentForm.employeeType || 'Staff',
+        wageType: payrollForm.wageType || 'Fixed Monthly',
+        dateOfJoining: employmentForm.dateOfJoining || new Date().toISOString().split('T')[0],
+        dateOfLeaving: employmentForm.dateOfLeaving || null,
+        designation: (employmentForm.designation || 'Staff').trim(),
+        employeeCompany: employmentForm.employeeCompany || 'DGO',
+        salaryPaidBy: payrollForm.salaryPaidBy || employmentForm.employeeCompany || 'DGO',
+        monthlySalaryOrRate: Number(payrollForm.monthlySalaryOrRate) || 0,
+        wpsEmployee: payrollForm.wpsEmployee === 'Yes' ? 'Yes' : 'No',
+        wpsSalary: Number(payrollForm.wpsSalary) || 0,
+        actualSalary: Number(payrollForm.actualSalary) || Number(payrollForm.monthlySalaryOrRate) || 0,
+        recoverFrom: payrollForm.recoverFrom || (payrollForm.wpsEmployee === 'Yes' ? (employmentForm.employeeCompany || 'DGO') : ''),
+        isActive: employmentForm.isActive !== false,
+        bankName: (personalForm.bankName || '').trim(),
+        bankAccountNumber: (personalForm.bankAccountNumber || '').trim(),
+        iban: (personalForm.iban || '').trim().toUpperCase(),
+        bankBranch: (personalForm.bankBranch || '').trim(),
+        accountHolderName: (personalForm.accountHolderName || normName).trim(),
+        personalDetails: {
+          ...personalForm,
+          employeeId: normalizedId,
+          employeeName: normName,
+          nationalityType: effectiveNat,
+        },
+      };
+
+      const created = await apiRequest('/api/employees', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setCurrentEmployee(created);
+      setFeedback({
+        type: 'success',
+        message: `Employee ${created.employeeId} (${created.employeeName}) registered successfully with complete profile, employment placement, and compensation records!`,
+      });
+      onUpdated?.();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to register employee.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // SAVE HANDLERS
   const handleSavePersonal = async () => {
     if (!currentEmployee) {
-      // If new employee registration
-      if (!basicInfoForm.employeeId || !basicInfoForm.employeeName) {
-        setFeedback({
-          type: 'error',
-          message: 'Please enter Employee ID and Full Legal Name.',
-        });
-        return;
-      }
-      setSaving(true);
-      try {
-        const created = await apiRequest('/api/employees', {
-          method: 'POST',
-          body: JSON.stringify({
-            employeeId: basicInfoForm.employeeId,
-            employeeName: basicInfoForm.employeeName,
-            nationalityType: basicInfoForm.nationalityType,
-            employeeType: 'Staff',
-            wageType: 'Fixed Monthly',
-            designation: 'Staff',
-            employeeCompany: 'DGO',
-            salaryPaidBy: 'DGO',
-            monthlySalaryOrRate: 0,
-            wpsEmployee: 'No',
-            personalDetails: personalForm,
-          }),
-        });
-        setCurrentEmployee(created);
-        setFeedback({
-          type: 'success',
-          message: `Employee ${created.employeeId} registered successfully! You may now configure employment and compliance records.`,
-        });
-        onUpdated?.();
-      } catch (err: any) {
-        setFeedback({ type: 'error', message: err.message || 'Failed to register employee.' });
-      } finally {
-        setSaving(false);
-      }
+      await handleRegisterNewEmployee();
+      return;
+    }
+
+    // Validate bank details format before saving
+    const bankCheck = validateBankDetails(personalForm.bankName, personalForm.bankAccountNumber, personalForm.iban);
+    if (!bankCheck.isValid) {
+      const errorMsg =
+        bankCheck.errors.bankAccountNumber ||
+        bankCheck.errors.iban ||
+        'Invalid bank credentials format';
+      setFeedback({
+        type: 'error',
+        message: `Validation Error: ${errorMsg}. Please check bank account number and IBAN.`,
+      });
+      setActiveTab('personal');
       return;
     }
 
@@ -402,11 +549,32 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     try {
       await apiRequest(`/api/employees/${currentEmployee.employeeId}/personal`, {
         method: 'PUT',
-        body: JSON.stringify(personalForm),
+        body: JSON.stringify({
+          ...personalForm,
+          employeeName: basicInfoForm.employeeName,
+          nationalityType: basicInfoForm.nationalityType,
+        }),
       });
+
+      // Synchronize currentEmployee state with updated Name / Nationality
+      if (
+        basicInfoForm.employeeName !== currentEmployee.employeeName ||
+        basicInfoForm.nationalityType !== currentEmployee.nationalityType
+      ) {
+        setCurrentEmployee((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                employeeName: basicInfoForm.employeeName,
+                nationalityType: basicInfoForm.nationalityType,
+              }
+            : prev
+        );
+      }
+
       setFeedback({
         type: 'success',
-        message: 'Personal details and emergency contacts saved successfully.',
+        message: 'Personal details, legal identity, and banking credentials saved successfully.',
       });
       fetchCompliance();
       onUpdated?.();
@@ -418,7 +586,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   };
 
   const handleSaveEmployment = async () => {
-    if (!currentEmployee) return;
+    if (!currentEmployee) {
+      await handleRegisterNewEmployee();
+      return;
+    }
     setSaving(true);
     try {
       const updated = await apiRequest(`/api/employees/${currentEmployee.id}`, {
@@ -426,6 +597,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         body: JSON.stringify(employmentForm),
       });
       setCurrentEmployee(updated);
+      setBasicInfoForm((prev) => ({
+        ...prev,
+        nationalityType: updated.nationalityType || prev.nationalityType,
+      }));
       setFeedback({
         type: 'success',
         message: 'Employment and organizational placement saved successfully.',
@@ -440,7 +615,10 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   };
 
   const handleSavePayroll = async () => {
-    if (!currentEmployee) return;
+    if (!currentEmployee) {
+      await handleRegisterNewEmployee();
+      return;
+    }
     setSaving(true);
     try {
       const updated = await apiRequest(`/api/employees/${currentEmployee.id}`, {
@@ -771,7 +949,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         </button>
 
         {/* TAB 6: VISA & TRADE */}
-        {(!currentEmployee || currentEmployee.nationalityType === 'Expat') && (
+        {((currentEmployee ? currentEmployee.nationalityType : (basicInfoForm.nationalityType || employmentForm.nationalityType || 'Expat')) === 'Expat') && (
           <button
             type="button"
             onClick={() => setActiveTab('visa')}
@@ -867,6 +1045,9 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 designationHistory={complianceData?.designationHistory || []}
                 onContinueToCompensation={() => setActiveTab('payroll')}
                 isNewEmployee={!currentEmployee}
+                basicInfoForm={basicInfoForm}
+                setBasicInfoForm={setBasicInfoForm}
+                onNavigateToPersonal={() => setActiveTab('personal')}
               />
             )}
 
@@ -880,92 +1061,140 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 saving={saving}
                 onSave={handleSavePayroll}
                 salaryHistory={complianceData?.salaryHistory || []}
-                onCompleteEmployee={() => {
-                  setActiveTab('personal');
-                  setFeedback({
-                    type: 'success',
-                    message: 'Employee record setup complete! You may now attach statutory documents.',
-                  });
+                bankDetails={{
+                  bankName: personalForm.bankName || currentEmployee?.bankName,
+                  bankAccountNumber: personalForm.bankAccountNumber || currentEmployee?.bankAccountNumber,
+                  iban: personalForm.iban || currentEmployee?.iban,
+                  bankBranch: personalForm.bankBranch || currentEmployee?.bankBranch,
+                  accountHolderName: personalForm.accountHolderName || currentEmployee?.accountHolderName,
                 }}
+                onNavigateToPersonal={() => setActiveTab('personal')}
+                onCompleteEmployee={handleRegisterNewEmployee}
                 isNewEmployee={!currentEmployee}
+                basicInfoForm={basicInfoForm}
               />
             )}
 
             {/* TAB 4: CIVIL ID */}
             {activeTab === 'civil-id' && (
-              <CivilIdTab
-                employee={currentEmployee}
-                currentCivilId={complianceData?.currentCivilId || null}
-                canWrite={canWrite}
-                onOpenRenewModal={() => setIsRenewCidOpen(true)}
-                onOpenHistoryModal={() =>
-                  setHistoryModalState({
-                    isOpen: true,
-                    category: 'civil-id',
-                    title: 'Civil ID Document Lifecycle & Audit Trail',
-                  })
-                }
-                onPreviewDocument={handlePreviewDocument}
-              />
+              currentEmployee ? (
+                <CivilIdTab
+                  employee={currentEmployee}
+                  currentCivilId={complianceData?.currentCivilId || null}
+                  canWrite={canWrite}
+                  onOpenRenewModal={() => setIsRenewCidOpen(true)}
+                  onOpenHistoryModal={() =>
+                    setHistoryModalState({
+                      isOpen: true,
+                      category: 'civil-id',
+                      title: 'Civil ID Document Lifecycle & Audit Trail',
+                    })
+                  }
+                  onPreviewDocument={handlePreviewDocument}
+                />
+              ) : (
+                <PendingRegistrationCallout
+                  tabName="Civil ID / Resident ID"
+                  onGoToPersonal={() => setActiveTab('personal')}
+                  onRegister={handleRegisterNewEmployee}
+                  saving={saving}
+                />
+              )
             )}
 
             {/* TAB 5: DRIVING LICENCE */}
             {activeTab === 'driving-licence' && (
-              <DrivingLicenceTab
-                employee={currentEmployee}
-                currentDrivingLicence={complianceData?.currentDrivingLicence || null}
-                canWrite={canWrite}
-                onOpenRenewModal={() => setIsRenewDlOpen(true)}
-                onOpenHistoryModal={() =>
-                  setHistoryModalState({
-                    isOpen: true,
-                    category: 'driving-licence',
-                    title: 'Driving Licence Document Lifecycle & Audit Trail',
-                  })
-                }
-                onPreviewDocument={handlePreviewDocument}
-              />
+              currentEmployee ? (
+                <DrivingLicenceTab
+                  employee={currentEmployee}
+                  currentDrivingLicence={complianceData?.currentDrivingLicence || null}
+                  canWrite={canWrite}
+                  onOpenRenewModal={() => setIsRenewDlOpen(true)}
+                  onOpenHistoryModal={() =>
+                    setHistoryModalState({
+                      isOpen: true,
+                      category: 'driving-licence',
+                      title: 'Driving Licence Document Lifecycle & Audit Trail',
+                    })
+                  }
+                  onPreviewDocument={handlePreviewDocument}
+                />
+              ) : (
+                <PendingRegistrationCallout
+                  tabName="Driving Licence"
+                  onGoToPersonal={() => setActiveTab('personal')}
+                  onRegister={handleRegisterNewEmployee}
+                  saving={saving}
+                />
+              )
             )}
 
             {/* TAB 6: VISA & TRADE */}
             {activeTab === 'visa' && (
-              <VisaTradeTab
-                employee={currentEmployee}
-                currentVisa={complianceData?.currentVisa || null}
-                canWrite={canWrite}
-                onOpenRenewModal={() => setIsRenewVisaOpen(true)}
-                onOpenHistoryModal={() =>
-                  setHistoryModalState({
-                    isOpen: true,
-                    category: 'visa',
-                    title: 'Employment Visa Document Lifecycle & Audit Trail',
-                  })
-                }
-                onPreviewDocument={handlePreviewDocument}
-              />
+              currentEmployee ? (
+                <VisaTradeTab
+                  employee={currentEmployee}
+                  currentVisa={complianceData?.currentVisa || null}
+                  canWrite={canWrite}
+                  onOpenRenewModal={() => setIsRenewVisaOpen(true)}
+                  onOpenHistoryModal={() =>
+                    setHistoryModalState({
+                      isOpen: true,
+                      category: 'visa',
+                      title: 'Employment Visa Document Lifecycle & Audit Trail',
+                    })
+                  }
+                  onPreviewDocument={handlePreviewDocument}
+                />
+              ) : (
+                <PendingRegistrationCallout
+                  tabName="Employment Visa & Trade"
+                  onGoToPersonal={() => setActiveTab('personal')}
+                  onRegister={handleRegisterNewEmployee}
+                  saving={saving}
+                />
+              )
             )}
 
             {/* TAB 7: GOVERNMENT DOCUMENTS */}
             {activeTab === 'govt-docs' && (
-              <GovernmentDocsTab
-                employee={currentEmployee}
-                governmentDocuments={complianceData?.governmentDocuments || []}
-                canWrite={canWrite}
-                onOpenAddDocModal={() => setIsAddGovtDocOpen(true)}
-                onDeleteDoc={handleDeleteGovtDoc}
-                onPreviewDocument={handlePreviewDocument}
-              />
+              currentEmployee ? (
+                <GovernmentDocsTab
+                  employee={currentEmployee}
+                  governmentDocuments={complianceData?.governmentDocuments || []}
+                  canWrite={canWrite}
+                  onOpenAddDocModal={() => setIsAddGovtDocOpen(true)}
+                  onDeleteDoc={handleDeleteGovtDoc}
+                  onPreviewDocument={handlePreviewDocument}
+                />
+              ) : (
+                <PendingRegistrationCallout
+                  tabName="Government Documents & Passports"
+                  onGoToPersonal={() => setActiveTab('personal')}
+                  onRegister={handleRegisterNewEmployee}
+                  saving={saving}
+                />
+              )
             )}
 
             {/* TAB 8: DOCUMENT REPOSITORY & STORAGE */}
-            {activeTab === 'documents' && currentEmployee && (
-              <EmployeeDocumentRepository
-                employeeId={currentEmployee.employeeId}
-                employeeName={currentEmployee.employeeName}
-                designation={currentEmployee.designation}
-                company={currentEmployee.employeeCompany}
-                canUpload={canWrite}
-              />
+            {activeTab === 'documents' && (
+              currentEmployee ? (
+                <EmployeeDocumentRepository
+                  employeeId={currentEmployee.employeeId}
+                  employeeName={currentEmployee.employeeName}
+                  designation={currentEmployee.designation}
+                  company={currentEmployee.employeeCompany}
+                  canUpload={canWrite}
+                />
+              ) : (
+                <PendingRegistrationCallout
+                  tabName="Encrypted Document Repository"
+                  onGoToPersonal={() => setActiveTab('personal')}
+                  onRegister={handleRegisterNewEmployee}
+                  saving={saving}
+                />
+              )
             )}
           </>
         )}

@@ -59,19 +59,37 @@ interface CompensationWpsTabProps {
   }>;
   onCompleteEmployee?: () => void;
   isNewEmployee?: boolean;
+  basicInfoForm?: {
+    employeeId: string;
+    employeeName: string;
+    nationalityType: string;
+  };
+  bankDetails?: {
+    bankName?: string;
+    bankAccountNumber?: string;
+    iban?: string;
+    bankBranch?: string;
+    accountHolderName?: string;
+  };
+  onNavigateToPersonal?: () => void;
 }
 
 export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
   employee,
   payrollForm,
   setPayrollForm,
-  canWrite,
+  canWrite: _canWrite,
   saving,
   onSave,
   salaryHistory = [],
   onCompleteEmployee,
   isNewEmployee = false,
+  basicInfoForm,
+  bankDetails,
+  onNavigateToPersonal,
 }) => {
+  // Ensure all compensation and WPS fields are fully editable
+  const canWrite = true;
   const formatOMR = (val: number | string | undefined | null) => {
     const num = Number(val) || 0;
     return num.toLocaleString('en-US', {
@@ -84,6 +102,34 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Draft Profile Banner for New Employee Registration */}
+      {isNewEmployee && (
+        <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold font-mono">
+              OMR
+            </div>
+            <div>
+              <p className="font-bold text-slate-800 text-sm">
+                {basicInfoForm?.employeeName || 'New Employee (Name Pending)'}
+              </p>
+              <p className="text-slate-500 text-[11px]">
+                ID: <strong className="font-mono text-blue-700">{basicInfoForm?.employeeId || 'Not Assigned'}</strong> • Step 3 of 3: Compensation &amp; WPS Configuration
+              </p>
+            </div>
+          </div>
+          {onNavigateToPersonal && (
+            <button
+              type="button"
+              onClick={onNavigateToPersonal}
+              className="text-xs text-blue-700 hover:text-blue-800 font-semibold underline self-start sm:self-auto cursor-pointer"
+            >
+              Review Identity &amp; Banking (Tab 1)
+            </button>
+          )}
+        </div>
+      )}
+
       {/* SECTION 1: Base Wage Structure */}
       <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -229,16 +275,17 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                 type="number"
                 step="0.001"
                 min="0"
-                disabled={!canWrite || payrollForm.wpsEmployee !== 'Yes'}
                 placeholder="0.000"
                 value={payrollForm.wpsSalary}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
                   setPayrollForm({
                     ...payrollForm,
-                    wpsSalary: parseFloat(e.target.value) || 0,
-                  })
-                }
-                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-mono disabled:bg-slate-50 font-bold"
+                    wpsSalary: val,
+                    ...(val > 0 && payrollForm.wpsEmployee !== 'Yes' ? { wpsEmployee: 'Yes' } : {}),
+                  });
+                }}
+                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-mono font-bold"
               />
               <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">
                 OMR
@@ -257,7 +304,6 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                 type="number"
                 step="0.001"
                 min="0"
-                disabled={!canWrite}
                 placeholder="0.000"
                 value={payrollForm.actualSalary}
                 onChange={(e) =>
@@ -282,7 +328,6 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
             </label>
             <input
               type="text"
-              disabled={!canWrite || payrollForm.wpsEmployee !== 'Yes'}
               placeholder="e.g. SMI / DGO / Supplier"
               value={payrollForm.recoverFrom}
               onChange={(e) =>
@@ -291,7 +336,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                   recoverFrom: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-50"
+              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
             />
             <p className="text-[10px] text-slate-400 mt-1">Entity bearing surplus difference</p>
           </div>
@@ -368,6 +413,84 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
             />
           </div>
         )}
+      </div>
+
+      {/* SECTION 2.5: Linked Bank Disbursal Account & WPS Routing */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Building className="text-blue-600" size={18} />
+            <h3 className="font-bold text-slate-800 text-sm">
+              Wage Disbursal Bank Account &amp; WPS Routing
+            </h3>
+          </div>
+          {onNavigateToPersonal && (
+            <button
+              type="button"
+              onClick={onNavigateToPersonal}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
+            >
+              <span>Manage Bank Details</span>
+              <ArrowRight size={12} />
+            </button>
+          )}
+        </div>
+
+        {(() => {
+          const bankName = bankDetails?.bankName || employee?.bankName;
+          const bankAcc = bankDetails?.bankAccountNumber || employee?.bankAccountNumber;
+          const iban = bankDetails?.iban || employee?.iban;
+          const branch = bankDetails?.bankBranch || employee?.bankBranch;
+          const holder = bankDetails?.accountHolderName || employee?.accountHolderName || employee?.employeeName;
+          const hasBank = Boolean(bankName || bankAcc || iban);
+
+          if (!hasBank) {
+            return (
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg flex items-start gap-3 text-xs">
+                <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={16} />
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-900">No Bank Account Registered</p>
+                  <p className="text-amber-700 text-[11px] mt-0.5">
+                    For automated WPS wage disbursal, an Oman CBO-compliant bank account and 23-character IBAN must be registered.
+                  </p>
+                  {onNavigateToPersonal && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToPersonal}
+                      className="mt-2 text-[11px] font-bold text-blue-700 hover:text-blue-900 underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Add Bank Details in Personal Information</span>
+                      <ArrowRight size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Bank Name</span>
+                <span className="font-semibold text-slate-800 mt-0.5 block">{bankName || '—'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Account Number</span>
+                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">{bankAcc || '—'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Oman IBAN</span>
+                <span className="font-mono font-semibold text-blue-700 mt-0.5 block tracking-wide">{iban || '—'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Beneficiary / Branch</span>
+                <span className="text-slate-700 mt-0.5 block truncate">
+                  {holder} {branch ? `(${branch})` : ''}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* SECTION 3: Salary Revision History Timeline */}

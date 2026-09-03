@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
   Calculator,
@@ -322,8 +322,12 @@ export const PayrollView: React.FC = () => {
     }
   };
 
-  const handleExportPayroll = () => {
-    window.location.href = `/api/payroll/${month}/export`;
+  const handleExportPayroll = async () => {
+    try {
+      await downloadAuthenticatedFile(`/api/payroll/${encodeURIComponent(month)}/export`, `Payroll_${month}.xlsx`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to export payroll.');
+    }
   };
 
   // Preview Line Calculation

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ReceiptViewerModal } from '../common/ReceiptViewerModal';
 import {
@@ -160,8 +160,12 @@ export const WPSRecoveryView: React.FC = () => {
     setIsLogsModalOpen(true);
   };
 
-  const handleExportWPS = () => {
-    window.location.href = `/api/wps/export?month=${monthFilter}`;
+  const handleExportWPS = async () => {
+    try {
+      await downloadAuthenticatedFile(`/api/wps/export?month=${encodeURIComponent(monthFilter)}`, `WPS_Recovery_${monthFilter}.xlsx`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to export WPS records.');
+    }
   };
 
   return (

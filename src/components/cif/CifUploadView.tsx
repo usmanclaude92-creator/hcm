@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { apiRequest, formatOMR, formatDate } from '../../api/client';
+import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
   UploadCloud,
@@ -51,8 +51,15 @@ export const CifUploadView: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company, payrollMonth]);
 
-  const handleDownloadTemplate = () => {
-    window.location.href = `/api/cif/export/template?company=${company}&month=${payrollMonth}`;
+  const handleDownloadTemplate = async () => {
+    try {
+      await downloadAuthenticatedFile(
+        `/api/cif/export/template?company=${encodeURIComponent(company)}&month=${encodeURIComponent(payrollMonth)}`,
+        `CIF_Template_${company}_${payrollMonth}.xlsx`
+      );
+    } catch (err: any) {
+      setError(err.message || 'Failed to download CIF template.');
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

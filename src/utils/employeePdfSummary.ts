@@ -189,6 +189,7 @@ export function generateEmployeeSummaryPdf(data: EmployeeSummaryPdfData): jsPDF 
     margin: { left: margin, right: margin },
     head: [['1. PERSONAL & DEMOGRAPHIC PROFILE', '']],
     body: [
+      ['Father\'s Name', personal?.fatherName || '—'],
       ['Date of Birth / Age', `${dob ? formatDate(dob) : '—'} ${age !== null ? `(${age} years old)` : ''}`],
       ['Gender & Marital Status', `${personal?.gender || 'Male'} • ${personal?.maritalStatus || 'Single'}`],
       ['Blood Group', personal?.bloodGroup || '—'],
