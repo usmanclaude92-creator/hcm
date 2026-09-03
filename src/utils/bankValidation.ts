@@ -134,17 +134,27 @@ function cleanBbanString(val: string): string {
 /**
  * Generates an Oman CBO-compliant 23-character IBAN from bank name and account number
  */
+const OMAN_BBAN_LENGTH = 19; // Oman IBAN is 23 chars: OM + 2 check digits + 19-char BBAN
+
 export function generateOmanIban(bankName: string, accountNumber: string): string | null {
   const cleanAcc = cleanBankAccountNumber(accountNumber);
   if (!cleanAcc || cleanAcc.length < 6) return null;
 
+  // No fallback bank code. Guessing one produced an IBAN that routed to the wrong bank
+  // while still passing checksum validation.
   const bankInfo = OMAN_BANK_CODES[bankName];
-  const bankCode = bankInfo?.code || 'BMUS'; // Fallback to BMUS if not matched
+  if (!bankInfo?.code) return null;
 
-  // In Oman, BBAN is typically 19 chars: Bank code (3-4 chars) + account padded to 15-16 chars
-  const paddedAccount = cleanAcc.padStart(15, '0');
-  const bban = (bankCode + paddedAccount).slice(0, 19);
+  const bankCode = bankInfo.code;
+  const capacity = OMAN_BBAN_LENGTH - bankCode.length;
 
+  // Refuse rather than truncate. The previous `.slice(0, 19)` silently dropped the last
+  // digit of any 16-digit account number -- every bank in this table is configured at 16 --
+  // and the checksum was then computed over the corrupted value, so the malformed IBAN
+  // validated cleanly and failed only at the bank.
+  if (cleanAcc.length > capacity) return null;
+
+  const bban = bankCode + cleanAcc.padStart(capacity, '0');
   const checkDigits = calculateIbanCheckDigits('OM', bban);
   return `OM${checkDigits}${bban}`;
 }

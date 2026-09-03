@@ -80,7 +80,7 @@ export function maskSensitiveId(val: string | null | undefined): string {
   const trimmed = val.trim();
   if (trimmed.length <= 4) return '••••';
   const visible = trimmed.slice(-4);
-  return '•'.repeat(Math.max(4, trimmed.length - 4)) + visible;
+  return '•'.repeat(trimmed.length - 4) + visible;
 }
 
 // Compare designation vs trade on visa for discrepancy warnings
@@ -276,23 +276,34 @@ class DatabaseManager {
         this.pgPool = new pg.Pool({
           connectionString: POSTGRES_CONNECTION_STRING,
           ssl: POSTGRES_CONNECTION_STRING.includes('localhost') ? false : { rejectUnauthorized: false },
-          connectionTimeoutMillis: 2000,
+          // A slow cold start now fails the request rather than silently degrading to
+          // local storage, so this needs enough headroom for a pooler waking up.
+          connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 10000,
         });
         const res = await this.pgPool.query('SELECT NOW()');
         this.isPostgresConnected = true;
         console.log('PostgreSQL connection established successfully at', res.rows[0].now);
         await this.initPostgresSchema();
       } catch (err) {
-        console.warn('PostgreSQL connection failed or timed out, using persistent storage engine:', (err as Error).message);
+        // A configured-but-unreachable database must fail loudly. Falling through to the
+        // local JSON store here used to leave the app serving an empty dataset that the
+        // seed below then filled with demo employees and a demo payroll -- fabricated
+        // records presented as production data, with every write going to an ephemeral
+        // filesystem. Refusing to start is the only safe outcome.
+        console.error('PostgreSQL connection failed:', (err as Error).message);
+        this.pgPool = null;
         this.isPostgresConnected = false;
+        throw new Error(
+          `Database connection failed: ${(err as Error).message}. ` +
+          'DATABASE_URL is configured but unreachable; refusing to start on local storage to avoid serving unsaved data.'
+        );
       }
     }
 
     if (this.isPostgresConnected) {
       await this.loadFromPostgres();
     } else {
-      // Load from persistent local store (no-op if DATABASE_URL was set, since the
-      // constructor skips disk access entirely on serverless/read-only filesystems)
+      // Reached only when no connection string is configured at all (local development).
       this.loadFromDisk();
     }
 
@@ -545,6 +556,8 @@ class DatabaseManager {
     }
   }
 
+  // Throws on failure. A write that did not land must never be reported to the caller as
+  // success -- that is how a finalized payroll or a recorded payment silently disappears.
   private saveToDisk() {
     try {
       this.ensureDataDirectory();
@@ -553,6 +566,7 @@ class DatabaseManager {
       fs.renameSync(tmpFile, DB_FILE);
     } catch (e) {
       console.error('Error persisting database to disk:', e);
+      throw new Error(`Database write failed (local store): ${(e as Error).message}`);
     }
   }
 
@@ -584,8 +598,11 @@ class DatabaseManager {
         return;
       } catch (e) {
         if (e instanceof ConcurrencyConflictError) throw e;
+        // Never swallow a failed write. Returning normally here would tell the route --
+        // and therefore the user -- that a payroll, payment or loan movement was saved
+        // when nothing was committed at all.
         console.error('Error persisting database to PostgreSQL:', (e as Error).message);
-        return;
+        throw new Error(`Database write failed: ${(e as Error).message}`);
       }
     }
     this.saveToDisk();
@@ -638,6 +655,53 @@ class DatabaseManager {
 
   public async ensureInitialSeed(forceReset: boolean = false) {
     const timestamp = new Date().toISOString();
+
+    // Demo employees, payrolls, loans and compliance documents are a local-development
+    // convenience only. In production they would be fabricated records indistinguishable
+    // from real ones, so they are never written there.
+    const allowDemoData = forceReset || (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEMO_SEED !== 'false');
+
+    // --- Account bootstrap -------------------------------------------------------------
+    // Only ever runs against a database with no users at all. Accounts that an
+    // administrator deleted are never resurrected, and production never gets a
+    // publicly-known password.
+    let bootstrappedAdmin = false;
+    if (this.inMemoryData.users.length === 0) {
+      const bootstrapUsername = (process.env.ADMIN_INITIAL_USERNAME || 'admin').trim().toLowerCase();
+      const bootstrapPassword = process.env.ADMIN_INITIAL_PASSWORD;
+
+      if (process.env.NODE_ENV === 'production' && !bootstrapPassword) {
+        throw new Error(
+          'No user accounts exist and ADMIN_INITIAL_PASSWORD is not set. ' +
+          'Set ADMIN_INITIAL_PASSWORD (and optionally ADMIN_INITIAL_USERNAME) to create the first administrator.'
+        );
+      }
+
+      this.inMemoryData.users.push({
+        id: crypto.randomUUID(),
+        username: bootstrapUsername,
+        name: 'System Administrator',
+        email: process.env.ADMIN_INITIAL_EMAIL || 'admin@company.com',
+        role: 'Administrator',
+        passwordHash: bcrypt.hashSync(bootstrapPassword || 'admin123', 10),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        isActive: true,
+      });
+      bootstrappedAdmin = true;
+
+      if (!bootstrapPassword) {
+        console.warn('[bootstrap] Created development administrator with the default password. Set ADMIN_INITIAL_PASSWORD before deploying.');
+      }
+    }
+
+    if (!allowDemoData) {
+      if (bootstrappedAdmin) {
+        await this.persist();
+      }
+      return;
+    }
+
     const adminPasswordHash = bcrypt.hashSync('admin123', 10);
     const managerPasswordHash = bcrypt.hashSync('manager123', 10);
     const userPasswordHash = bcrypt.hashSync('user123', 10);
@@ -701,12 +765,14 @@ class DatabaseManager {
       },
     ];
 
-    // Ensure every default user exists; never overwrite one that's already there,
-    // so a real password/role change survives future restarts (incl. serverless cold starts).
-    for (const coreUser of defaultCoreUsers) {
-      const existing = this.inMemoryData.users.find(u => u.username.toLowerCase() === coreUser.username.toLowerCase());
-      if (!existing) {
-        this.inMemoryData.users.push(coreUser);
+    // Development convenience accounts. Only added when the database has just been
+    // bootstrapped, never re-created on a later start -- a deleted account stays deleted.
+    if (bootstrappedAdmin) {
+      for (const coreUser of defaultCoreUsers) {
+        const existing = this.inMemoryData.users.find(u => u.username.toLowerCase() === coreUser.username.toLowerCase());
+        if (!existing) {
+          this.inMemoryData.users.push(coreUser);
+        }
       }
     }
 
@@ -1735,20 +1801,20 @@ class DatabaseManager {
     };
 
     if (!forceReset && this.inMemoryData.employees.length > 0) {
-      // Ensure compliance records are backfilled if they were empty
-      if (!this.inMemoryData.civilIds || this.inMemoryData.civilIds.length === 0) {
-        this.inMemoryData.civilIds = initialCivilIds;
-        this.inMemoryData.drivingLicences = initialDrivingLicences;
-        this.inMemoryData.visas = initialVisas;
-        this.inMemoryData.governmentDocuments = initialGovtDocs;
-        this.inMemoryData.personalDetails = initialPersonalDetails;
+      // A database that already holds employees is never topped up with sample records.
+      // This previously injected invented Civil ID, visa, passport and work-permit numbers
+      // into a live Ministry-of-Labour compliance record set whenever the civil-ID table
+      // happened to be empty, on every cold start.
+      if (bootstrappedAdmin) {
+        await this.persist();
       }
-      await this.persist();
       return;
     }
 
     this.inMemoryData = {
-      users: defaultCoreUsers,
+      // Keep whatever the bootstrap above created, so a custom ADMIN_INITIAL_USERNAME is
+      // not replaced by the development defaults.
+      users: this.inMemoryData.users.length > 0 ? this.inMemoryData.users : defaultCoreUsers,
       employees: initialEmployees,
       designationHistory: initialDesignationHistory,
       salaryHistory: initialSalaryHistory,
@@ -2056,14 +2122,35 @@ class DatabaseManager {
         const norm = normalizeEmployeeId(empId);
         return this.inMemoryData.attendance.filter(a => normalizeEmployeeId(a.employeeId) === norm && a.payrollMonth === month);
       },
+      // DESTRUCTIVE: replaces the whole month. Only for the full-month grid, which always
+      // submits every employee. Any partial write must use mergeMonthRecords instead.
       saveMonthRecords: async (month: string, records: AttendanceRecord[]) => {
-        // Remove existing records for this month
-        this.inMemoryData.attendance = this.inMemoryData.attendance.filter(a => a.payrollMonth !== month);
-        // Add new records
-        this.inMemoryData.attendance.push(...records);
-        await this.persist();
-        return this.inMemoryData.attendance.filter(a => a.payrollMonth === month);
-      }
+        return this.withOptimisticRetry(() => {
+          this.inMemoryData.attendance = this.inMemoryData.attendance.filter(a => a.payrollMonth !== month);
+          this.inMemoryData.attendance.push(...records);
+          return { changed: true, value: this.inMemoryData.attendance.filter(a => a.payrollMonth === month) };
+        });
+      },
+      // Non-destructive: replaces the month's rows only for the employees present in
+      // `records`, leaving every other employee's attendance for that month untouched.
+      // This is what a partial import or a single-employee assignment needs -- the
+      // month-wide replace above silently erased everyone absent from the payload.
+      mergeMonthRecords: async (month: string, records: AttendanceRecord[]) => {
+        return this.withOptimisticRetry(() => {
+          const affected = new Set(records.map(r => normalizeEmployeeId(r.employeeId)));
+          this.inMemoryData.attendance = this.inMemoryData.attendance.filter(
+            a => a.payrollMonth !== month || !affected.has(normalizeEmployeeId(a.employeeId))
+          );
+          this.inMemoryData.attendance.push(...records);
+          return {
+            changed: true,
+            value: this.inMemoryData.attendance.filter(
+              a => a.payrollMonth === month && affected.has(normalizeEmployeeId(a.employeeId))
+            ),
+          };
+        });
+      },
+      countForMonth: (month: string) => this.inMemoryData.attendance.filter(a => a.payrollMonth === month).length
     };
   }
 
@@ -2339,7 +2426,11 @@ class DatabaseManager {
           lines: processedLines,
         };
       },
+      // Wrapped in the retry helper so the loan-balance and WPS side effects below either
+      // commit together or are re-run from scratch against fresh state. Previously these
+      // mutated memory and then attempted a single unprotected write.
       finalize: async (month: string, user: string) => {
+        return this.withOptimisticRetry(() => {
         const payroll = this.inMemoryData.payrolls.find(p => p.payrollMonth === month);
         if (!payroll) throw new Error(`No payroll found for month ${month}`);
         if (payroll.status === 'Finalized') throw new Error(`Payroll for ${month} is already finalized.`);
@@ -2405,13 +2496,11 @@ class DatabaseManager {
           }
         }
 
-        await this.persist();
-        return {
-          ...payroll,
-          lines,
-        };
+        return { changed: true, value: { ...payroll, lines } };
+        });
       },
       revise: async (month: string, reason: string, user: string) => {
+        return this.withOptimisticRetry(() => {
         const payroll = this.inMemoryData.payrolls.find(p => p.payrollMonth === month);
         if (!payroll) throw new Error(`No payroll found for month ${month}`);
         if (payroll.status !== 'Finalized') throw new Error(`Only finalized payroll can be revised.`);
@@ -2493,11 +2582,8 @@ class DatabaseManager {
         payroll.revisionNumber = revision.revisionNumber;
         payroll.updatedAt = new Date().toISOString();
 
-        await this.persist();
-        return {
-          payroll,
-          revision,
-        };
+        return { changed: true, value: { payroll, revision } };
+        });
       },
       getRevisions: (month: string) => {
         return this.inMemoryData.payrollRevisions.filter(r => r.payrollMonth === month);
@@ -2638,30 +2724,29 @@ class DatabaseManager {
         await this.persist();
         return wps;
       },
+      // The balance check is re-evaluated inside the retry closure, so a concurrent
+      // recovery cannot slip past a ceiling that was checked against stale state.
       addTransaction: async (tx: WPSRecoveryTransaction) => {
-        const wps = this.inMemoryData.wpsRecoveries.find(w => w.id === tx.wpsRecoveryId);
-        if (!wps) throw new Error('WPS Recovery record not found.');
+        return this.withOptimisticRetry(() => {
+          const wps = this.inMemoryData.wpsRecoveries.find(w => w.id === tx.wpsRecoveryId);
+          if (!wps) throw new Error('WPS Recovery record not found.');
 
-        const amount = roundOMR(tx.recoveryAmount);
-        if (amount <= 0) throw new Error('Recovery amount must be greater than 0.');
-        if (amount > wps.remainingBalance) {
-          throw new Error(`Recovery amount OMR ${amount.toFixed(3)} cannot exceed remaining balance of OMR ${wps.remainingBalance.toFixed(3)}.`);
-        }
+          const amount = roundOMR(tx.recoveryAmount);
+          if (amount <= 0) throw new Error('Recovery amount must be greater than 0.');
+          if (amount > wps.remainingBalance) {
+            throw new Error(`Recovery amount OMR ${amount.toFixed(3)} cannot exceed remaining balance of OMR ${wps.remainingBalance.toFixed(3)}.`);
+          }
 
-        tx.recoveryAmount = amount;
-        this.inMemoryData.wpsRecoveryTransactions.push(tx);
+          tx.recoveryAmount = amount;
+          this.inMemoryData.wpsRecoveryTransactions.push(tx);
 
-        wps.totalRecovered = roundOMR(wps.totalRecovered + amount);
-        wps.remainingBalance = roundOMR(Math.max(0, wps.totalRecoverable - wps.totalRecovered));
-        if (wps.remainingBalance <= 0) {
-          wps.status = 'Fully Recovered';
-        } else {
-          wps.status = 'Partially Recovered';
-        }
-        wps.updatedAt = new Date().toISOString();
+          wps.totalRecovered = roundOMR(wps.totalRecovered + amount);
+          wps.remainingBalance = roundOMR(Math.max(0, wps.totalRecoverable - wps.totalRecovered));
+          wps.status = wps.remainingBalance <= 0 ? 'Fully Recovered' : 'Partially Recovered';
+          wps.updatedAt = new Date().toISOString();
 
-        await this.persist();
-        return tx;
+          return { changed: true, value: tx };
+        });
       }
     };
   }
@@ -2693,28 +2778,30 @@ class DatabaseManager {
         await this.persist();
         return loan;
       },
+      // Balance ceiling re-checked inside the retry closure against fresh state.
       addRecovery: async (recovery: LoanRecoveryTransaction) => {
-        const loan = this.inMemoryData.loans.find(l => l.id === recovery.loanId);
-        if (!loan) throw new Error('Loan record not found.');
+        return this.withOptimisticRetry(() => {
+          const loan = this.inMemoryData.loans.find(l => l.id === recovery.loanId);
+          if (!loan) throw new Error('Loan record not found.');
 
-        const amount = roundOMR(recovery.recoveryAmount);
-        if (amount <= 0) throw new Error('Recovery amount must be greater than 0.');
-        if (amount > loan.outstandingBalance) {
-          throw new Error(`Recovery amount OMR ${amount.toFixed(3)} cannot exceed outstanding loan of OMR ${loan.outstandingBalance.toFixed(3)}.`);
-        }
+          const amount = roundOMR(recovery.recoveryAmount);
+          if (amount <= 0) throw new Error('Recovery amount must be greater than 0.');
+          if (amount > loan.outstandingBalance) {
+            throw new Error(`Recovery amount OMR ${amount.toFixed(3)} cannot exceed outstanding loan of OMR ${loan.outstandingBalance.toFixed(3)}.`);
+          }
 
-        recovery.recoveryAmount = amount;
-        this.inMemoryData.loanRecoveries.push(recovery);
+          recovery.recoveryAmount = amount;
+          this.inMemoryData.loanRecoveries.push(recovery);
 
-        loan.totalRecovered = roundOMR(loan.totalRecovered + amount);
-        loan.outstandingBalance = roundOMR(Math.max(0, loan.loanAmount - loan.totalRecovered));
-        if (loan.outstandingBalance <= 0) {
-          loan.status = 'Completed';
-        }
-        loan.updatedAt = new Date().toISOString();
+          loan.totalRecovered = roundOMR(loan.totalRecovered + amount);
+          loan.outstandingBalance = roundOMR(Math.max(0, loan.loanAmount - loan.totalRecovered));
+          if (loan.outstandingBalance <= 0) {
+            loan.status = 'Completed';
+          }
+          loan.updatedAt = new Date().toISOString();
 
-        await this.persist();
-        return recovery;
+          return { changed: true, value: recovery };
+        });
       },
       updateStatus: async (id: string, status: LoanStatus) => {
         const loan = this.inMemoryData.loans.find(l => l.id === id);

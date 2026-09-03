@@ -278,16 +278,28 @@ export const PayrollView: React.FC = () => {
     }
   };
 
-  const handleFinalize = async () => {
+  const handleFinalize = async (overrideReason?: string) => {
     try {
       const result = await apiRequest(`/api/payroll/${month}/finalize`, {
         method: 'POST',
+        body: JSON.stringify(overrideReason ? { overrideReason } : {}),
       });
       setPayroll(result);
       setLines(result.lines || []);
       setIsFinalizeModalOpen(false);
       alert(`Payroll for ${month} has been finalized. Financial snapshot locked and WPS excess registered.`);
     } catch (err: any) {
+      // Attendance for this month has not been approved. Offer the audited override rather
+      // than leaving the user stuck, since the reason is recorded either way.
+      if (/not Approved/i.test(err.message || '')) {
+        const reason = window.prompt(
+          `${err.message}\n\nTo finalize anyway, enter the reason. It will be recorded in the audit trail.`
+        );
+        if (reason && reason.trim()) {
+          await handleFinalize(reason.trim());
+        }
+        return;
+      }
       alert(err.message || 'Finalization failed');
     }
   };

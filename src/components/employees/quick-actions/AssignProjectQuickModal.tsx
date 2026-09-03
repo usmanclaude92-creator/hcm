@@ -84,66 +84,56 @@ export const AssignProjectQuickModal: React.FC<AssignProjectQuickModalProps> = (
       return;
     }
 
+    const isHourly = employee.wageType === 'Per Hour';
+    const enteredDays = Number(daysWorked);
+    const enteredHours = Number(hoursWorked);
+
+    // The figure entered here multiplies into gross pay, so it must be entered, never
+    // assumed. This previously defaulted to 25 days or 200 hours when left blank.
+    if (isHourly && (!Number.isFinite(enteredHours) || enteredHours <= 0)) {
+      setError('Enter the hours worked on this project. This figure is used to calculate pay.');
+      return;
+    }
+    if (!isHourly && (!Number.isFinite(enteredDays) || enteredDays <= 0)) {
+      setError('Enter the days worked on this project. This figure is used to calculate pay.');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
 
-      // 1. Fetch current month's attendance records to preserve other employees' entries
-      const attRes = await apiRequest(`/api/attendance?month=${month}`);
-      const rawRecords: AttendanceRecord[] = attRes.rawRecords || [];
-      const allProjs: Project[] = attRes.allProjects || projects;
-      const targetProj = allProjs.find((p) => p.id === selectedProjectId) || selectedProj;
-
-      // Filter out this employee's existing records for this month to re-assign cleanly
-      const otherRecords = rawRecords.filter(
-        (r) => r.employeeId.trim().toUpperCase() !== employee.employeeId.trim().toUpperCase()
-      );
-
-      const newRecord: AttendanceRecord = {
-        id: crypto.randomUUID(),
-        employeeId: employee.employeeId,
-        month,
-        payrollMonth: month,
-        projectId: selectedProjectId,
-        projectCode: targetProj?.projectCode || 'PRJ',
-        projectName: targetProj?.projectName || 'Project',
-        daysWorked: employee.wageType === 'Per Hour' ? 0 : Number(daysWorked) || 25,
-        hoursWorked: employee.wageType === 'Per Hour' ? Number(hoursWorked) || 200 : 0,
-        overtimeHours: 0,
-        bonus: 0,
-        deduction: 0,
-        company: employee.employeeCompany,
-        payrollType: 'Monthly',
-        payBy: employee.salaryPaidBy,
-      };
-
-      const updatedRecords = [...otherRecords, newRecord];
-
-      // Save updated attendance for month
-      await apiRequest('/api/attendance', {
+      // One server-side call that replaces only this employee's allocation for the month.
+      // The previous implementation rebuilt the whole month in the browser and posted it
+      // back, so two people assigning projects at once overwrote each other entirely.
+      await apiRequest(`/api/attendance/${encodeURIComponent(month)}/assign`, {
         method: 'POST',
         body: JSON.stringify({
-          month,
-          records: updatedRecords,
+          employeeId: employee.employeeId,
+          projectId: selectedProjectId,
+          daysWorked: isHourly ? 0 : enteredDays,
+          hoursWorked: isHourly ? enteredHours : 0,
         }),
       });
 
-      // 2. Also log a timesheet entry for activity tracking
-      try {
-        await apiRequest('/api/timesheets', {
-          method: 'POST',
-          body: JSON.stringify({
-            employeeId: employee.employeeId,
-            date: new Date().toISOString().split('T')[0],
-            project: targetProj?.projectCode || selectedProjectId,
-            taskActivity: activityNote || `${employee.designation} Project Assignment`,
-            normalHours: employee.wageType === 'Per Hour' ? 8 : 8,
-            overtimeHours: 0,
-            remarks: `Quick Project Allocation: ${targetProj?.projectName || ''}`,
-          }),
-        });
-      } catch {
-        // Non-fatal if timesheets table has separate constraints
+      // Optional activity note, recorded as a timesheet entry. Never fatal to the assignment.
+      if (activityNote && activityNote.trim()) {
+        try {
+          await apiRequest('/api/timesheets', {
+            method: 'POST',
+            body: JSON.stringify({
+              employeeId: employee.employeeId,
+              date: new Date().toISOString().split('T')[0],
+              project: selectedProj?.projectCode || selectedProjectId,
+              taskActivity: activityNote.trim(),
+              normalHours: isHourly ? enteredHours : 0,
+              overtimeHours: 0,
+              remarks: `Project allocation: ${selectedProj?.projectName || ''}`,
+            }),
+          });
+        } catch {
+          // Timesheets are a separate ledger; a failure there must not fail the assignment.
+        }
       }
 
       onSuccess();

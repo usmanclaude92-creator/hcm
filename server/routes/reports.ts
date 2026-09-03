@@ -60,7 +60,11 @@ router.get('/payroll', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { month, company, paidBy, employeeType, exportFormat } = req.query;
 
-    const allPayrolls = db.payroll.getAll();
+    // Draft months are uncommitted and are excluded here, matching /reports/salary-payroll.
+    // Including them previously made the two payroll reports disagree on the same period.
+    // includeDraft=true is available for a deliberate work-in-progress view.
+    const includeDraft = String(req.query.includeDraft || '') === 'true';
+    const allPayrolls = db.payroll.getAll().filter(p => includeDraft || p.status !== 'Draft');
     let lines: any[] = [];
 
     for (const p of allPayrolls) {

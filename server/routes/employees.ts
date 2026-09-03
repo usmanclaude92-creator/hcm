@@ -1149,6 +1149,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       bankBranch,
       accountHolderName,
       personalDetails,
+      salaryRevisionReason,
     } = req.body;
 
     const updates: Partial<Employee> = {};
@@ -1204,14 +1205,52 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     };
     await db.personalDetails.save(employee.employeeId, mergedPersonal);
 
+    // Record what actually changed, with old and new values. A salary change previously
+    // logged only the static string "Updated employee details", leaving no trace of the
+    // figures involved or the stated reason for the revision.
+    const trackedFields: Array<keyof Employee> = [
+      'employeeName', 'employeeType', 'nationalityType', 'wageType', 'designation',
+      'employeeCompany', 'salaryPaidBy', 'monthlySalaryOrRate', 'wpsEmployee', 'wpsSalary',
+      'actualSalary', 'recoverFrom', 'isActive', 'dateOfJoining', 'dateOfLeaving',
+      'bankName', 'bankAccountNumber', 'iban', 'bankBranch', 'accountHolderName',
+    ];
+    const previousValue: Record<string, any> = {};
+    const newValue: Record<string, any> = {};
+    for (const field of trackedFields) {
+      if (updates[field] !== undefined && updates[field] !== employee[field]) {
+        previousValue[field] = employee[field];
+        newValue[field] = updates[field];
+      }
+    }
+
+    const reason = salaryRevisionReason ? String(salaryRevisionReason).trim() : '';
+    const salaryChanged = newValue.monthlySalaryOrRate !== undefined;
+    if (reason) {
+      newValue.revisionReason = reason;
+    }
+
+    const changedFields = Object.keys(newValue).filter(k => k !== 'revisionReason');
+    let description = `Updated employee details for ${employee.employeeId} (${employee.employeeName}).`;
+    if (salaryChanged) {
+      description =
+        `Salary for ${employee.employeeId} (${employee.employeeName}) changed from OMR ` +
+        `${roundOMR(Number(previousValue.monthlySalaryOrRate) || 0).toFixed(3)} to OMR ` +
+        `${roundOMR(Number(newValue.monthlySalaryOrRate) || 0).toFixed(3)}.` +
+        (reason ? ` Reason: ${reason}` : ' No reason recorded.');
+    } else if (changedFields.length > 0) {
+      description = `Updated ${changedFields.join(', ')} for ${employee.employeeId} (${employee.employeeName}).`;
+    }
+
     await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
-      action: 'EMPLOYEE_UPDATED',
+      action: salaryChanged ? 'EMPLOYEE_SALARY_REVISED' : 'EMPLOYEE_UPDATED',
       module: 'Employee Master',
       recordId: id,
-      description: `Updated employee details for ${employee.employeeId} (${employee.employeeName}).`,
+      description,
+      previousValue: Object.keys(previousValue).length > 0 ? previousValue : undefined,
+      newValue: Object.keys(newValue).length > 0 ? newValue : undefined,
     });
 
     res.json(updated);
@@ -2707,6 +2746,32 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
           updatedAt: timestamp,
         });
       }
+    }
+
+    // 5. Bank detail sync. Bank fields live on both the employee record and the personal
+    // details store, and reads prefer the employee record. Writing only one of them let the
+    // two disagree, so which IBAN a payment used depended on which screen saved last.
+    const bankUpdates: Partial<Employee> = {};
+    if (payload.bankName !== undefined) bankUpdates.bankName = String(payload.bankName).trim();
+    if (payload.bankAccountNumber !== undefined) bankUpdates.bankAccountNumber = String(payload.bankAccountNumber).trim();
+    if (payload.iban !== undefined) bankUpdates.iban = String(payload.iban).trim().toUpperCase();
+    if (payload.bankBranch !== undefined) bankUpdates.bankBranch = String(payload.bankBranch).trim();
+    if (payload.accountHolderName !== undefined) bankUpdates.accountHolderName = String(payload.accountHolderName).trim();
+
+    if (Object.keys(bankUpdates).length > 0) {
+      if (bankUpdates.bankAccountNumber) {
+        const accCheck = validateBankAccountNumber(bankUpdates.bankAccountNumber, bankUpdates.bankName ?? emp.bankName);
+        if (!accCheck.isValid) {
+          return res.status(400).json({ error: `Invalid Bank Account Number: ${accCheck.error}` });
+        }
+      }
+      if (bankUpdates.iban) {
+        const ibanCheck = validateIban(bankUpdates.iban, bankUpdates.bankName ?? emp.bankName);
+        if (!ibanCheck.isValid) {
+          return res.status(400).json({ error: `Invalid Bank IBAN: ${ibanCheck.error}` });
+        }
+      }
+      await db.employees.update(emp.id, bankUpdates, req.user?.username);
     }
 
     await db.audit.log({

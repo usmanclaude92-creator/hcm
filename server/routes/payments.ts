@@ -734,22 +734,32 @@ router.post('/import/confirm', verifyAuth, requirePermission('salary_payment.imp
         continue;
       }
 
-      if (line) {
-        const existingPayments = db.salaryPayments.getByEmployeeAndMonth(normId, r.payrollMonth);
-        const totalPaidBefore = roundOMR(existingPayments.reduce((s, p) => s + p.payAmount, 0));
-        const currentOutstanding = roundOMR(Math.max(0, line.netSalary - totalPaidBefore));
-        if (numericAmount > currentOutstanding) {
-          errors.push(`${normId} (${r.payrollMonth}): Amount OMR ${numericAmount.toFixed(3)} exceeds outstanding balance of OMR ${currentOutstanding.toFixed(3)}.`);
-          continue;
-        }
+      // A payment must always be anchored to a finalized payroll entitlement. Without this
+      // guard an imported row for a month with no payroll line was recorded with no
+      // ceiling and no link to what it was paying -- an unvalidated cash-out record.
+      if (!payroll || payroll.status !== 'Finalized') {
+        errors.push(`${normId} (${r.payrollMonth}): payroll for this month is not Finalized; payments cannot be imported against it.`);
+        continue;
+      }
+      if (!line) {
+        errors.push(`${normId} (${r.payrollMonth}): no payroll line exists for this employee in this month.`);
+        continue;
+      }
+
+      const existingPayments = db.salaryPayments.getByEmployeeAndMonth(normId, r.payrollMonth);
+      const totalPaidBefore = roundOMR(existingPayments.reduce((s, p) => s + p.payAmount, 0));
+      const currentOutstanding = roundOMR(Math.max(0, line.netSalary - totalPaidBefore));
+      if (numericAmount > currentOutstanding) {
+        errors.push(`${normId} (${r.payrollMonth}): Amount OMR ${numericAmount.toFixed(3)} exceeds outstanding balance of OMR ${currentOutstanding.toFixed(3)}.`);
+        continue;
       }
 
       const tx: SalaryPaymentTransaction = {
         id: crypto.randomUUID(),
         employeeId: normId,
-        employeeName: line ? line.employeeName : r.employeeName,
+        employeeName: line.employeeName,
         payrollMonth: r.payrollMonth,
-        payrollLineId: line ? line.id : '',
+        payrollLineId: line.id,
         paymentDate: r.paymentDate || timestamp.split('T')[0],
         payAmount: numericAmount,
         payTo: r.payTo || 'Employee',

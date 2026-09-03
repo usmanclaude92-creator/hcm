@@ -122,14 +122,9 @@ export async function downloadAuthenticatedFile(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Also include token in query param for routes that inspect query
-  let url = endpoint;
-  if (token) {
-    const separator = url.includes('?') ? '&' : '?';
-    url = `${url}${separator}token=${encodeURIComponent(token)}`;
-  }
-
-  const response = await fetch(url, {
+  // Header only. This is a fetch(), so no token needs to appear in the URL -- putting one
+  // there would write a live session token into access logs and browser history.
+  const response = await fetch(endpoint, {
     method: 'GET',
     headers,
   });

@@ -422,7 +422,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
 // POST /api/attendance/import/confirm - Commit validated attendance to database
 router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
-    const { month, rows } = req.body;
+    const { month, rows, replaceMonth } = req.body;
     if (!month || !Array.isArray(rows)) {
       return res.status(400).json({ error: 'Month and rows are required.' });
     }
@@ -480,7 +480,22 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
       }
     }
 
-    await db.attendance.saveMonthRecords(month, attendanceRecords);
+    // Merge by default: only the employees present in the file are rewritten. A whole-month
+    // replace silently deleted every employee absent from the upload -- correcting five
+    // rows in a 200-employee month wiped the other 195 and zeroed their payroll gross.
+    // Replacing the month is still possible, but only as an explicit, audited choice.
+    const isReplace = replaceMonth === true;
+    const removedCount = isReplace
+      ? Math.max(0, db.attendance.countForMonth(month) - attendanceRecords.length)
+      : 0;
+
+    if (isReplace) {
+      await db.attendance.saveMonthRecords(month, attendanceRecords);
+    } else {
+      await db.attendance.mergeMonthRecords(month, attendanceRecords);
+    }
+
+    const affectedEmployees = new Set(attendanceRecords.map(r => normalizeEmployeeId(r.employeeId))).size;
 
     await db.audit.log({
       userId: req.user?.id,
@@ -488,17 +503,118 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
       userRole: req.user?.role || 'Payroll User',
       action: 'ATTENDANCE_IMPORTED',
       module: 'Attendance',
-      description: `Imported ${attendanceRecords.length} attendance rows from Excel for ${month}.`,
+      description: isReplace
+        ? `Imported ${attendanceRecords.length} attendance rows for ${month} in REPLACE mode, covering ${affectedEmployees} employee(s). Records removed for employees absent from the file: ${removedCount}.`
+        : `Imported ${attendanceRecords.length} attendance rows for ${month} in merge mode, covering ${affectedEmployees} employee(s). Employees absent from the file were left unchanged.`,
     });
 
     res.json({
       success: true,
-      message: `Successfully imported ${attendanceRecords.length} attendance records for ${month}.`,
+      mode: isReplace ? 'replace' : 'merge',
+      message: isReplace
+        ? `Replaced attendance for ${month}: ${attendanceRecords.length} records imported, ${removedCount} pre-existing record(s) removed.`
+        : `Imported ${attendanceRecords.length} attendance records for ${month} across ${affectedEmployees} employee(s). Other employees were not modified.`,
       count: attendanceRecords.length,
+      affectedEmployees,
+      removedCount,
       errors,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to commit attendance import.' });
+  }
+});
+
+// POST /api/attendance/:month/assign - Assign one employee to one project for a month.
+// Replaces only that employee's allocation; every other employee is untouched. This exists
+// because the Assign Project quick action previously rebuilt the entire month in the
+// browser and posted it back, which dropped concurrent edits and defaulted missing input
+// to 25 days / 200 hours -- invented figures that fed straight into gross pay.
+router.post('/:month/assign', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const month = req.params.month;
+    const { employeeId, projectId, daysWorked, hoursWorked } = req.body;
+
+    if (!employeeId || !projectId) {
+      return res.status(400).json({ error: 'Employee and project are required.' });
+    }
+
+    const existingPayroll = db.payroll.getByMonth(month);
+    if (existingPayroll && existingPayroll.status === 'Finalized') {
+      return res.status(400).json({ error: `Payroll for ${month} is Finalized. Modify attendance only during Revision.` });
+    }
+    const attendanceMonth = db.attendanceMonths.getByMonth(month);
+    if (attendanceMonth && attendanceMonth.status === 'Finalized') {
+      return res.status(400).json({ error: `Attendance for ${month} is Finalized. Use Revert before making changes.` });
+    }
+
+    const emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
+    if (!emp) return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
+    if (!emp.isActive) return res.status(400).json({ error: `Employee '${emp.employeeId}' is inactive.` });
+
+    const proj = db.projects.findById(projectId) || db.projects.findByCode(projectId);
+    if (!proj) return res.status(404).json({ error: 'Project not found.' });
+    if (proj.status !== 'Active') return res.status(400).json({ error: `Project '${proj.projectCode}' is Inactive.` });
+
+    const permissionError = checkProjectCompanyPermission(proj, emp.employeeCompany);
+    if (permissionError) return res.status(400).json({ error: `${emp.employeeId}: ${permissionError}` });
+
+    // No invented defaults: the figure that drives pay must be entered, not assumed.
+    const isStaff = emp.employeeType === 'Staff';
+    const days = isStaff ? Number(daysWorked) : 0;
+    const hours = isStaff ? 0 : Number(hoursWorked);
+
+    if (isStaff) {
+      if (!Number.isFinite(days) || days <= 0) {
+        return res.status(400).json({ error: 'Days worked is required for Staff and must be greater than zero.' });
+      }
+      if (days > MAX_STAFF_DAYS_PER_MONTH) {
+        return res.status(400).json({ error: `Days worked cannot exceed ${MAX_STAFF_DAYS_PER_MONTH} in a month.` });
+      }
+    } else {
+      if (!Number.isFinite(hours) || hours <= 0) {
+        return res.status(400).json({ error: 'Hours worked is required for Workers and must be greater than zero.' });
+      }
+    }
+
+    const timestamp = new Date().toISOString();
+    const record: AttendanceRecord = {
+      id: crypto.randomUUID(),
+      employeeId: emp.employeeId,
+      employeeInternalId: emp.id,
+      payrollMonth: month,
+      projectId: proj.id,
+      projectCode: proj.projectCode,
+      projectName: proj.projectName,
+      daysWorked: days,
+      hoursWorked: hours,
+      overtimeHours: 0,
+      bonus: 0,
+      deduction: 0,
+      company: emp.employeeCompany,
+      payrollType: PAYROLL_TYPE,
+      payBy: emp.salaryPaidBy,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    const previous = db.attendance.getByEmployeeAndMonth(emp.employeeId, month);
+    await db.attendance.mergeMonthRecords(month, [record]);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'ATTENDANCE_PROJECT_ASSIGNED',
+      module: 'Attendance',
+      recordId: record.id,
+      description: `Assigned ${emp.employeeId} (${emp.employeeName}) to ${proj.projectCode} for ${month} at ${isStaff ? `${days} day(s)` : `${hours} hour(s)`}. Replaced ${previous.length} prior allocation row(s) for this employee.`,
+      previousValue: { allocations: previous.map(p => ({ projectCode: p.projectCode, daysWorked: p.daysWorked, hoursWorked: p.hoursWorked })) },
+      newValue: { projectCode: proj.projectCode, daysWorked: days, hoursWorked: hours },
+    });
+
+    res.json({ success: true, record, replacedAllocations: previous.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to assign project.' });
   }
 });
 

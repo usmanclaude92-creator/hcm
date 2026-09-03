@@ -76,6 +76,12 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     if (numMonthly <= 0) {
       return res.status(400).json({ error: 'Monthly Recovery Amount must be greater than zero.' });
     }
+    // Enforced here so every entry point agrees. The quick-action modal already blocked
+    // this; the full Loan Management page did not, so the same input was accepted or
+    // refused depending on which screen was used.
+    if (numMonthly > numAmount) {
+      return res.status(400).json({ error: 'Monthly Recovery Amount cannot exceed the total loan amount.' });
+    }
 
     const timestamp = new Date().toISOString();
     const newLoan: EmployeeLoan = {

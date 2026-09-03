@@ -331,7 +331,27 @@ router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, async (r
 router.post('/:month/finalize', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.params;
+    const { overrideReason } = req.body || {};
     const user = req.user?.username || 'Admin';
+
+    // Attendance approval now gates finalisation. The four-stage attendance workflow
+    // previously had no effect on payroll at all -- a month could be finalised straight
+    // from unapproved Draft attendance. An override remains possible so an in-flight
+    // month is never locked out, but it must carry a reason and is recorded as such.
+    const attendanceMonth = db.attendanceMonths.getByMonth(month);
+    const attendanceStatus = attendanceMonth?.status || 'Draft';
+    const attendanceApproved = attendanceStatus === 'Approved' || attendanceStatus === 'Finalized';
+    const reason = overrideReason ? String(overrideReason).trim() : '';
+
+    if (!attendanceApproved && !reason) {
+      return res.status(400).json({
+        error:
+          `Attendance for ${month} is ${attendanceStatus}, not Approved. ` +
+          'Approve the attendance first, or supply an override reason to finalize payroll anyway.',
+        attendanceStatus,
+        requiresOverride: true,
+      });
+    }
 
     const finalized = await db.payroll.finalize(month, user);
 
@@ -342,7 +362,12 @@ router.post('/:month/finalize', verifyAuth, requireRoles('Administrator', 'Payro
       action: 'PAYROLL_FINALIZED',
       module: 'Payroll',
       recordId: finalized.id,
-      description: `Finalized payroll for ${month}. Total Net Salary: OMR ${finalized.totalNetSalary.toFixed(3)}. Snapshot locked.`,
+      description:
+        `Finalized payroll for ${month}. Total Net Salary: OMR ${finalized.totalNetSalary.toFixed(3)}. Snapshot locked. ` +
+        (attendanceApproved
+          ? `Attendance status: ${attendanceStatus}.`
+          : `OVERRIDE: finalized against ${attendanceStatus} attendance. Reason: ${reason}`),
+      newValue: { attendanceStatus, overrideUsed: !attendanceApproved, overrideReason: reason || undefined },
     });
 
     res.json(finalized);

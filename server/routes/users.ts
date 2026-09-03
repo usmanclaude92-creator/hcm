@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { db } from '../db.js';
-import { verifyAuth, requireRoles, AuthRequest } from '../auth.js';
+import { verifyAuth, requireRoles, AuthRequest, validatePasswordStrength } from '../auth.js';
 import type { User, UserRole } from '../../src/types/index';
 
 const router = Router();
@@ -57,6 +57,11 @@ router.post('/', verifyAuth, requireRoles(['Administrator']), async (req: AuthRe
       return res.status(400).json({ error: `Username '${cleanUsername}' is already registered.` });
     }
 
+    const policyError = validatePasswordStrength(password);
+    if (policyError) {
+      return res.status(400).json({ error: policyError });
+    }
+
     const timestamp = new Date().toISOString();
     const newUser: User = {
       id: crypto.randomUUID(),
@@ -107,7 +112,13 @@ router.put('/:id', verifyAuth, requireRoles(['Administrator']), async (req: Auth
     if (email) updates.email = email.trim().toLowerCase();
     if (role) updates.role = role as UserRole;
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
-    if (password && password.trim()) updates.passwordHash = bcrypt.hashSync(password, 10);
+    if (password && password.trim()) {
+      const policyError = validatePasswordStrength(password);
+      if (policyError) {
+        return res.status(400).json({ error: policyError });
+      }
+      updates.passwordHash = bcrypt.hashSync(password, 10);
+    }
 
     const updated = await db.users.update(id, updates);
     if (!updated) {

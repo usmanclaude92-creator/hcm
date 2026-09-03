@@ -2,7 +2,16 @@ import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { db } from '../db.js';
-import { generateToken, verifyAuth, requireRoles, AuthRequest } from '../auth.js';
+import {
+  generateToken,
+  verifyAuth,
+  requireRoles,
+  AuthRequest,
+  isLoginThrottled,
+  recordFailedLogin,
+  clearLoginAttempts,
+  validatePasswordStrength,
+} from '../auth.js';
 import type { User, UserRole } from '../../src/types/index';
 
 const router = Router();
@@ -15,8 +24,16 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required.' });
     }
 
+    const throttleKey = `${req.ip || 'unknown'}:${String(username).trim().toLowerCase()}`;
+    if (isLoginThrottled(throttleKey)) {
+      return res.status(429).json({
+        error: 'Too many failed sign-in attempts. Wait 15 minutes before trying again.',
+      });
+    }
+
     const user = db.users.findByUsername(username);
     if (!user) {
+      recordFailedLogin(throttleKey);
       return res.status(401).json({ error: 'Invalid username or password.' });
     }
 
@@ -26,8 +43,11 @@ router.post('/login', async (req, res) => {
 
     const isMatch = bcrypt.compareSync(password, user.passwordHash || '');
     if (!isMatch) {
+      recordFailedLogin(throttleKey);
       return res.status(401).json({ error: 'Invalid username or password.' });
     }
+
+    clearLoginAttempts(throttleKey);
 
     const token = generateToken({
       id: user.id,
@@ -113,6 +133,11 @@ router.post('/users', verifyAuth, requireRoles(['Administrator']), async (req: A
     const existing = db.users.findByUsername(username);
     if (existing) {
       return res.status(400).json({ error: `Username '${username}' is already taken.` });
+    }
+
+    const policyError = validatePasswordStrength(password);
+    if (policyError) {
+      return res.status(400).json({ error: policyError });
     }
 
     const timestamp = new Date().toISOString();
@@ -270,8 +295,9 @@ router.post('/change-password', verifyAuth, async (req: AuthRequest, res: Respon
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: 'Current password and new password are required.' });
     }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    const policyError = validatePasswordStrength(newPassword);
+    if (policyError) {
+      return res.status(400).json({ error: policyError });
     }
 
     const user = db.users.findById(req.user!.id);

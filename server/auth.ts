@@ -33,12 +33,42 @@ export function generateToken(user: { id: string; username: string; role: UserRo
   );
 }
 
+function decodeToken(token: string) {
+  return jwt.verify(token, JWT_SECRET) as {
+    id: string;
+    username: string;
+    role: UserRole;
+    name: string;
+    email: string;
+  };
+}
+
+// Header-only. A token in the query string is written into server access logs, proxy and
+// CDN logs and browser history; see verifyAuthAllowingQueryToken for the single route that
+// genuinely cannot send a header.
 export function verifyAuth(req: AuthRequest, res: Response, next: NextFunction) {
-  let token: string | undefined;
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.split(' ')[1];
-  } else if (req.query && typeof req.query.token === 'string') {
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
+
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required. Please log in.' });
+  }
+
+  try {
+    req.user = decodeToken(token);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' });
+  }
+}
+
+// Narrow exception for document streaming, where the URL is consumed by <img>/<iframe>/
+// download and no Authorization header can be attached. Scoped to that one route so the
+// exposure is a single endpoint rather than the whole API surface.
+export function verifyAuthAllowingQueryToken(req: AuthRequest, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
+  if (!token && req.query && typeof req.query.token === 'string') {
     token = req.query.token;
   }
 
@@ -47,18 +77,56 @@ export function verifyAuth(req: AuthRequest, res: Response, next: NextFunction) 
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      id: string;
-      username: string;
-      role: UserRole;
-      name: string;
-      email: string;
-    };
-    req.user = decoded;
+    req.user = decodeToken(token);
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' });
   }
+}
+
+// --- Login throttling ---------------------------------------------------------------
+// In-memory sliding window. On a serverless host this is per-instance rather than global,
+// so it raises the cost of credential stuffing without being a complete defence; a shared
+// store (or the platform's own WAF rate limiting) is the durable answer.
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const loginAttempts = new Map<string, number[]>();
+
+export function recordFailedLogin(key: string): void {
+  const now = Date.now();
+  const recent = (loginAttempts.get(key) || []).filter(t => now - t < LOGIN_WINDOW_MS);
+  recent.push(now);
+  loginAttempts.set(key, recent);
+}
+
+export function clearLoginAttempts(key: string): void {
+  loginAttempts.delete(key);
+}
+
+export function isLoginThrottled(key: string): boolean {
+  const now = Date.now();
+  const recent = (loginAttempts.get(key) || []).filter(t => now - t < LOGIN_WINDOW_MS);
+  loginAttempts.set(key, recent);
+  return recent.length >= LOGIN_MAX_ATTEMPTS;
+}
+
+// --- Password policy ----------------------------------------------------------------
+const WEAK_PASSWORDS = new Set([
+  'password', 'password1', 'password123', 'admin123', 'manager123', 'user123',
+  'viewer123', '12345678', '123456789', 'qwerty123', 'letmein1', 'welcome1',
+]);
+
+export function validatePasswordStrength(password: string): string | null {
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  if (WEAK_PASSWORDS.has(password.toLowerCase())) {
+    return 'That password is too common. Choose something less predictable.';
+  }
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'Password must contain at least one letter and one number.';
+  }
+  return null;
 }
 
 export function requireRoles(...allowedRoles: (UserRole | UserRole[])[]) {

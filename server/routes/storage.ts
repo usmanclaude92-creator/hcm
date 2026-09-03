@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { db, normalizeEmployeeId, maskSensitiveId, calculateExpiryStatus } from '../db.js';
-import { verifyAuth, requirePermission, AuthRequest } from '../auth.js';
+import { verifyAuth, verifyAuthAllowingQueryToken, requireRoles, requirePermission, AuthRequest } from '../auth.js';
 import {
   decodeDocumentDataUrl,
   validateDocumentFile,
@@ -167,7 +167,7 @@ router.post('/upload', verifyAuth, requireHrPermission, async (req: AuthRequest,
 /**
  * GET /api/storage/file/:encodedPath - Serve file stream directly or redirect
  */
-router.get('/file/:encodedPath', verifyAuth, async (req: AuthRequest, res: Response) => {
+router.get('/file/:encodedPath', verifyAuthAllowingQueryToken, async (req: AuthRequest, res: Response) => {
   try {
     const rawPath = decodeURIComponent(req.params.encodedPath);
     // Security: Prevent directory traversal
@@ -598,7 +598,10 @@ router.put('/documents/:id', verifyAuth, requireHrPermission, async (req: AuthRe
 /**
  * DELETE /api/storage/documents/:id - Delete document record and stored object
  */
-router.delete('/documents/:id', verifyAuth, requireHrPermission, async (req: AuthRequest, res: Response) => {
+// Permanent deletion of a passport, contract or identity scan is irreversible and keeps no
+// copy, so it is restricted to Administrator and Payroll Manager rather than to any
+// non-Viewer account.
+router.delete('/documents/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const doc = db.documents.getById(id);
