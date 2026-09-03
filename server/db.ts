@@ -1127,6 +1127,21 @@ class DatabaseManager {
         revisionNumber: 0,
         createdAt: timestamp,
         updatedAt: timestamp,
+      },
+      {
+        id: crypto.randomUUID(),
+        payrollMonth: '2026-08',
+        status: 'Draft',
+        totalEmployees: 5,
+        totalGrossSalary: roundOMR(2350.000),
+        totalAdditions: 120.000,
+        totalDeductions: 80.000,
+        totalNetSalary: roundOMR(2286.500),
+        totalWpsSalary: 1950.000,
+        totalRecoverableSalary: 150.000,
+        revisionNumber: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       }
     ];
 

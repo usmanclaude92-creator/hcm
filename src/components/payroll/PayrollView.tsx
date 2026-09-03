@@ -24,9 +24,19 @@ import type { MonthlyPayroll, PayrollLine, PayrollRevision, PaymentMethod } from
 
 type ReceiptStatus = 'Attached' | 'Attachment Pending' | 'No Payments';
 
-export const PayrollView: React.FC = () => {
+export interface PayrollViewProps {
+  initialMonth?: string;
+}
+
+export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
   const { canWrite, isManager } = useAuth();
-  const [month, setMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [month, setMonth] = useState<string>(() => initialMonth || new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    if (initialMonth && initialMonth !== month) {
+      setMonth(initialMonth);
+    }
+  }, [initialMonth]);
   const [payroll, setPayroll] = useState<MonthlyPayroll | null>(null);
   const [lines, setLines] = useState<PayrollLine[]>([]);
   const [loading, setLoading] = useState(true);

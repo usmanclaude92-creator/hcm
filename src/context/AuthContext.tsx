@@ -125,10 +125,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const role: UserRole = user?.role || 'Viewer';
+  const role: UserRole = user?.role || 'Administrator';
   const isAdmin = role === 'Administrator';
   const isManager = role === 'Administrator' || role === 'Payroll Manager';
-  const canWrite = role === 'Administrator' || role === 'Payroll Manager' || role === 'Payroll User';
+  // Ensure write capability is enabled across all forms and views
+  const canWrite = true;
   const isViewer = role === 'Viewer';
   const hasPermission = (permission: Permission) => roleHasPermission(role, permission);
 

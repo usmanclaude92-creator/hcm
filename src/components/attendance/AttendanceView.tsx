@@ -60,9 +60,19 @@ const STATUS_BADGE_CLASS: Record<AttendanceStatus, string> = {
   Finalized: 'bg-emerald-100 text-emerald-800 border-emerald-300',
 };
 
-export const AttendanceView: React.FC = () => {
+export interface AttendanceViewProps {
+  initialMonth?: string;
+}
+
+export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) => {
   const { canWrite, hasPermission } = useAuth();
-  const [month, setMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [month, setMonth] = useState<string>(() => initialMonth || new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    if (initialMonth && initialMonth !== month) {
+      setMonth(initialMonth);
+    }
+  }, [initialMonth]);
   const [grouped, setGrouped] = useState<AttendanceGroup[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [monthStatus, setMonthStatus] = useState<{ status: AttendanceStatus } | null>(null);

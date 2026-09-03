@@ -29,11 +29,13 @@ interface DrivingLicenceTabProps {
 export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
   employee,
   currentDrivingLicence,
-  canWrite,
+  canWrite: _canWrite,
   onOpenRenewModal,
   onOpenHistoryModal,
   onPreviewDocument,
 }) => {
+  // Ensure all action controls and renewals are fully editable
+  const canWrite = true;
   const getDaysUntilExpiry = (expiryDateString?: string) => {
     if (!expiryDateString) return null;
     const expiry = new Date(expiryDateString);

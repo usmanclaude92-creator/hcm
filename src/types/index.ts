@@ -745,3 +745,29 @@ export interface AuditLog {
   ipAddress?: string;
   timestamp: string;
 }
+
+export interface SystemNotification {
+  id: string;
+  category: 'visa' | 'payroll' | 'attendance';
+  type: 'visa_expiring' | 'visa_expired' | 'payroll_draft' | 'payroll_revision' | 'attendance_approval';
+  severity: 'urgent' | 'warning' | 'info';
+  title: string;
+  message: string;
+  timestamp: string;
+  date: string;
+  daysRemaining?: number;
+  status: string;
+  metadata: Record<string, any>;
+  action: {
+    view: string;
+    params?: Record<string, any>;
+    label: string;
+  };
+}
+
+export interface NotificationSummary {
+  total: number;
+  visaAlertsCount: number;
+  payrollApprovalsCount: number;
+  urgentCount: number;
+}

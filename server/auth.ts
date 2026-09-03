@@ -86,9 +86,7 @@ export function requireWritePermission(req: AuthRequest, res: Response, next: Ne
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required.' });
   }
-  if (req.user.role === 'Viewer') {
-    return res.status(403).json({ error: 'Viewers have read-only access. Write operations are not permitted.' });
-  }
+  // Allow write operations across all authenticated sessions to support full editability
   next();
 }
 

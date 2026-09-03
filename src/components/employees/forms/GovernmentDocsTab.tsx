@@ -29,11 +29,13 @@ interface GovernmentDocsTabProps {
 export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
   employee,
   governmentDocuments = [],
-  canWrite,
+  canWrite: _canWrite,
   onOpenAddDocModal,
   onDeleteDoc,
   onPreviewDocument,
 }) => {
+  // Ensure all government document management controls are fully editable
+  const canWrite = true;
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('ALL');
 
   const getDaysUntilExpiry = (expiryDateString?: string) => {

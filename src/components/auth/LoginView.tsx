@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database, Rocket } from 'lucide-react';
+import { Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database, Rocket, ShieldAlert } from 'lucide-react';
 import type { UserRole } from '../../types/index';
+import { STORAGE_KEY_LOGOUT_REASON } from '../../hooks/useIdleTimer';
 
 // Static class strings, not template-literal-composed -- Tailwind's JIT scanner only
 // picks up whole class names it can find verbatim in source, so `text-${color}-400`
@@ -25,6 +26,16 @@ export const LoginView: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(() => {
+    try {
+      const reason = sessionStorage.getItem(STORAGE_KEY_LOGOUT_REASON);
+      if (reason) {
+        sessionStorage.removeItem(STORAGE_KEY_LOGOUT_REASON);
+        return reason;
+      }
+    } catch {}
+    return null;
+  });
   const [loading, setLoading] = useState(false);
   const [showDemoRoles, setShowDemoRoles] = useState(false);
 
@@ -66,6 +77,26 @@ export const LoginView: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-slate-900 border border-slate-800 py-8 px-6 shadow-2xl rounded-2xl sm:px-10">
+          {sessionNotice && (
+            <div className="mb-5 rounded-xl bg-amber-500/10 border border-amber-500/30 p-3.5 flex items-start justify-between gap-3 text-amber-300 text-xs animate-in fade-in duration-200">
+              <div className="flex items-start gap-2.5">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-200">Security Auto-Logout</p>
+                  <p className="text-amber-300/90 mt-0.5 leading-relaxed">{sessionNotice}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSessionNotice(null)}
+                className="text-amber-400 hover:text-amber-200 font-bold px-1"
+                aria-label="Dismiss message"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Production Sign In */}
           <form className="space-y-5" onSubmit={handleSubmit}>
             {error && (

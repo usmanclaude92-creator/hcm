@@ -51,10 +51,20 @@ interface ComplianceSummary {
   drivingLicences: { valid: number; expiringSoon: number; urgent: number; expired: number };
 }
 
-export const ComplianceDashboardView: React.FC = () => {
+export interface ComplianceDashboardViewProps {
+  initialTab?: 'alerts' | 'repository' | 'trade-matrix' | 'fleet' | 'ai-assistant';
+  initialSearch?: string;
+}
+
+export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = ({
+  initialTab,
+  initialSearch,
+}) => {
   const { canWrite, isAdmin, isManager } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'alerts' | 'repository' | 'trade-matrix' | 'fleet' | 'ai-assistant'>('alerts');
+  const [activeTab, setActiveTab] = useState<'alerts' | 'repository' | 'trade-matrix' | 'fleet' | 'ai-assistant'>(
+    () => initialTab || 'alerts'
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +76,19 @@ export const ComplianceDashboardView: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Filtering
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch || '');
+
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (initialSearch !== undefined && initialSearch !== search) {
+      setSearch(initialSearch);
+    }
+  }, [initialSearch]);
   const [docTypeFilter, setDocTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [companyFilter, setCompanyFilter] = useState('ALL');
