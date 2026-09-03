@@ -184,6 +184,8 @@ export interface EmployeeDocument {
 
 export interface EmployeePersonalDetails {
   employeeId?: string;
+  photoUrl?: string;
+  avatarUrl?: string;
   fatherName?: string;
   dob?: string;
   dateOfBirth?: string;
@@ -299,6 +301,8 @@ export interface Employee {
   id: string;
   employeeId: string;
   employeeName: string;
+  photoUrl?: string;
+  avatarUrl?: string;
   employeeType: EmployeeType;
   nationalityType: NationalityType;
   wageType: WageType;

@@ -427,10 +427,14 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       setComplianceData(res);
 
       if (res.personalDetails) {
-        setPersonalForm(res.personalDetails);
+        setPersonalForm({
+          ...res.personalDetails,
+          photoUrl: res.personalDetails.photoUrl || currentEmployee.photoUrl || undefined,
+        });
       } else {
         setPersonalForm({
           employeeId: currentEmployee.employeeId,
+          photoUrl: currentEmployee.photoUrl || undefined,
           gender: 'Male',
           maritalStatus: 'Single',
           qualifications: [],
@@ -658,6 +662,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         employeeId: normalizedId,
         employeeName: normName,
         nationalityType: effectiveNat,
+        photoUrl: personalForm.photoUrl || undefined,
         employeeType: employmentForm.employeeType || 'Staff',
         wageType: payrollForm.wageType || 'Fixed Monthly',
         dateOfJoining: employmentForm.dateOfJoining || new Date().toISOString().split('T')[0],
@@ -681,6 +686,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           employeeId: normalizedId,
           employeeName: normName,
           nationalityType: effectiveNat,
+          photoUrl: personalForm.photoUrl || undefined,
         },
       };
 
@@ -738,10 +744,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         }),
       });
 
-      // Synchronize currentEmployee state with updated Name / Nationality
+      // Synchronize currentEmployee state with updated Name / Nationality / Photo
       if (
         basicInfoForm.employeeName !== currentEmployee.employeeName ||
-        basicInfoForm.nationalityType !== currentEmployee.nationalityType
+        basicInfoForm.nationalityType !== currentEmployee.nationalityType ||
+        personalForm.photoUrl !== currentEmployee.photoUrl
       ) {
         setCurrentEmployee((prev: any) =>
           prev
@@ -749,6 +756,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 ...prev,
                 employeeName: basicInfoForm.employeeName,
                 nationalityType: basicInfoForm.nationalityType,
+                photoUrl: personalForm.photoUrl,
               }
             : prev
         );
@@ -989,9 +997,27 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               <span>{backLabel}</span>
             </button>
           )}
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white">
-            <User size={18} />
-          </div>
+          {currentEmployee?.photoUrl || personalForm?.photoUrl ? (
+            <img
+              src={currentEmployee?.photoUrl || personalForm?.photoUrl}
+              alt={currentEmployee?.employeeName || basicInfoForm?.employeeName || 'Profile'}
+              className="w-9 h-9 rounded-xl object-cover border border-slate-700 shadow-xs"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+              {currentEmployee?.employeeName || basicInfoForm?.employeeName ? (
+                (currentEmployee?.employeeName || basicInfoForm?.employeeName || '')
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((n: string) => n[0])
+                  .join('')
+                  .toUpperCase()
+              ) : (
+                <User size={18} />
+              )}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold tracking-tight">
