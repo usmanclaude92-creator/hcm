@@ -165,3 +165,17 @@ export async function downloadAuthenticatedFile(
   document.body.removeChild(link);
   setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
 }
+
+// Builds a browser-embeddable (img/iframe/href) URL for a stored document.
+// /api/storage/file/* requires auth, so our own route needs the token appended as
+// a query param (no Authorization header on a plain <img>/<iframe> load); an
+// external URL (e.g. a Supabase signed URL) is already directly usable as-is.
+export function buildStorageFileUrl(urlOrPath: string | null | undefined): string | null {
+  if (!urlOrPath) return null;
+  if (!urlOrPath.startsWith('/api/storage/file/')) return urlOrPath;
+
+  const token = getStoredToken();
+  if (!token) return urlOrPath;
+  const separator = urlOrPath.includes('?') ? '&' : '?';
+  return `${urlOrPath}${separator}token=${encodeURIComponent(token)}`;
+}

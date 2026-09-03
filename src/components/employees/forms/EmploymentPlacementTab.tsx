@@ -74,7 +74,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
   employee,
   employmentForm,
   setEmploymentForm,
-  canWrite: _canWrite,
+  canWrite,
   saving,
   onSave,
   designationHistory = [],
@@ -84,8 +84,6 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
   setBasicInfoForm,
   onNavigateToPersonal,
 }) => {
-  // Ensure all employment placement fields are fully editable
-  const canWrite = true;
   return (
     <div className="space-y-6">
       {/* Draft Profile Banner for New Employee Registration */}

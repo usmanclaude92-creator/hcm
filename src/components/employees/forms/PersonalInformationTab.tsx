@@ -72,7 +72,7 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
   employee,
   personalForm,
   setPersonalForm,
-  canWrite: _canWrite,
+  canWrite,
   saving,
   onSave,
   isNewEmployee = false,
@@ -82,8 +82,6 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
   complianceData,
   onDocumentUploaded,
 }) => {
-  // Ensure all fields in the personal information tab are fully editable
-  const canWrite = true;
   const [newQual, setNewQual] = useState('');
   const [newSkill, setNewSkill] = useState('');
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);

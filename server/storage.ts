@@ -9,6 +9,11 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RECEIPTS_BUCKET = process.env.SUPABASE_RECEIPTS_BUCKET || 'salary-payment-receipts';
 const DOCUMENTS_BUCKET = process.env.SUPABASE_DOCUMENTS_BUCKET || 'employee-documents';
 
+// Local disk/memory storage is a local-dev convenience only. In production, a missing or
+// failing Supabase upload must fail loudly rather than silently writing employee documents
+// (Civil IDs, visas, passports, receipts) unencrypted to the app server's filesystem.
+const ALLOW_LOCAL_STORAGE_FALLBACK = process.env.NODE_ENV !== 'production';
+
 let cachedClient: SupabaseClient | null = null;
 
 // In-memory / local disk cache for persistent storage fallback when Supabase is not configured
@@ -152,11 +157,18 @@ export async function uploadEmployeeDocument(
         mimeType,
       };
     } catch (err: any) {
+      if (!ALLOW_LOCAL_STORAGE_FALLBACK) {
+        throw new Error(`Document storage upload failed: ${err?.message || 'unknown error'}`);
+      }
       console.warn(`Supabase document upload failed, falling back to persistent local storage: ${err?.message}`);
     }
+  } else if (!ALLOW_LOCAL_STORAGE_FALLBACK) {
+    throw new Error(
+      'Document storage is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+    );
   }
 
-  // Fallback to local persistent store
+  // Fallback to local persistent store (local development only)
   localFileStore.set(storagePath, {
     storagePath,
     originalFileName: cleanOriginal,
@@ -208,7 +220,13 @@ export async function uploadReceipt(
     return { path: storagePath, fileName };
   }
 
-  // Fallback to local store
+  if (!ALLOW_LOCAL_STORAGE_FALLBACK) {
+    throw new Error(
+      'Receipt storage is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+    );
+  }
+
+  // Fallback to local store (local development only)
   localFileStore.set(storagePath, {
     storagePath,
     originalFileName: fileName,

@@ -167,7 +167,7 @@ router.post('/upload', verifyAuth, requireHrPermission, async (req: AuthRequest,
 /**
  * GET /api/storage/file/:encodedPath - Serve file stream directly or redirect
  */
-router.get('/file/:encodedPath', async (req: AuthRequest, res: Response) => {
+router.get('/file/:encodedPath', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const rawPath = decodeURIComponent(req.params.encodedPath);
     // Security: Prevent directory traversal
@@ -180,7 +180,7 @@ router.get('/file/:encodedPath', async (req: AuthRequest, res: Response) => {
     res.setHeader('Content-Type', mimeType || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
     res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(buffer);
   } catch (err: any) {
     res.status(404).json({ error: err.message || 'File not found in storage.' });

@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   CheckCircle2,
 } from 'lucide-react';
-import { apiRequest } from '../../api/client';
+import { apiRequest, buildStorageFileUrl } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ComplianceBadge } from '../compliance/ComplianceBadge';
 import { FileUploadComponent } from '../common/FileUploadComponent';
@@ -124,9 +124,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   onClose,
   onUpdated,
 }) => {
-  const { user } = useAuth();
-  // Ensure all employee data fields and action controls are unconditionally editable across all roles
-  const canWrite = true;
+  const { user, hasPermission } = useAuth();
+  const canWrite = hasPermission('compliance.edit');
 
   const [activeTab, setActiveTab] = useState<EmployeeRecordTab>(initialTab);
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(employee || null);
@@ -366,7 +365,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
       // Fetch repository doc count
       try {
-        const docsRes = await apiRequest(`/api/employees/${currentEmployee.employeeId}/documents`);
+        const docsRes = await apiRequest(`/api/storage/employees/${currentEmployee.employeeId}/documents`);
         if (docsRes?.documents) {
           setDocCount(docsRes.documents.length);
         }
@@ -736,7 +735,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     if (!currentEmployee) return;
     setSaving(true);
     try {
-      await apiRequest(`/api/employees/${currentEmployee.employeeId}/government-docs`, {
+      await apiRequest(`/api/employees/${currentEmployee.employeeId}/government-documents`, {
         method: 'POST',
         body: JSON.stringify(newGovtDoc),
       });
@@ -767,7 +766,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   const handleDeleteGovtDoc = async (docId: string) => {
     if (!confirm('Are you sure you want to delete this government document record?')) return;
     try {
-      await apiRequest(`/api/employees/${currentEmployee?.employeeId}/government-docs/${docId}`, {
+      await apiRequest(`/api/employees/${currentEmployee?.employeeId}/government-documents/${docId}`, {
         method: 'DELETE',
       });
       setFeedback({ type: 'success', message: 'Document record deleted.' });
@@ -781,7 +780,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   const handlePreviewDocument = (docUrl: string, fileName?: string) => {
     setPreviewModal({
       isOpen: true,
-      url: docUrl,
+      url: buildStorageFileUrl(docUrl) || docUrl,
       fileName: fileName || 'Document',
       title: fileName || 'Document Preview',
     });

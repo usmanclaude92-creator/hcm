@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { db, normalizeEmployeeId, roundOMR, calculateExpiryStatus, calculateOverallCompliance, checkTradeDiscrepancy, maskSensitiveId } from '../db.js';
 import { verifyAuth, requireRoles, requireWritePermission, AuthRequest } from '../auth.js';
+import { roleHasPermission } from '../../src/permissions.js';
 import type {
   Employee,
   EmployeeType,
@@ -1825,6 +1826,17 @@ router.get('/:employeeId/compliance', verifyAuth, (req: AuthRequest, res: Respon
       ? checkTradeDiscrepancy(emp.designation, currentVisa.tradeOnVisa)
       : { hasWarning: false, message: '' };
 
+    // Sensitive ID numbers (Civil ID, Visa, Licence, government document numbers) are only
+    // sent unmasked to roles holding compliance.reveal; everyone else gets the masked form,
+    // since the frontend's own masking is a display preference, not a security boundary.
+    const hasReveal = roleHasPermission(req.user?.role, 'compliance.reveal');
+    const maskField = <T extends Record<string, any>>(record: T | null | undefined, field: keyof T): T | null | undefined => {
+      if (!record || hasReveal) return record;
+      const value = record[field];
+      if (value === undefined || value === null || value === '') return record;
+      return { ...record, [field]: maskSensitiveId(String(value)) };
+    };
+
     res.json({
       employeeId: emp.employeeId,
       employeeName: emp.employeeName,
@@ -1834,13 +1846,13 @@ router.get('/:employeeId/compliance', verifyAuth, (req: AuthRequest, res: Respon
       employeeCompany: emp.employeeCompany,
       overallCompliance,
       tradeDiscrepancy,
-      currentCivilId,
-      civilIdHistory,
-      currentDrivingLicence,
-      drivingLicenceHistory,
-      currentVisa,
-      visaHistory,
-      governmentDocuments,
+      currentCivilId: maskField(currentCivilId, 'civilIdNumber'),
+      civilIdHistory: civilIdHistory.map((r) => maskField(r, 'civilIdNumber')),
+      currentDrivingLicence: maskField(currentDrivingLicence, 'licenceNumber'),
+      drivingLicenceHistory: drivingLicenceHistory.map((r) => maskField(r, 'licenceNumber')),
+      currentVisa: maskField(currentVisa, 'visaNumber'),
+      visaHistory: visaHistory.map((r) => maskField(r, 'visaNumber')),
+      governmentDocuments: governmentDocuments.map((r) => maskField(r, 'documentNumber')),
       personalDetails,
     });
   } catch (err: any) {

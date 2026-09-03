@@ -78,7 +78,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
   employee,
   payrollForm,
   setPayrollForm,
-  canWrite: _canWrite,
+  canWrite,
   saving,
   onSave,
   salaryHistory = [],
@@ -88,8 +88,6 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
   bankDetails,
   onNavigateToPersonal,
 }) => {
-  // Ensure all compensation and WPS fields are fully editable
-  const canWrite = true;
   const formatOMR = (val: number | string | undefined | null) => {
     const num = Number(val) || 0;
     return num.toLocaleString('en-US', {

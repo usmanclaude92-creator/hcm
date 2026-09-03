@@ -11,7 +11,7 @@ import {
   FileCheck,
   RefreshCw,
 } from 'lucide-react';
-import { formatDate } from '../../../api/client';
+import { formatDate, buildStorageFileUrl } from '../../../api/client';
 import { ComplianceBadge } from '../../compliance/ComplianceBadge';
 import { FileUploadComponent } from '../../common/FileUploadComponent';
 import type { Employee, EmployeeCivilId } from '../../../types/index';
@@ -28,17 +28,16 @@ interface CivilIdTabProps {
 export const CivilIdTab: React.FC<CivilIdTabProps> = ({
   employee,
   currentCivilId,
-  canWrite: _canWrite,
+  canWrite,
   onOpenRenewModal,
   onOpenHistoryModal,
   onPreviewDocument,
 }) => {
-  // Ensure Civil ID renewal and editing features are fully enabled
-  const canWrite = true;
   // Compute days until expiry
   const getDaysUntilExpiry = (expiryDateString?: string) => {
     if (!expiryDateString) return null;
     const expiry = new Date(expiryDateString);
+    expiry.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffTime = expiry.getTime() - today.getTime();
@@ -213,7 +212,7 @@ export const CivilIdTab: React.FC<CivilIdTabProps> = ({
                   <span>Preview</span>
                 </button>
                 <a
-                  href={currentCivilId.documentAttachment}
+                  href={buildStorageFileUrl(currentCivilId.documentAttachment) || undefined}
                   download={`CivilID_${currentCivilId.civilIdNumber}`}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >

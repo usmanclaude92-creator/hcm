@@ -24,7 +24,7 @@ import {
   Info,
   History,
 } from 'lucide-react';
-import { apiRequest, formatDate } from '../../api/client';
+import { apiRequest, formatDate, buildStorageFileUrl } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { FileUploadComponent } from '../common/FileUploadComponent';
 import { DocumentPreviewModal } from '../common/DocumentPreviewModal';
@@ -451,7 +451,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                     </button>
 
                     <a
-                      href={doc.fileUrl || `/api/storage/file/${encodeURIComponent(doc.storagePath)}`}
+                      href={buildStorageFileUrl(doc.fileUrl || (doc.storagePath ? `/api/storage/file/${encodeURIComponent(doc.storagePath)}` : null)) || undefined}
                       download={doc.fileName}
                       className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
                       title="Download Document"
@@ -745,7 +745,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
             setPreviewDoc(null);
             setPreviewIndex(-1);
           }}
-          documentUrl={previewDoc.fileUrl || `/api/storage/file/${encodeURIComponent(previewDoc.storagePath)}`}
+          documentUrl={buildStorageFileUrl(previewDoc.fileUrl || (previewDoc.storagePath ? `/api/storage/file/${encodeURIComponent(previewDoc.storagePath)}` : null))}
           fileName={previewDoc.fileName}
           title={previewDoc.title}
           documentType={previewDoc.documentType}

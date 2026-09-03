@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Plus,
 } from 'lucide-react';
-import { formatDate } from '../../../api/client';
+import { formatDate, buildStorageFileUrl } from '../../../api/client';
 import { ComplianceBadge } from '../../compliance/ComplianceBadge';
 import { FileUploadComponent } from '../../common/FileUploadComponent';
 import type { Employee, EmployeeDrivingLicence } from '../../../types/index';
@@ -37,6 +37,7 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
   const getDaysUntilExpiry = (expiryDateString?: string) => {
     if (!expiryDateString) return null;
     const expiry = new Date(expiryDateString);
+    expiry.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffTime = expiry.getTime() - today.getTime();
@@ -216,7 +217,7 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
                   <span>Preview</span>
                 </button>
                 <a
-                  href={currentDrivingLicence.documentAttachment}
+                  href={buildStorageFileUrl(currentDrivingLicence.documentAttachment) || undefined}
                   download={`Licence_${currentDrivingLicence.licenceNumber}`}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >

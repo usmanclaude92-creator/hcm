@@ -37,7 +37,7 @@ import {
   FileBadge,
   Info,
 } from 'lucide-react';
-import { apiRequest, formatDate } from '../../api/client';
+import { apiRequest, formatDate, buildStorageFileUrl } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { ComplianceBadge } from '../compliance/ComplianceBadge';
 import { DocumentPreviewModal } from '../common/DocumentPreviewModal';
@@ -647,9 +647,10 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
   // Handle Download File Directly
   const handleDownload = (doc: EnrichedDocument) => {
-    if (!doc.fileUrl) return;
+    const url = buildStorageFileUrl(doc.fileUrl);
+    if (!url) return;
     const link = document.createElement('a');
-    link.href = doc.fileUrl;
+    link.href = url;
     link.download = doc.fileName || `${doc.documentType}_${doc.employeeId}.pdf`;
     document.body.appendChild(link);
     link.click();
@@ -1824,10 +1825,10 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             setPreviewDoc(null);
             setPreviewIndex(-1);
           }}
-          documentUrl={
+          documentUrl={buildStorageFileUrl(
             previewDoc.fileUrl ||
             (previewDoc.storagePath ? `/api/storage/file/${encodeURIComponent(previewDoc.storagePath)}` : null)
-          }
+          )}
           fileName={previewDoc.fileName}
           title={previewDoc.title || `${previewDoc.documentType} - ${previewDoc.employeeName}`}
           documentType={previewDoc.documentType}
