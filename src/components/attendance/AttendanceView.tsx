@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { apiRequest, formatOMR, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -111,6 +111,136 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
   type SortColumn = 'default' | 'project' | 'type' | 'company' | 'employeeId' | 'employeeName' | 'job' | 'payBy' | 'hoursOrDays' | 'overtime' | 'totalWorked';
   const [sortColumn, setSortColumn] = useState<SortColumn>('default');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Resizable columns configuration & state
+  const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+    project: 260,
+    type: 85,
+    company: 125,
+    employeeId: 130,
+    employeeName: 200,
+    job: 150,
+    payBy: 95,
+    hoursOrDays: 110,
+    overtime: 100,
+    totalWorked: 120,
+    action: 95,
+  };
+
+  const MIN_COLUMN_WIDTHS: Record<string, number> = {
+    project: 140,
+    type: 65,
+    company: 80,
+    employeeId: 90,
+    employeeName: 110,
+    job: 80,
+    payBy: 70,
+    hoursOrDays: 85,
+    overtime: 75,
+    totalWorked: 85,
+    action: 70,
+  };
+
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('attendance_col_widths_v1');
+      if (saved) {
+        return { ...DEFAULT_COLUMN_WIDTHS, ...JSON.parse(saved) };
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_COLUMN_WIDTHS;
+  });
+
+  const resizingRef = useRef<{
+    colKey: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+
+  const handleStartResize = (e: React.MouseEvent, colKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startWidth = columnWidths[colKey] || DEFAULT_COLUMN_WIDTHS[colKey] || 120;
+    resizingRef.current = {
+      colKey,
+      startX: e.clientX,
+      startWidth,
+    };
+    setResizingCol(colKey);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const { colKey, startX, startWidth } = resizingRef.current;
+      const deltaX = e.clientX - startX;
+      const minW = MIN_COLUMN_WIDTHS[colKey] || 60;
+      const newWidth = Math.max(minW, startWidth + deltaX);
+      setColumnWidths(prev => ({
+        ...prev,
+        [colKey]: newWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      if (resizingRef.current) {
+        resizingRef.current = null;
+        setResizingCol(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        setColumnWidths(current => {
+          try {
+            localStorage.setItem('attendance_col_widths_v1', JSON.stringify(current));
+          } catch {
+            // ignore
+          }
+          return current;
+        });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleResetColumnWidth = (colKey: string) => {
+    setColumnWidths(prev => {
+      const next = { ...prev, [colKey]: DEFAULT_COLUMN_WIDTHS[colKey] };
+      try {
+        localStorage.setItem('attendance_col_widths_v1', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleResetAllColumns = () => {
+    setColumnWidths(DEFAULT_COLUMN_WIDTHS);
+    try {
+      localStorage.removeItem('attendance_col_widths_v1');
+    } catch {
+      // ignore
+    }
+  };
+
+  const isColumnsResized = Object.keys(DEFAULT_COLUMN_WIDTHS).some(
+    k => columnWidths[k] !== DEFAULT_COLUMN_WIDTHS[k]
+  );
+
+  const totalTableWidth = (Object.entries(columnWidths) as [string, number][])
+    .filter(([key]) => key !== 'action' || canWrite)
+    .reduce((sum, [, w]) => sum + (Number(w) || 0), 0);
 
   // Interactive row selection and focus state
   const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
@@ -493,28 +623,18 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                 <span className="text-[10px] text-slate-400">{dashboard.totalStaff} Staff • {dashboard.totalWorkers} Workers</span>
               </div>
 
-              {/* Combined Days & Hours Widget */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-slate-500">Total Days</span>
-                  <span className="text-lg font-bold text-slate-900 leading-tight">{dashboard.totalDays}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-slate-500">Total Hours</span>
-                  <span className="text-lg font-bold text-slate-900 leading-tight">{dashboard.totalHours}</span>
-                </div>
+              {/* Widget 2: Total Days & Hours */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] font-medium text-slate-500">Total Days</span>
+                <div className="text-lg font-bold text-slate-900">{dashboard.totalDays}</div>
+                <span className="text-[10px] text-slate-400">{dashboard.totalHours} Total Hours</span>
               </div>
 
-              {/* Combined Projects & Jobs Widget */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-slate-500">Total Projects</span>
-                  <span className="text-lg font-bold text-slate-900 leading-tight">{totalProjectsCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-slate-500">Total Jobs</span>
-                  <span className="text-lg font-bold text-slate-900 leading-tight">{totalJobsCount}</span>
-                </div>
+              {/* Widget 3: Total Projects & Jobs */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] font-medium text-slate-500">Total Projects</span>
+                <div className="text-lg font-bold text-slate-900">{totalProjectsCount}</div>
+                <span className="text-[10px] text-slate-400">{totalJobsCount} Total Jobs</span>
               </div>
 
               <div className="bg-white p-3 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
@@ -637,6 +757,31 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
           }
           return <ArrowUpDown className="w-3 h-3 text-slate-400 inline ml-1 opacity-40 group-hover:opacity-100 transition-opacity" />;
         };
+
+        const renderResizer = (colKey: string, label: string) => (
+          <div
+            onMouseDown={(e) => handleStartResize(e, colKey)}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              handleResetColumnWidth(colKey);
+            }}
+            className={`absolute right-0 top-0 bottom-0 w-3 cursor-col-resize select-none touch-none flex items-center justify-center z-20 group/resizer ${
+              resizingCol === colKey
+                ? 'bg-indigo-600/30'
+                : 'hover:bg-indigo-500/20 active:bg-indigo-600/40'
+            }`}
+            title={`Drag to resize ${label} column (double-click to reset)`}
+          >
+            <div
+              className={`w-[2px] transition-all rounded-full ${
+                resizingCol === colKey
+                  ? 'bg-indigo-600 h-full'
+                  : 'h-3.5 bg-slate-300 group-hover/resizer:bg-indigo-500 group-hover/resizer:h-full'
+              }`}
+            />
+          </div>
+        );
 
         interface FlattenedRow {
           key: string;
@@ -995,95 +1140,173 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               )}
             </div>
 
+            {/* Table Toolbar & Column Resize Reset Control */}
+            <div className="flex items-center justify-between px-1 pb-1.5 text-xs">
+              <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+                <span className="font-semibold text-slate-700">Attendance Register</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-400">Drag column edges to resize • Double-click edge to reset width</span>
+              </div>
+              {isColumnsResized && (
+                <button
+                  type="button"
+                  onClick={handleResetAllColumns}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2.5 py-1 rounded-md shadow-2xs transition-colors cursor-pointer"
+                  title="Reset all column widths to default"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset Columns
+                </button>
+              )}
+            </div>
+
             {/* Main Attendance Table with Item 4 Columns:
                 Project (sort ascending), Type (sort Staff and Workers), Company (sort ascending), Employee Ccode (Ascending), Employee Name, Job, Pay by, HRS/DAYS, Overtime, Total worked, Action */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs table-fixed border-collapse" style={{ minWidth: `${totalTableWidth}px` }}>
+                  <colgroup>
+                    <col style={{ width: `${columnWidths.project}px` }} />
+                    <col style={{ width: `${columnWidths.type}px` }} />
+                    <col style={{ width: `${columnWidths.company}px` }} />
+                    <col style={{ width: `${columnWidths.employeeId}px` }} />
+                    <col style={{ width: `${columnWidths.employeeName}px` }} />
+                    <col style={{ width: `${columnWidths.job}px` }} />
+                    <col style={{ width: `${columnWidths.payBy}px` }} />
+                    <col style={{ width: `${columnWidths.hoursOrDays}px` }} />
+                    <col style={{ width: `${columnWidths.overtime}px` }} />
+                    <col style={{ width: `${columnWidths.totalWorked}px` }} />
+                    {canWrite && <col style={{ width: `${columnWidths.action}px` }} />}
+                  </colgroup>
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider select-none">
                     <tr>
                       {/* 1. Project */}
                       <th
                         onClick={() => handleSort('project')}
-                        className="px-3 py-3 min-w-[190px] cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Project {renderSortIcon('project')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Project</span>
+                          {renderSortIcon('project')}
+                        </div>
+                        {renderResizer('project', 'Project')}
                       </th>
 
                       {/* 2. Type */}
                       <th
                         onClick={() => handleSort('type')}
-                        className="px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Type {renderSortIcon('type')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Type</span>
+                          {renderSortIcon('type')}
+                        </div>
+                        {renderResizer('type', 'Type')}
                       </th>
 
                       {/* 3. Company */}
                       <th
                         onClick={() => handleSort('company')}
-                        className="px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Company {renderSortIcon('company')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Company</span>
+                          {renderSortIcon('company')}
+                        </div>
+                        {renderResizer('company', 'Company')}
                       </th>
 
                       {/* 4. Employee Code */}
                       <th
                         onClick={() => handleSort('employeeId')}
-                        className="px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Employee Code {renderSortIcon('employeeId')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Employee Code</span>
+                          {renderSortIcon('employeeId')}
+                        </div>
+                        {renderResizer('employeeId', 'Employee Code')}
                       </th>
 
                       {/* 5. Employee Name */}
                       <th
                         onClick={() => handleSort('employeeName')}
-                        className="px-3 py-3 min-w-[150px] cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Employee Name {renderSortIcon('employeeName')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Employee Name</span>
+                          {renderSortIcon('employeeName')}
+                        </div>
+                        {renderResizer('employeeName', 'Employee Name')}
                       </th>
 
                       {/* 6. Job */}
                       <th
                         onClick={() => handleSort('job')}
-                        className="px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Job {renderSortIcon('job')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Job</span>
+                          {renderSortIcon('job')}
+                        </div>
+                        {renderResizer('job', 'Job')}
                       </th>
 
                       {/* 7. Pay by */}
                       <th
                         onClick={() => handleSort('payBy')}
-                        className="px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Pay by {renderSortIcon('payBy')}
+                        <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Pay by</span>
+                          {renderSortIcon('payBy')}
+                        </div>
+                        {renderResizer('payBy', 'Pay by')}
                       </th>
 
                       {/* 8. HRS / DAYS */}
                       <th
                         onClick={() => handleSort('hoursOrDays')}
-                        className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        HRS / DAYS {renderSortIcon('hoursOrDays')}
+                        <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
+                          <span className="truncate">HRS / DAYS</span>
+                          {renderSortIcon('hoursOrDays')}
+                        </div>
+                        {renderResizer('hoursOrDays', 'HRS / DAYS')}
                       </th>
 
                       {/* 9. Overtime */}
                       <th
                         onClick={() => handleSort('overtime')}
-                        className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Overtime {renderSortIcon('overtime')}
+                        <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Overtime</span>
+                          {renderSortIcon('overtime')}
+                        </div>
+                        {renderResizer('overtime', 'Overtime')}
                       </th>
 
                       {/* 10. Total worked */}
                       <th
                         onClick={() => handleSort('totalWorked')}
-                        className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group"
+                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
                       >
-                        Total worked {renderSortIcon('totalWorked')}
+                        <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
+                          <span className="truncate">Total worked</span>
+                          {renderSortIcon('totalWorked')}
+                        </div>
+                        {renderResizer('totalWorked', 'Total worked')}
                       </th>
 
                       {/* 11. Action */}
-                      {canWrite && <th className="px-3 py-3 text-right">Action</th>}
+                      {canWrite && (
+                        <th className="relative px-3 py-3 text-right select-none">
+                          <span className="pr-2">Action</span>
+                          {renderResizer('action', 'Action')}
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -1116,9 +1339,9 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                             title={isSelected ? "Selected / Focused row (click to deselect or press Esc)" : "Click row to focus and highlight"}
                           >
                             {/* 1. Project */}
-                            <td className="px-3 py-2.5">
+                            <td className="px-3 py-2.5 overflow-hidden">
                               {row.recIdx >= 0 ? (
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
                                   {isSelected && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 animate-pulse" title="Active Focus" />
                                   )}
@@ -1131,7 +1354,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                     disabled={isReadOnly}
                                     value={row.projectId}
                                     onChange={(e) => handleRecordChange(row.empIdx, row.recIdx, 'projectId', e.target.value)}
-                                    className={`w-full min-w-[130px] px-2 py-1 bg-white border rounded text-xs text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 truncate ${
+                                    title={allProjects.find(p => p.id === row.projectId)?.projectName || row.projectCode}
+                                    className={`w-full min-w-0 px-2 py-1 bg-white border rounded text-xs text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 truncate ${
                                       isSelected ? 'border-indigo-300 shadow-2xs font-semibold' : 'border-slate-200'
                                     }`}
                                   >
@@ -1143,7 +1367,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                   </select>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
                                   {isSelected && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 animate-pulse" title="Active Focus" />
                                   )}
@@ -1154,7 +1378,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                     disabled={isReadOnly}
                                     value=""
                                     onChange={(e) => handleRecordChange(row.empIdx, -1, 'projectId', e.target.value)}
-                                    className="w-full min-w-[130px] px-2 py-1 bg-white border border-amber-300 rounded text-xs text-amber-900 focus:ring-1 focus:ring-amber-500"
+                                    className="w-full min-w-0 px-2 py-1 bg-white border border-amber-300 rounded text-xs text-amber-900 focus:ring-1 focus:ring-amber-500"
                                   >
                                     <option value="">+ Assign Project...</option>
                                     {allProjects.map(p => (
@@ -1168,7 +1392,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                             </td>
 
                             {/* 2. Type */}
-                            <td className="px-3 py-2.5">
+                            <td className="px-3 py-2.5 overflow-hidden">
                               <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                                 row.employeeType === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
                               }`}>
@@ -1177,30 +1401,38 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                             </td>
 
                             {/* 3. Company */}
-                            <td className="px-3 py-2.5 text-slate-700 font-medium">
-                              {row.employeeCompany}
+                            <td className="px-3 py-2.5 text-slate-700 font-medium overflow-hidden">
+                              <div className="truncate" title={row.employeeCompany}>
+                                {row.employeeCompany}
+                              </div>
                             </td>
 
                             {/* 4. Employee Code */}
-                            <td className="px-3 py-2.5">
-                              <span className={`font-mono font-bold text-xs ${isSelected ? 'text-indigo-700 underline decoration-indigo-300 underline-offset-2' : 'text-blue-600'}`}>
+                            <td className="px-3 py-2.5 overflow-hidden">
+                              <span className={`font-mono font-bold text-xs truncate block ${isSelected ? 'text-indigo-700 underline decoration-indigo-300 underline-offset-2' : 'text-blue-600'}`}>
                                 {row.employeeId}
                               </span>
                             </td>
 
                             {/* 5. Employee Name */}
-                            <td className={`px-3 py-2.5 font-semibold ${isSelected ? 'text-indigo-950 font-bold' : 'text-slate-900'}`}>
-                              {row.employeeName}
+                            <td className={`px-3 py-2.5 font-semibold overflow-hidden ${isSelected ? 'text-indigo-950 font-bold' : 'text-slate-900'}`}>
+                              <div className="truncate" title={row.employeeName}>
+                                {row.employeeName}
+                              </div>
                             </td>
 
                             {/* 6. Job */}
-                            <td className="px-3 py-2.5 text-slate-600">
-                              {row.designation || '—'}
+                            <td className="px-3 py-2.5 text-slate-600 overflow-hidden">
+                              <div className="truncate" title={row.designation || '—'}>
+                                {row.designation || '—'}
+                              </div>
                             </td>
 
                             {/* 7. Pay by */}
-                            <td className="px-3 py-2.5 text-slate-600 font-medium">
-                              {row.salaryPaidBy || '—'}
+                            <td className="px-3 py-2.5 text-slate-600 font-medium overflow-hidden">
+                              <div className="truncate" title={row.salaryPaidBy || '—'}>
+                                {row.salaryPaidBy || '—'}
+                              </div>
                             </td>
 
                             {/* 8. HRS / DAYS */}
