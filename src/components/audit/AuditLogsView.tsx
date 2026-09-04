@@ -95,12 +95,11 @@ export const AuditLogsView: React.FC = () => {
             <option value="ALL">All System Modules</option>
             <option value="EMPLOYEES">Employee Master</option>
             <option value="PROJECTS">Project Master</option>
-            <option value="ATTENDANCE">Attendance Ledger</option>
+            <option value="ATTENDANCE">Attendance Register</option>
             <option value="PAYROLL">Payroll Engine</option>
             <option value="PAYMENTS">Salary Payments</option>
             <option value="WPS">WPS Recovery</option>
             <option value="LOANS">Loan Management</option>
-            <option value="Timesheet">Timesheet</option>
             <option value="CIF">CIF</option>
           </select>
         </div>

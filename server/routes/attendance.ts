@@ -193,33 +193,64 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
     const activeEmployees = db.employees.getAll().filter(e => e.isActive);
     const activeProjects = db.projects.getAll().filter(p => p.status === 'Active');
 
+    const projectByRef = new Map<string, string>();
+    activeProjects.forEach(p => {
+      projectByRef.set(p.id, p.projectCode);
+      projectByRef.set(p.projectCode, p.projectCode);
+      projectByRef.set(p.projectName, p.projectCode);
+    });
+
     const headers = [
-      'Company', 'Payroll Type', 'Employee ID', 'Employee Name', 'Employee Type',
-      'Designation', 'Project Code', 'Days Worked', 'Hours Worked', 'Overtime Hours',
-      'Bonus', 'Deductions', 'Pay By',
+      'Employee ID',
+      'Payroll Type',
+      'Employee Name',
+      'Project Code',
+      'Job',
+      'Days Worked',
+      'Hours Worked',
+      'Overtime Hours',
+      'Pay By',
     ];
-    const colWidths = [12, 14, 14, 24, 14, 20, 14, 13, 13, 15, 12, 14, 12];
+    const colWidths = [15, 14, 25, 15, 20, 14, 14, 16, 14];
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(`Attendance_${payrollMonth}`);
     sheet.columns = headers.map((h, i) => ({ header: h, width: colWidths[i] }));
     sheet.getRow(1).font = { bold: true };
 
+    const existingMonthAttendance = db.attendance.getByMonth(payrollMonth);
+    const existingProjectByEmp = new Map<string, string>();
+    existingMonthAttendance.forEach(a => {
+      if (a.employeeId && a.projectId) {
+        const proj = activeProjects.find(p => p.id === a.projectId);
+        if (proj) existingProjectByEmp.set(a.employeeId, proj.projectCode);
+      }
+    });
+
     // Pre-fill active employees with their Employee Master details; leave the
     // attendance-specific columns blank for the user to fill.
     activeEmployees.forEach(e => {
+      const assignedCode =
+        existingProjectByEmp.get(e.employeeId) ||
+        (e as any).assignedProject ||
+        '';
       sheet.addRow([
-        e.employeeCompany, PAYROLL_TYPE, e.employeeId, e.employeeName, e.employeeType,
-        e.designation, '', '', '', '', '', '', e.salaryPaidBy,
+        e.employeeId,
+        PAYROLL_TYPE,
+        e.employeeName,
+        assignedCode,
+        e.designation || '',
+        '',
+        '',
+        '',
+        e.salaryPaidBy || 'DGO',
       ]);
     });
 
     const LAST_ROW = Math.max(501, activeEmployees.length + 20);
     const dropdowns: { col: string; values: string[]; allowBlank?: boolean }[] = [
-      { col: 'A', values: EMPLOYEE_COMPANIES },
       { col: 'B', values: [PAYROLL_TYPE] },
-      { col: 'E', values: ['Worker', 'Staff'] },
-      { col: 'M', values: ['DGO', 'SMI', 'NC', 'Supplier'] },
+      { col: 'I', values: ['DGO', 'SMI', 'NC', 'Supplier'] },
     ];
     for (const { col, values, allowBlank } of dropdowns) {
       for (let row = 2; row <= LAST_ROW; row++) {
@@ -242,17 +273,15 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
     ];
     instructionsSheet.getRow(1).font = { bold: true };
     instructionsSheet.addRows([
-      ['Company', 'DGO, SMI, NC, Supplier, Azad (dropdown enabled) -- must match the employee\'s company on Employee Master.', 'Yes (Mandatory)'],
-      ['Payroll Type', `Fixed value: "${PAYROLL_TYPE}" (this app processes only the standard monthly payroll cycle).`, 'Yes (Mandatory)'],
       ['Employee ID', 'Must match an active Employee Master record.', 'Yes (Mandatory)'],
-      ['Employee Type', 'Worker, Staff (dropdown enabled) -- must match Employee Master; a mismatch is flagged, not overwritten.', 'Yes (Mandatory)'],
+      ['Payroll Type', `Fixed value: "${PAYROLL_TYPE}" (this app processes only the standard monthly payroll cycle).`, 'Yes (Mandatory)'],
+      ['Employee Name', 'Pre-filled from Employee Master.', 'Informational'],
       ['Project Code', 'Must match an active Project Master code. Duplicate this employee\'s row for each additional project worked.', 'Yes (Mandatory)'],
+      ['Job', 'Designation / Job title from Employee Master.', 'Informational'],
       ['Days Worked', 'Staff only -- total across all project rows cannot exceed 30/month.', 'Staff: Yes'],
       ['Hours Worked', 'Worker only.', 'Worker: Yes'],
-      ['Overtime Hours', 'Optional. Captured for reporting/project-cost analysis only -- does not affect payroll calculation.', 'No (Optional)'],
-      ['Bonus', 'Optional, OMR. Captured for reporting only.', 'No (Optional)'],
-      ['Deductions', 'Optional, OMR. Captured for reporting only.', 'No (Optional)'],
-      ['Pay By', 'DGO, SMI, NC, Supplier (dropdown enabled) -- must match Employee Master.', 'Yes (Mandatory)'],
+      ['Overtime Hours', 'Optional overtime hours. Captured for project-cost and overtime analysis.', 'No (Optional)'],
+      ['Pay By', 'DGO, SMI, NC, Supplier (dropdown enabled) -- salary paying entity.', 'Yes (Mandatory)'],
       [''],
       ['ACTIVE PROJECTS REFERENCE', '', ''],
       ...activeProjects.map(p => [p.projectCode, p.projectName, p.allowedCompanies?.length ? `Restricted to: ${p.allowedCompanies.join(', ')}` : 'Unrestricted']),
@@ -295,15 +324,16 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       const r = rawRows[i];
       const rowNum = i + 2;
 
-      const rawId = String(r['Employee ID'] || r['EmployeeID'] || '').trim();
+      const rawId = String(r['Employee ID'] || r['EmployeeID'] || r['Employee Code'] || r['EmployeeCode'] || '').trim();
       const rawProj = String(r['Project Code'] || r['Project'] || r['ProjectCode'] || '').trim().toUpperCase();
+      const rawJob = String(r['Job'] || r['Designation'] || '').trim();
       const rawDays = r['Days Worked'] || r['Days'] || 0;
       const rawHours = r['Hours Worked'] || r['Hours'] || 0;
       const rawOverthe = r['Overtime Hours'] || r['Overtime'] || 0;
       const rawBonus = r['Bonus'] || 0;
       const rawDeduction = r['Deductions'] || r['Deduction'] || 0;
       const rawCompany = String(r['Company'] || '').trim();
-      const rawPayrollType = String(r['Payroll Type'] || '').trim();
+      const rawPayrollType = String(r['Payroll Type'] || r['PayrollType'] || '').trim();
       const rawPayBy = String(r['Pay By'] || r['PayBy'] || '').trim();
 
       const normEmpId = normalizeEmployeeId(rawId);
@@ -390,6 +420,7 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
         employeeId: normEmpId,
         employeeName: emp ? emp.employeeName : (r['Employee Name'] || '—'),
         employeeType: emp ? emp.employeeType : (r['Employee Type'] || '—'),
+        job: emp ? emp.designation : (rawJob || '—'),
         company: emp ? emp.employeeCompany : rawCompany,
         payBy: emp ? emp.salaryPaidBy : rawPayBy,
         projectCode: rawProj,
@@ -544,6 +575,9 @@ router.get('/:month/dashboard', verifyAuth, (req: AuthRequest, res: Response) =>
 
     const totalStaff = activeEmployees.filter(e => e.employeeType === 'Staff').length;
     const totalWorkers = activeEmployees.filter(e => e.employeeType === 'Worker').length;
+    const totalProjects = projects.filter(p => p.status === 'Active').length || projects.length;
+    const uniqueJobs = new Set(activeEmployees.map(e => (e.designation || '').trim()).filter(Boolean));
+    const totalJobs = uniqueJobs.size;
     const multiProjectEmployeeCount = Array.from(empProjectCount.values()).filter(s => s.size > 1).length;
     const completionPercentage = activeEmployees.length > 0
       ? Number(((empHasRecord.size / activeEmployees.length) * 100).toFixed(1))
@@ -604,6 +638,8 @@ router.get('/:month/dashboard', verifyAuth, (req: AuthRequest, res: Response) =>
       totalDays,
       totalHours,
       totalOvertimeHours,
+      totalProjects,
+      totalJobs,
       completionPercentage,
       multiProjectEmployeeCount,
       projectAllocation,

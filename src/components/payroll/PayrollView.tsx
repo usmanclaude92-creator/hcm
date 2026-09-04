@@ -661,7 +661,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-900">
                       {formatOMR(line.grossSalary)}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-amber-600" title="From Attendance Ledger -- informational only, not part of Net Salary">
+                    <td className="px-3 py-3 text-right font-mono text-amber-600" title="From Attendance Register -- informational only, not part of Net Salary">
                       {overtimeMap[line.employeeId] ? `${overtimeMap[line.employeeId]}h` : '—'}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-emerald-600">

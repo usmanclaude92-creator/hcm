@@ -128,24 +128,6 @@ export const AssignProjectQuickModal: React.FC<AssignProjectQuickModalProps> = (
         }),
       });
 
-      // 2. Also log a timesheet entry for activity tracking
-      try {
-        await apiRequest('/api/timesheets', {
-          method: 'POST',
-          body: JSON.stringify({
-            employeeId: employee.employeeId,
-            date: new Date().toISOString().split('T')[0],
-            project: targetProj?.projectCode || selectedProjectId,
-            taskActivity: activityNote || `${employee.designation} Project Assignment`,
-            normalHours: employee.wageType === 'Per Hour' ? 8 : 8,
-            overtimeHours: 0,
-            remarks: `Quick Project Allocation: ${targetProj?.projectName || ''}`,
-          }),
-        });
-      } catch {
-        // Non-fatal if timesheets table has separate constraints
-      }
-
       onSuccess();
       onClose();
     } catch (err: any) {

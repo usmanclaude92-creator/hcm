@@ -152,7 +152,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
         type: 'attendance_approval',
         severity: 'warning',
         title: `Attendance Approval Pending: ${m.payrollMonth}`,
-        message: `Attendance ledger for ${m.payrollMonth} was submitted by ${m.submittedBy || 'HR User'} and requires manager approval before payroll processing.`,
+        message: `Attendance register for ${m.payrollMonth} was submitted by ${m.submittedBy || 'HR User'} and requires manager approval before payroll processing.`,
         timestamp: m.submittedAt || m.updatedAt || new Date().toISOString(),
         date: m.payrollMonth,
         status: m.status,

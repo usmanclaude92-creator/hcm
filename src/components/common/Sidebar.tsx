@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   ChevronRight,
   ClipboardList,
-  Clock,
   UploadCloud,
   FileSpreadsheet,
   IdCard,
@@ -62,8 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'compliance', label: 'HR Compliance & Docs', icon: ShieldAlert },
         { id: 'documents', label: 'Document Repository', icon: FolderOpen },
         { id: 'projects', label: 'Project Master', icon: FolderKanban },
-        { id: 'attendance', label: 'Attendance Ledger', icon: CalendarCheck, permission: 'attendance.view' },
-        { id: 'timesheets', label: 'Timesheet Management', icon: Clock, permission: 'timesheet.view' },
+        { id: 'attendance', label: 'Attendance Register', icon: CalendarCheck, permission: 'attendance.view' },
       ],
     },
     {

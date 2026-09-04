@@ -9,7 +9,6 @@ import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
 import { EmployeeProfileLedgerView } from './components/employees/EmployeeProfileLedgerView';
 import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
-import { TimesheetView } from './components/timesheets/TimesheetView';
 import { CifUploadView } from './components/cif/CifUploadView';
 import { PayrollView } from './components/payroll/PayrollView';
 import { SalaryPaymentsView } from './components/payments/SalaryPaymentsView';
@@ -88,8 +87,6 @@ const MainApp: React.FC = () => {
         return <ProjectMasterView />;
       case 'attendance':
         return <AttendanceView initialMonth={viewParams.month} />;
-      case 'timesheets':
-        return <TimesheetView />;
       case 'cif':
         return <CifUploadView />;
       case 'employee-ledger':
