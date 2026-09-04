@@ -21,6 +21,9 @@ import {
   Wallet,
   UserX,
   MapPin,
+  ShieldAlert,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -58,9 +61,10 @@ function ProgressBar({ percentage, colorClass }: { percentage: number; colorClas
 
 interface DashboardViewProps {
   onNavigate: (view: string, params?: Record<string, any>) => void;
+  initialTab?: DashboardTab;
 }
 
-type DashboardTab = 'payroll-insights' | 'workforce-deployment';
+type DashboardTab = 'payroll-insights' | 'workforce-deployment' | 'document-expiry';
 
 // Default period is always the previous calendar month relative to today's real date,
 // regardless of whether a payroll run exists for it yet (a graceful empty state handles
@@ -75,8 +79,14 @@ function formatTime(d: Date): string {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<DashboardTab>('payroll-insights');
+export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, initialTab }) => {
+  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab || 'payroll-insights');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -174,6 +184,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const TABS: { id: DashboardTab; label: string; icon: any }[] = [
     { id: 'payroll-insights', label: 'Payroll Insights', icon: Calculator },
     { id: 'workforce-deployment', label: 'Workforce Deployment', icon: MapPin },
+    { id: 'document-expiry', label: 'Document Expiry Monitoring', icon: ShieldAlert },
   ];
 
   return (
@@ -222,7 +233,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               onToChange={setToMonth}
               availableMonths={availableMonths}
             />
-          ) : (
+          ) : activeTab === 'workforce-deployment' ? (
             <div className="flex items-center gap-3 shrink-0">
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs">
                 <span className="relative flex h-2 w-2">
@@ -243,6 +254,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 Refresh
               </button>
             </div>
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => onNavigate('documents')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-blue-600" />
+                Document Repository
+              </button>
+              <button
+                onClick={() => onNavigate('compliance')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Compliance 360° Hub
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -252,6 +280,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           ref={workforceViewRef}
           onStatusChange={(s) => setWorkforceLastUpdated(s.lastUpdated)}
           onSelectEmployee={(empId) => onNavigate('employee-ledger', { employeeId: empId })}
+        />
+      ) : activeTab === 'document-expiry' ? (
+        <DocumentExpiryMonitoringSection
+          onNavigateToEmployees={(filters) => onNavigate('employees', filters)}
+          onNavigateToCompliance={() => onNavigate('compliance')}
+          onNavigateToDocuments={() => onNavigate('documents')}
         />
       ) : (
         <>
@@ -623,13 +657,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </div>
           </div>
-
-          {/* Document Expiry Monitoring Engine Section */}
-          <DocumentExpiryMonitoringSection
-            onNavigateToEmployees={(filters) => onNavigate('employees', filters)}
-            onNavigateToCompliance={() => onNavigate('compliance')}
-            onNavigateToDocuments={() => onNavigate('documents')}
-          />
 
           {/* Quick Action Navigation Panels */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

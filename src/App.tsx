@@ -62,7 +62,7 @@ const MainApp: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <DashboardView onNavigate={handleNavigate} />;
+        return <DashboardView onNavigate={handleNavigate} initialTab={viewParams?.tab} />;
       case 'employees':
         return (
           <EmployeeMasterView
