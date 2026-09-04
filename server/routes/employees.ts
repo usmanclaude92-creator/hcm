@@ -3,7 +3,15 @@ import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { db, normalizeEmployeeId, roundOMR, calculateExpiryStatus, calculateOverallCompliance, checkTradeDiscrepancy, maskSensitiveId } from '../db.js';
-import { verifyAuth, requireRoles, requireWritePermission, AuthRequest } from '../auth.js';
+import {
+  verifyAuth,
+  requireRoles,
+  requireWritePermission,
+  AuthRequest,
+  companyScopeOf,
+  canSeeCompany,
+  assertCompanyWritable,
+} from '../auth.js';
 import { roleHasPermission } from '../../src/permissions.js';
 import type {
   Employee,
@@ -22,6 +30,16 @@ import type {
 import { validateBankAccountNumber, validateIban, validateBankDetails } from '../../src/utils/bankValidation.js';
 
 const router = Router();
+
+// Every route in this file that addresses an employee by business ID inherits company
+// isolation here, so a new :employeeId route cannot be added that quietly skips it.
+router.param('employeeId', (req: AuthRequest, res: Response, next, value: string) => {
+  const emp = db.employees.findByEmployeeId(normalizeEmployeeId(String(value)));
+  if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
+    return res.status(404).json({ error: 'Employee not found.' });
+  }
+  next();
+});
 
 // Helper to validate employee enum types
 function isValidEmployeeType(val: any): val is EmployeeType {
@@ -246,7 +264,10 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
       sortOrder,
     } = req.query;
 
-    let employees = db.employees.getAll();
+    // Company isolation is applied before every other filter, so a scoped account cannot
+    // widen its view by clearing the company filter in the UI.
+    const scope = companyScopeOf(req.user);
+    let employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -942,6 +963,11 @@ router.get('/:id', verifyAuth, (req: AuthRequest, res: Response) => {
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found.' });
     }
+    // Out of scope reads as "not found" rather than "forbidden", so a scoped account
+    // cannot probe for the existence of another company's employees.
+    if (!canSeeCompany(companyScopeOf(req.user), employee.employeeCompany)) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
 
     const designationHistory = db.employees.getDesignationHistory(employee.employeeId);
     const salaryHistory = db.employees.getSalaryHistory(employee.employeeId);
@@ -1004,6 +1030,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       return res.status(400).json({ error: `Employee ID '${normalizedId}' already exists in the system.` });
     }
 
+    if (!assertCompanyWritable(req, res, employeeCompany)) return;
     if (!isValidEmployeeType(employeeType)) {
       return res.status(400).json({ error: 'Employee Type must be Worker or Staff.' });
     }
@@ -1021,7 +1048,12 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     }
 
     const numericSalary = Number(monthlySalaryOrRate);
-    if (isNaN(numericSalary) || numericSalary < 0) {
+    // Separate messages: "cannot be negative" was previously returned for a non-numeric
+    // value too, which told the user nothing about what was actually wrong.
+    if (!Number.isFinite(numericSalary)) {
+      return res.status(400).json({ error: 'Monthly Salary / Wage Rate must be a number.' });
+    }
+    if (numericSalary < 0) {
       return res.status(400).json({ error: 'Monthly Salary / Wage Rate cannot be negative.' });
     }
     if (wpsSalary !== undefined && (isNaN(Number(wpsSalary)) || Number(wpsSalary) < 0)) {
@@ -1126,6 +1158,12 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found.' });
     }
+    // Both the employee's current company and the company being written must be in scope,
+    // so a scoped account can neither edit another company's record nor move one out.
+    if (!canSeeCompany(companyScopeOf(req.user), employee.employeeCompany)) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
+    if (req.body?.employeeCompany && !assertCompanyWritable(req, res, req.body.employeeCompany)) return;
 
     const {
       employeeName,
@@ -1265,6 +1303,9 @@ router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (re
     const { id } = req.params;
     const employee = db.employees.findById(id);
     if (!employee) return res.status(404).json({ error: 'Employee not found.' });
+    if (!canSeeCompany(companyScopeOf(req.user), employee.employeeCompany)) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
 
     const newStatus = !employee.isActive;
     const updated = await db.employees.update(id, {

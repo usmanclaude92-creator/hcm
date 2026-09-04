@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, requirePermission, AuthRequest } from '../auth.js';
+import { verifyAuth, requirePermission, AuthRequest, companyScopeOf, canSeeCompany } from '../auth.js';
+import type { EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ const VARIANCE_TOLERANCE = 0.001;
 // the read endpoint and the save-validation path below -- never a second independent
 // calculation engine. isOldestUnpaid is a factual property of payment history and is
 // always computed from the FULL dataset, never from a filtered subset.
-function computePlanningRows(): any[] {
+function computePlanningRows(scope: EmployeeCompany[] | null = null): any[] {
   const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized');
   const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed);
 
@@ -34,8 +35,13 @@ function computePlanningRows(): any[] {
       const totalPaid = roundOMR(linePayments.reduce((s, p) => s + p.payAmount, 0));
       const outstanding = roundOMR(Math.max(0, line.netSalary - totalPaid));
 
+      if (!canSeeCompany(scope, line.employeeCompany)) continue;
+
       let status = 'Unpaid';
-      if (totalPaid >= line.netSalary) status = 'Fully Paid';
+      // Nothing payable is its own state -- see PaymentStatus in src/types. It is treated
+      // exactly like Fully Paid everywhere planning asks "does this still owe anything?".
+      if (line.netSalary <= 0 && totalPaid <= 0) status = 'No Payable';
+      else if (totalPaid >= line.netSalary) status = 'Fully Paid';
       else if (totalPaid > 0) status = 'Partially Paid';
 
       const lastPayment = linePayments.reduce(
@@ -70,11 +76,14 @@ function computePlanningRows(): any[] {
 
   rows.sort((a, b) => a.employeeId.localeCompare(b.employeeId) || a.payrollMonth.localeCompare(b.payrollMonth));
 
-  // Second pass: flag the first (oldest) non-Fully-Paid row per employee.
+  // A row with nothing owing -- fully paid, or nothing payable in the first place.
+  const settled = (status: string) => status === 'Fully Paid' || status === 'No Payable';
+
+  // Second pass: flag the first (oldest) row per employee that still owes something.
   const oldestFoundFor = new Set<string>();
   for (const r of rows) {
     const normId = normalizeEmployeeId(r.employeeId);
-    if (r.status !== 'Fully Paid' && !oldestFoundFor.has(normId)) {
+    if (!settled(r.status) && !oldestFoundFor.has(normId)) {
       r.isOldestUnpaid = true;
       oldestFoundFor.add(normId);
     } else {
@@ -86,7 +95,7 @@ function computePlanningRows(): any[] {
   // isOldestUnpaid above is kept purely for the "Total of Last Unpaid Months" tile).
   // A fully paid row is forced to 0 regardless of any stale saved plan line.
   for (const r of rows) {
-    if (r.status !== 'Fully Paid') {
+    if (!settled(r.status)) {
       const saved = r.savedShouldPay;
       const requested = saved !== null && saved !== undefined ? roundOMR(Number(saved) || 0) : r.outstanding;
       r.shouldPayAmount = Math.min(Math.max(0, requested), r.outstanding);
@@ -104,9 +113,12 @@ function computePlanningRows(): any[] {
 // first violation found -- the whole save is rejected rather than partially written.
 function validateAndNormalizeLines(
   payrollMonth: string,
-  lines: any[]
+  lines: any[],
+  scope: EmployeeCompany[] | null = null
 ): { normalized: Array<{ employeeId: string; employeeName: string; shouldPayAmount: number; remarks: string }>; error?: string } {
-  const authoritative = computePlanningRows().filter(r => r.payrollMonth === payrollMonth);
+  // Scoped here too, so a submitted line for a company outside the caller's scope simply
+  // has nothing authoritative to validate against and is skipped rather than written.
+  const authoritative = computePlanningRows(scope).filter(r => r.payrollMonth === payrollMonth);
   const byEmp = new Map(authoritative.map(r => [normalizeEmployeeId(r.employeeId), r]));
 
   const normalized: Array<{ employeeId: string; employeeName: string; shouldPayAmount: number; remarks: string }> = [];
@@ -119,7 +131,7 @@ function validateAndNormalizeLines(
     let shouldPayAmount = 0;
     const hasValue = line.shouldPayAmount !== undefined && line.shouldPayAmount !== null && line.shouldPayAmount !== '';
 
-    if (auth.status !== 'Fully Paid' && hasValue) {
+    if (auth.status !== 'Fully Paid' && auth.status !== 'No Payable' && hasValue) {
       const requested = Number(line.shouldPayAmount);
       if (!Number.isFinite(requested) || requested < 0) {
         return { normalized: [], error: `Should Pay for ${line.employeeId} (${payrollMonth}) must be a non-negative number.` };
@@ -151,7 +163,7 @@ function validateAndNormalizeLines(
 // UI's summary tiles and filters react instantly with zero round-trips.
 router.get('/', verifyAuth, requirePermission('payment_planning.view'), (req: AuthRequest, res: Response) => {
   try {
-    res.json({ rows: computePlanningRows() });
+    res.json({ rows: computePlanningRows(companyScopeOf(req.user)) });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch payment planning data' });
   }
@@ -171,7 +183,7 @@ router.put('/:payrollId', verifyAuth, requirePermission('payment_planning.edit')
       return res.status(404).json({ error: 'Payroll not found.' });
     }
 
-    const { normalized, error } = validateAndNormalizeLines(payroll.payrollMonth, lines);
+    const { normalized, error } = validateAndNormalizeLines(payroll.payrollMonth, lines, companyScopeOf(req.user));
     if (error) {
       return res.status(400).json({ error });
     }
@@ -210,7 +222,7 @@ router.post('/save', verifyAuth, requirePermission('payment_planning.edit'), asy
     for (const p of plans) {
       const { payrollMonth, payrollId, lines } = p;
       if (!payrollMonth || !Array.isArray(lines)) continue;
-      const { normalized, error } = validateAndNormalizeLines(payrollMonth, lines);
+      const { normalized, error } = validateAndNormalizeLines(payrollMonth, lines, companyScopeOf(req.user));
       if (error) {
         return res.status(400).json({ error });
       }

@@ -2,8 +2,15 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { db, normalizeEmployeeId } from '../db.js';
-import { verifyAuth, requireWritePermission, requirePermission, AuthRequest } from '../auth.js';
+import { db, normalizeEmployeeId, isHourlyPaid, employedDaysInMonth, STANDARD_HOURS_PER_DAY } from '../db.js';
+import {
+  verifyAuth,
+  requireWritePermission,
+  requirePermission,
+  AuthRequest,
+  companyScopeOf,
+  canSeeCompany,
+} from '../auth.js';
 import type { AttendanceRecord, EmployeeType, EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
@@ -17,6 +24,10 @@ const EMPLOYEE_COMPANIES: EmployeeCompany[] = ['DGO', 'SMI', 'NC', 'Supplier', '
 // Threshold constants for exception detection -- named, not magic numbers scattered inline.
 const EXCESSIVE_OVERTIME_HOURS_PER_MONTH = 60;
 const MAX_STAFF_DAYS_PER_MONTH = 30;
+// Hourly employees had no ceiling at all while monthly ones were capped at 30 days, so
+// 500 hours in a month was accepted without comment. 30 days x 12 hours is already well
+// beyond any lawful schedule and leaves room for heavy overtime months.
+const MAX_WORKER_HOURS_PER_MONTH = 360;
 
 function checkProjectCompanyPermission(proj: { allowedCompanies?: EmployeeCompany[] }, empCompany: EmployeeCompany): string | null {
   if (proj.allowedCompanies && proj.allowedCompanies.length > 0 && !proj.allowedCompanies.includes(empCompany)) {
@@ -33,8 +44,9 @@ router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Payroll month is required (YYYY-MM).' });
     }
 
+    const scope = companyScopeOf(req.user);
     const attendanceRecords = db.attendance.getByMonth(String(month));
-    const employees = db.employees.getAll().filter(e => e.isActive);
+    const employees = db.employees.getAll().filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany));
     const projects = db.projects.getAll();
     const monthStatus = await db.attendanceMonths.getOrCreate(String(month));
 
@@ -110,20 +122,53 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     const timestamp = new Date().toISOString();
     const processedRecords: AttendanceRecord[] = [];
 
-    // Validation map for employee total days
+    // Running per-employee totals, so a ceiling is applied to the month as a whole and
+    // not to each project row in isolation.
     const staffDaysMap = new Map<string, number>();
+    const workerHoursMap = new Map<string, number>();
+    // Rows that cannot be stored as entered must be reported, not dropped. A silent
+    // `continue` returned {success:true} while quietly discarding a mistyped employee
+    // ID, an unknown project, or Worker days / Staff hours entered in the wrong column.
+    const rejectedRows: string[] = [];
 
     for (const r of records) {
-      if (!r.employeeId || !r.projectId) continue;
+      if (!r.employeeId || !r.projectId) {
+        // An entirely blank grid row is normal and is ignored; a row that carries work
+        // but no employee/project is a real data-entry error and must be reported.
+        const carriesWork = (Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0;
+        if (carriesWork) {
+          rejectedRows.push(`A row with work entered is missing ${!r.employeeId ? 'an Employee ID' : 'a Project'}.`);
+        }
+        continue;
+      }
 
       const normEmpId = normalizeEmployeeId(r.employeeId);
       const emp = db.employees.findByEmployeeId(normEmpId);
       const proj = db.projects.findById(r.projectId) || db.projects.findByCode(r.projectId);
 
-      if (!emp || !proj) continue;
+      if (!emp) { rejectedRows.push(`Employee '${normEmpId}' does not exist.`); continue; }
+      if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
+        rejectedRows.push(`Employee '${normEmpId}' does not exist.`);
+        continue;
+      }
+      if (!proj) { rejectedRows.push(`${normEmpId}: project '${r.projectId}' does not exist.`); continue; }
 
       const days = Math.max(0, Number(r.daysWorked) || 0);
       const hours = Math.max(0, Number(r.hoursWorked) || 0);
+
+      // Pay basis follows wageType (falling back to employeeType on older records), the
+      // same rule the payroll engine uses. Entering the other unit used to be stored as
+      // an all-zero attendance row, which then produced a zero-value payroll line with
+      // no indication that anything had been entered at all.
+      const hourly = isHourlyPaid(emp);
+      if (!hourly && days === 0 && hours > 0) {
+        rejectedRows.push(`${normEmpId} (${emp.employeeName}) is paid monthly and is measured in days worked, but only hours were entered.`);
+        continue;
+      }
+      if (hourly && hours === 0 && days > 0) {
+        rejectedRows.push(`${normEmpId} (${emp.employeeName}) is paid hourly and is measured in hours worked, but only days were entered.`);
+        continue;
+      }
       const overtimeHours = Math.max(0, Number(r.overtimeHours) || 0);
       const bonus = Math.max(0, Number(r.bonus) || 0);
       const deduction = Math.max(0, Number(r.deduction) || 0);
@@ -131,14 +176,32 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       // Only add if employee worked some days or hours
       if (days === 0 && hours === 0) continue;
 
-      if (emp.employeeType === 'Staff') {
+      if (!hourly) {
         const currentDays = staffDaysMap.get(normEmpId) || 0;
-        if (currentDays + days > MAX_STAFF_DAYS_PER_MONTH) {
+        // A mid-month joiner or leaver can only be credited for the part of the month
+        // they were actually employed. Without this the sheet happily accepted 30 days
+        // for someone who started on the 20th.
+        const employableDays = employedDaysInMonth(emp, month);
+        const ceiling = Math.min(MAX_STAFF_DAYS_PER_MONTH, employableDays);
+        if (currentDays + days > ceiling) {
+          const employmentNote = employableDays < MAX_STAFF_DAYS_PER_MONTH
+            ? ` They were only employed for ${employableDays} day(s) of ${month} (joined ${emp.dateOfJoining}${emp.dateOfLeaving ? `, left ${emp.dateOfLeaving}` : ''}).`
+            : '';
           return res.status(400).json({
-            error: `Total days worked for Staff ${emp.employeeId} (${emp.employeeName}) cannot exceed ${MAX_STAFF_DAYS_PER_MONTH} days. Currently entered: ${(currentDays + days)} days.`
+            error: `Total days worked for ${emp.employeeId} (${emp.employeeName}) cannot exceed ${ceiling} days. Currently entered: ${(currentDays + days)} days.${employmentNote}`
           });
         }
         staffDaysMap.set(normEmpId, currentDays + days);
+      } else {
+        const currentHours = workerHoursMap.get(normEmpId) || 0;
+        const employableDays = employedDaysInMonth(emp, month);
+        const ceiling = Math.min(MAX_WORKER_HOURS_PER_MONTH, employableDays * 12);
+        if (currentHours + hours > ceiling) {
+          return res.status(400).json({
+            error: `Total hours worked for ${emp.employeeId} (${emp.employeeName}) cannot exceed ${ceiling} hours for ${month} (a maximum of 12 hours on each of ${employableDays} employed day(s)). Currently entered: ${(currentHours + hours)} hours.`
+          });
+        }
+        workerHoursMap.set(normEmpId, currentHours + hours);
       }
 
       const permissionError = checkProjectCompanyPermission(proj, emp.employeeCompany);
@@ -154,8 +217,8 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
         projectId: proj.id,
         projectCode: proj.projectCode,
         projectName: proj.projectName,
-        daysWorked: emp.employeeType === 'Staff' ? days : 0,
-        hoursWorked: emp.employeeType === 'Worker' ? hours : 0,
+        daysWorked: hourly ? 0 : days,
+        hoursWorked: hourly ? hours : 0,
         overtimeHours,
         bonus,
         deduction,
@@ -164,6 +227,15 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
         payBy: emp.salaryPaidBy,
         createdAt: timestamp,
         updatedAt: timestamp,
+      });
+    }
+
+    if (rejectedRows.length > 0) {
+      return res.status(400).json({
+        error:
+          `${rejectedRows.length} attendance row(s) could not be saved, so nothing was written for ${month}. ` +
+          'Correct the rows below and save again.',
+        rejectedRows,
       });
     }
 
@@ -752,6 +824,25 @@ router.post('/:month/submit', verifyAuth, requirePermission('attendance.submit')
 router.post('/:month/approve', verifyAuth, requirePermission('attendance.approve'), async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user?.username || 'Admin';
+
+    // Separation of duties: the person who submitted a month may not also approve it.
+    // Payroll finalisation is gated on this approval, so one account was otherwise able
+    // to take a month from data entry all the way to locked payroll unchallenged.
+    // ALLOW_SELF_APPROVAL=true exists for a genuinely single-operator installation.
+    const monthRecord = db.attendanceMonths.getByMonth(req.params.month);
+    if (
+      monthRecord?.submittedBy &&
+      monthRecord.submittedBy === user &&
+      process.env.ALLOW_SELF_APPROVAL !== 'true'
+    ) {
+      return res.status(403).json({
+        error:
+          `Attendance for ${req.params.month} was submitted by ${monthRecord.submittedBy}. ` +
+          'It must be approved by a different user. Ask another approver to review it, or ' +
+          'revert the month and have someone else submit it.',
+      });
+    }
+
     const updated = await db.attendanceMonths.approve(req.params.month, user);
     await db.audit.log({
       userId: req.user?.id, username: user, userRole: req.user?.role || 'Payroll User',

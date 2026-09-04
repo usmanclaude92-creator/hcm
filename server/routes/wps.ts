@@ -2,16 +2,26 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, requireWritePermission, AuthRequest } from '../auth.js';
-import type { WPSRecoveryTransaction } from '../../src/types/index';
+import { verifyAuth, requireWritePermission, AuthRequest, companyScopeOf, canSeeCompany } from '../auth.js';
+import type { WPSRecoveryTransaction, EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
+
+// WPS recovery records carry the employee ID but not the company, so scope is resolved
+// through Employee Master. A record whose employee no longer exists stays visible to
+// unscoped accounts only, rather than disappearing from every view.
+function wpsVisibleTo(scope: EmployeeCompany[] | null, employeeId: string): boolean {
+  if (scope === null) return true;
+  const emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
+  return canSeeCompany(scope, emp?.employeeCompany);
+}
 
 // GET /api/wps - List all WPS Recovery tracking records
 router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { month, status, search } = req.query;
-    let list = db.wps.getAll();
+    const scope = companyScopeOf(req.user);
+    let list = db.wps.getAll().filter(w => wpsVisibleTo(scope, w.employeeId));
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -70,6 +80,9 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
     if (!wps) {
       return res.status(404).json({ error: 'WPS Recovery record not found.' });
     }
+    if (!wpsVisibleTo(companyScopeOf(req.user), wps.employeeId)) {
+      return res.status(404).json({ error: 'WPS Recovery record not found.' });
+    }
 
     if (numAmount > wps.remainingBalance) {
       return res.status(400).json({
@@ -112,7 +125,8 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
 router.get('/export', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.query;
-    let list = db.wps.getAll();
+    const exportScope = companyScopeOf(req.user);
+    let list = db.wps.getAll().filter(w => wpsVisibleTo(exportScope, w.employeeId));
     if (month && month !== 'ALL') {
       list = list.filter(w => w.payrollMonth === month);
     }

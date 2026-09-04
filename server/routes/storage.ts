@@ -1,7 +1,15 @@
 import { Router, Response } from 'express';
 import crypto from 'crypto';
 import { db, normalizeEmployeeId, maskSensitiveId, calculateExpiryStatus } from '../db.js';
-import { verifyAuth, verifyAuthAllowingQueryToken, requireRoles, requirePermission, AuthRequest } from '../auth.js';
+import {
+  verifyAuth,
+  verifyAuthAllowingQueryToken,
+  requireRoles,
+  requirePermission,
+  AuthRequest,
+  companyScopeOf,
+  canSeeCompany,
+} from '../auth.js';
 import {
   decodeDocumentDataUrl,
   validateDocumentFile,
@@ -230,7 +238,10 @@ router.get('/documents', verifyAuth, (req: AuthRequest, res: Response) => {
       sortOrder = 'desc',
     } = req.query as Record<string, string>;
 
-    const allEmployees = db.employees.getAll();
+    // Company isolation: the repository is keyed by employee, so scoping the employee
+    // map scopes every document row derived from it.
+    const docScope = companyScopeOf(req.user);
+    const allEmployees = db.employees.getAll().filter((e) => canSeeCompany(docScope, e.employeeCompany));
     const empMap = new Map(allEmployees.map((e) => [normalizeEmployeeId(e.employeeId), e]));
 
     // 1. Gather all documents from explicit documents table

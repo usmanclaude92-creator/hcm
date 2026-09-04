@@ -2,16 +2,25 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, requireWritePermission, AuthRequest } from '../auth.js';
-import type { EmployeeLoan, LoanRecoveryTransaction, LoanStatus } from '../../src/types/index';
+import { verifyAuth, requireWritePermission, AuthRequest, companyScopeOf, canSeeCompany } from '../auth.js';
+import type { EmployeeLoan, LoanRecoveryTransaction, LoanStatus, EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
+
+// Loans carry the employee ID but not the company, so scope is resolved through
+// Employee Master -- the same approach as WPS recovery.
+function loanVisibleTo(scope: EmployeeCompany[] | null, employeeId: string): boolean {
+  if (scope === null) return true;
+  const emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
+  return canSeeCompany(scope, emp?.employeeCompany);
+}
 
 // GET /api/loans - List all loans with summary
 router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { status, search, employeeId } = req.query;
-    let loans = db.loans.getAll();
+    const scope = companyScopeOf(req.user);
+    let loans = db.loans.getAll().filter(l => loanVisibleTo(scope, l.employeeId));
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -64,6 +73,9 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     const normId = normalizeEmployeeId(employeeId);
     const emp = db.employees.findByEmployeeId(normId);
     if (!emp) {
+      return res.status(404).json({ error: `Employee '${normId}' not found.` });
+    }
+    if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
       return res.status(404).json({ error: `Employee '${normId}' not found.` });
     }
 
@@ -126,6 +138,9 @@ router.post('/:id/repayments', verifyAuth, requireWritePermission, async (req: A
 
     const loan = db.loans.findById(id);
     if (!loan) return res.status(404).json({ error: 'Loan not found.' });
+    if (!loanVisibleTo(companyScopeOf(req.user), loan.employeeId)) {
+      return res.status(404).json({ error: 'Loan not found.' });
+    }
 
     const numAmount = roundOMR(Number(recoveryAmount));
     if (numAmount <= 0) {
@@ -204,7 +219,8 @@ router.patch('/:id/status', verifyAuth, requireWritePermission, async (req: Auth
 // GET /api/loans/export - Export loan report to Excel
 router.get('/export', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const loans = db.loans.getAll();
+    const exportScope = companyScopeOf(req.user);
+    const loans = db.loans.getAll().filter(l => loanVisibleTo(exportScope, l.employeeId));
 
     const data = loans.map((l, idx) => ({
       'Sr#': idx + 1,

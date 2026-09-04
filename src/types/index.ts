@@ -10,6 +10,120 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  // Present on the client only: set when the account signed in with a password that
+  // fails the security policy. The server confines such a session to changing it.
+  mustChangePassword?: boolean;
+  // Companies this user may see. Empty or absent = all companies (Administrator, or an
+  // account deliberately left unscoped). Enforced server-side, not by hiding UI.
+  companyScope?: EmployeeCompany[];
+}
+
+// --- Leave management -----------------------------------------------------------------
+// Oman Labour Law (RD 53/2023) grants annual, sick, maternity, paternity, compassionate,
+// study and Hajj leave; unpaid leave is by agreement. Types are configurable rather than
+// hardcoded so an employer can add its own.
+export type LeaveRequestStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Cancelled';
+
+export interface LeaveType {
+  id: string;
+  code: string;
+  name: string;
+  // Paid leave counts as worked time in payroll; unpaid leave does not.
+  isPaid: boolean;
+  // Days granted per calendar year. 0 means "no fixed entitlement" (compassionate leave,
+  // unpaid leave), which is tracked but never shows a remaining balance.
+  annualEntitlementDays: number;
+  isActive: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCompany: EmployeeCompany;
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  isPaid: boolean;
+  startDate: string;
+  endDate: string;
+  // Calendar days inclusive of both ends, computed server-side and never trusted from
+  // the client.
+  days: number;
+  reason: string;
+  status: LeaveRequestStatus;
+  submittedBy?: string;
+  submittedAt?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  decisionReason?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveBalance {
+  employeeId: string;
+  employeeName: string;
+  employeeCompany: EmployeeCompany;
+  year: number;
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  isPaid: boolean;
+  entitlementDays: number;
+  approvedDays: number;
+  pendingDays: number;
+  remainingDays: number | null;
+}
+
+// Organisation master data. Designation used to be free text on each employee record,
+// so the same role appeared under several spellings and could not be grouped or costed.
+export interface Department {
+  id: string;
+  name: string;
+  code?: string;
+  isActive: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Designation {
+  id: string;
+  title: string;
+  // Null where the role is not tied to a single department, which is common on sites.
+  departmentId: string | null;
+  isActive: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// End-of-service gratuity, computed on demand from the employee master rather than
+// stored, so it always reflects the current joining/leaving dates and basic wage.
+export interface GratuityLine {
+  employeeId: string;
+  employeeName: string;
+  employeeCompany: EmployeeCompany;
+  nationalityType: NationalityType;
+  isActive: boolean;
+  dateOfJoining: string;
+  serviceEndDate: string;
+  serviceDays: number;
+  serviceYears: number;
+  monthlyBasicWage: number;
+  wageBasis: string;
+  firstTierYears: number;
+  laterYears: number;
+  gratuityAmount: number;
+  // False for an Omani national (Social Protection Fund) or under the minimum service
+  // period; the amount is still shown, but it is excluded from the liability total.
+  isEntitled: boolean;
+  note: string;
 }
 
 export type EmployeeType = 'Worker' | 'Staff';
@@ -472,7 +586,30 @@ export interface PayrollLine {
   daysWorked: number;
   hoursWorked: number;
   basicSalaryOrRate: number;
+  // Set when a user typed a rate on this line by hand. Recalculation refreshes the rate
+  // from Employee Master unless this is true, so a salary revision can no longer be
+  // silently ignored by a draft that already exists.
+  rateOverridden?: boolean;
+  // The current Employee Master rate, carried for comparison so the UI can show an
+  // overridden line next to the master value.
+  masterRate?: number;
   grossSalary: number;
+  // --- Attendance-derived amounts. Captured on the attendance sheet and previously
+  // discarded by payroll entirely; they are kept in their own fields so they never
+  // collide with the manual per-line overrides below. Optional so that payroll lines
+  // written before this existed still typecheck; the calculation engine always sets them,
+  // and every consumer defaults a missing value to 0.
+  overtimeHours?: number;
+  overtimeRate?: number;
+  overtimePay?: number;
+  attendanceBonus?: number;
+  attendanceDeduction?: number;
+  // Approved leave falling inside the payroll month. Paid leave days are added to the
+  // payable days (or converted to standard hours for an hourly employee); unpaid leave
+  // days are recorded for reference and are simply not paid.
+  paidLeaveDays?: number;
+  unpaidLeaveDays?: number;
+  // --- Manual per-line overrides.
   houseAllowance: number;
   transportAllowance: number;
   bonus: number;
@@ -518,6 +655,7 @@ export interface MonthlyPayroll {
   totalNetSalary: number;
   totalWpsSalary: number;
   totalRecoverableSalary: number;
+  totalOvertimePay?: number;
   finalizedAt?: string | null;
   finalizedBy?: string | null;
   revisionNumber: number;
@@ -526,7 +664,11 @@ export interface MonthlyPayroll {
   lines?: PayrollLine[];
 }
 
-export type PaymentStatus = 'Unpaid' | 'Partially Paid' | 'Fully Paid';
+// "No Payable" is a distinct state from "Fully Paid": the employee earned nothing that
+// month (no attendance, or deductions consumed the whole entitlement), so there was never
+// anything to pay. Reporting them as Fully Paid inflated the paid count and read as a
+// system error to anyone reviewing the payment list.
+export type PaymentStatus = 'Unpaid' | 'Partially Paid' | 'Fully Paid' | 'No Payable';
 export type PaymentMode = 'Cash' | 'Bank Transfer' | 'Cheque' | 'Direct Deposit' | string;
 
 export interface SalaryPaymentTransaction {

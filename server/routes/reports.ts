@@ -1,15 +1,28 @@
 import { Router, Response } from 'express';
 import * as XLSX from 'xlsx';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, AuthRequest } from '../auth.js';
+import { verifyAuth, AuthRequest, companyScopeOf, canSeeCompany } from '../auth.js';
+import type { EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
+
+// Company isolation for every report in this file. Reports read straight from payroll
+// lines and employee records, so each entry point applies the caller's scope before any
+// user-supplied filter -- clearing the company filter can never widen the result set.
+function scopedEmployees(req: AuthRequest) {
+  const scope = companyScopeOf(req.user);
+  return db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
+}
+
+function lineInScope(req: AuthRequest, line: { employeeCompany?: string }): boolean {
+  return canSeeCompany(companyScopeOf(req.user), line.employeeCompany);
+}
 
 // GET /api/reports/employee - Employee category reports
 router.get('/employee', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { reportType, company, nationality, wageType, exportFormat } = req.query;
-    let employees = db.employees.getAll();
+    let employees = scopedEmployees(req);
 
     if (reportType === 'active') employees = employees.filter(e => e.isActive);
     else if (reportType === 'former') employees = employees.filter(e => !e.isActive);
@@ -72,6 +85,7 @@ router.get('/payroll', verifyAuth, (req: AuthRequest, res: Response) => {
       const details = db.payroll.getByMonth(p.payrollMonth);
       if (details?.lines) {
         for (const l of details.lines) {
+          if (!lineInScope(req, l)) continue;
           if (company && company !== 'ALL' && l.employeeCompany !== company) continue;
           if (paidBy && paidBy !== 'ALL' && l.salaryPaidBy !== paidBy) continue;
           if (employeeType && employeeType !== 'ALL' && l.employeeType !== employeeType) continue;
@@ -151,6 +165,7 @@ router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
       if (!details?.lines) continue;
 
       for (const line of details.lines) {
+        if (!lineInScope(req, line)) continue;
         if (company && company !== 'ALL' && line.employeeCompany !== company) continue;
         if (paidBy && paidBy !== 'ALL' && line.salaryPaidBy !== paidBy) continue;
 
@@ -163,7 +178,9 @@ router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
         const outstanding = roundOMR(Math.max(0, line.netSalary - totalPaid));
 
         let payStatus = 'Unpaid';
-        if (totalPaid >= line.netSalary) payStatus = 'Fully Paid';
+        // Nothing payable is its own state -- see PaymentStatus in src/types.
+        if (line.netSalary <= 0 && totalPaid <= 0) payStatus = 'No Payable';
+        else if (totalPaid >= line.netSalary) payStatus = 'Fully Paid';
         else if (totalPaid > 0) payStatus = 'Partially Paid';
 
         if (status && status !== 'ALL' && payStatus !== status) continue;
@@ -335,7 +352,7 @@ router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => 
     const projects = db.projects.getAll().filter(p => !projectId || p.id === projectId);
     const attendanceRecords = db.attendance.getByMonth(month);
     const timesheetEntries = db.timesheets.getByMonth(month);
-    const employees = db.employees.getAll();
+    const employees = scopedEmployees(req);
     const employeeById = new Map(employees.map(e => [normalizeEmployeeId(e.employeeId), e]));
 
     const rows = projects.map(project => {
@@ -432,7 +449,7 @@ router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => 
 
 const REPORT_EXCEPTION_TOLERANCE = 0.001;
 
-function buildUnifiedReportRows(): any[] {
+function buildUnifiedReportRows(scope: EmployeeCompany[] | null = null): any[] {
   const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized' || p.status === 'In Revision');
   const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed);
 
@@ -442,6 +459,7 @@ function buildUnifiedReportRows(): any[] {
     if (!details?.lines) continue;
 
     for (const line of details.lines) {
+      if (!canSeeCompany(scope, line.employeeCompany)) continue;
       const normId = normalizeEmployeeId(line.employeeId);
 
       let totalPaid: number | null = null;
@@ -454,7 +472,8 @@ function buildUnifiedReportRows(): any[] {
         );
         totalPaid = roundOMR(linePayments.reduce((s, tx) => s + tx.payAmount, 0));
         outstanding = roundOMR(Math.max(0, line.netSalary - totalPaid));
-        if (totalPaid >= line.netSalary) paymentStatus = 'Fully Paid';
+        if (line.netSalary <= 0 && totalPaid <= 0) paymentStatus = 'No Payable';
+        else if (totalPaid >= line.netSalary) paymentStatus = 'Fully Paid';
         else if (totalPaid > 0) paymentStatus = 'Partially Paid';
         else paymentStatus = 'Unpaid';
       }
@@ -657,9 +676,11 @@ function computeReportAnalytics(rows: any[]) {
       netSalary: totalNet,
       paid: totalPaid,
       outstanding: totalOutstanding,
-      // "Cash Liability" -- how much salary was incurred vs how much cash actually went out,
-      // a distinct executive figure from Outstanding (which is Net-based, not Gross-based).
-      cashLiability: roundOMR(totalGross - totalPaid),
+      // Cash still owed on finalised payroll: what was earned (net of additions and
+      // deductions) less what has actually been paid. This was previously Gross - Paid,
+      // which silently discarded every allowance and deduction and so disagreed with
+      // Outstanding by exactly the additions/deductions net.
+      cashLiability: roundOMR(sum(finalizedRows, r => r.netSalary) - totalPaid),
     },
     companyBreakdown,
     payByBreakdown,
@@ -673,7 +694,7 @@ function computeReportAnalytics(rows: any[]) {
   };
 }
 
-function computeReportExceptions(rows: any[], query: any) {
+function computeReportExceptions(rows: any[], query: any, scope: EmployeeCompany[] | null = null) {
   const exceptions: { type: string; severity: 'critical' | 'warning'; employeeId: string; payrollMonth: string; message: string }[] = [];
 
   rows.forEach(r => {
@@ -743,6 +764,7 @@ function computeReportExceptions(rows: any[], query: any) {
 
     const candidateEmployees = db.employees.getAll().filter(e => {
       if (!e.isActive) return false;
+      if (!canSeeCompany(scope, e.employeeCompany)) return false;
       if (company && !company.includes(e.employeeCompany)) return false;
       if (payBy && !payBy.includes(e.salaryPaidBy)) return false;
       if (employeeType && !employeeType.includes(e.employeeType)) return false;
@@ -816,10 +838,10 @@ const DEFAULT_DETAIL_COLUMNS = [
 router.get('/salary-payroll', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const query = req.query as any;
-    const allRows = buildUnifiedReportRows();
+    const allRows = buildUnifiedReportRows(companyScopeOf(req.user));
     const filteredRows = applyReportFilters(allRows, query);
     const analytics = computeReportAnalytics(filteredRows);
-    const exceptions = computeReportExceptions(filteredRows, query);
+    const exceptions = computeReportExceptions(filteredRows, query, companyScopeOf(req.user));
     const sortedRows = sortReportRows(filteredRows, query.sortBy, query.sortDir);
 
     if (query.exportFormat === 'excel') {

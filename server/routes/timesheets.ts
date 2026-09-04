@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { db, normalizeEmployeeId, roundOMR } from '../db.js';
-import { verifyAuth, requirePermission, AuthRequest } from '../auth.js';
+import { verifyAuth, requirePermission, AuthRequest, companyScopeOf, canSeeCompany } from '../auth.js';
 import type { TimesheetEntry, EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
@@ -22,7 +22,9 @@ function checkProjectCompanyPermission(proj: { allowedCompanies?: EmployeeCompan
 router.get('/', verifyAuth, requirePermission('timesheet.view'), (req: AuthRequest, res: Response) => {
   try {
     const { month, employeeId, projectId, company } = req.query;
-    let entries = month ? db.timesheets.getByMonth(String(month)) : db.timesheets.getAll().filter(t => !t.isVoided);
+    const scope = companyScopeOf(req.user);
+    let entries = (month ? db.timesheets.getByMonth(String(month)) : db.timesheets.getAll().filter(t => !t.isVoided))
+      .filter(t => canSeeCompany(scope, t.company));
     if (employeeId) {
       const norm = normalizeEmployeeId(String(employeeId));
       entries = entries.filter(t => normalizeEmployeeId(t.employeeId) === norm);
@@ -48,6 +50,9 @@ router.post('/', verifyAuth, requirePermission('timesheet.create'), async (req: 
     const normId = normalizeEmployeeId(employeeId);
     const emp = db.employees.findByEmployeeId(normId);
     if (!emp || !emp.isActive) {
+      return res.status(404).json({ error: `Employee '${normId}' not found or inactive.` });
+    }
+    if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
       return res.status(404).json({ error: `Employee '${normId}' not found or inactive.` });
     }
     const proj = db.projects.findById(project) || db.projects.findByCode(project);
@@ -110,7 +115,18 @@ router.put('/:id', verifyAuth, requirePermission('timesheet.edit'), async (req: 
     const { id } = req.params;
     const existing = db.timesheets.getAll().find(t => t.id === id);
     if (!existing) return res.status(404).json({ error: 'Timesheet entry not found.' });
+    if (!canSeeCompany(companyScopeOf(req.user), existing.company)) {
+      return res.status(404).json({ error: 'Timesheet entry not found.' });
+    }
     if (existing.isVoided) return res.status(400).json({ error: 'Cannot edit a voided timesheet entry.' });
+    // An approved entry is a signed-off labour record that project costing and the
+    // timesheet analytics already report on. Editing it in place silently changed those
+    // figures while the entry still read "Approved", so approval must be withdrawn first.
+    if (existing.approvalStatus === 'Approved') {
+      return res.status(400).json({
+        error: 'Cannot edit an Approved timesheet entry. Reject the entry first (or void it) before changing hours.',
+      });
+    }
 
     const { taskActivity, normalHours, overtimeHours, remarks } = req.body;
     const updates: Partial<TimesheetEntry> = {};
@@ -426,8 +442,10 @@ router.post('/import/confirm', verifyAuth, requirePermission('timesheet.import')
 router.get('/analytics/employee', verifyAuth, requirePermission('timesheet.view'), (req: AuthRequest, res: Response) => {
   try {
     const month = String(req.query.month || '');
-    const entries = month ? db.timesheets.getByMonth(month) : db.timesheets.getAll().filter(t => !t.isVoided);
-    const activeEmployees = db.employees.getAll().filter(e => e.isActive);
+    const scope = companyScopeOf(req.user);
+    const entries = (month ? db.timesheets.getByMonth(month) : db.timesheets.getAll().filter(t => !t.isVoided))
+      .filter(t => canSeeCompany(scope, t.company));
+    const activeEmployees = db.employees.getAll().filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany));
 
     const byEmployee = new Map<string, TimesheetEntry[]>();
     for (const e of entries) {
@@ -466,7 +484,9 @@ router.get('/analytics/employee', verifyAuth, requirePermission('timesheet.view'
 router.get('/analytics/project', verifyAuth, requirePermission('timesheet.view'), (req: AuthRequest, res: Response) => {
   try {
     const month = String(req.query.month || '');
-    const entries = month ? db.timesheets.getByMonth(month) : db.timesheets.getAll().filter(t => !t.isVoided);
+    const projectScope = companyScopeOf(req.user);
+    const entries = (month ? db.timesheets.getByMonth(month) : db.timesheets.getAll().filter(t => !t.isVoided))
+      .filter(t => canSeeCompany(projectScope, t.company));
     const projects = db.projects.getAll();
 
     const byProject = new Map<string, TimesheetEntry[]>();
@@ -494,8 +514,11 @@ router.get('/analytics/project', verifyAuth, requirePermission('timesheet.view')
 router.get('/analytics/company', verifyAuth, requirePermission('timesheet.view'), (req: AuthRequest, res: Response) => {
   try {
     const month = String(req.query.month || '');
-    const entries = month ? db.timesheets.getByMonth(month) : db.timesheets.getAll().filter(t => !t.isVoided);
-    const attendanceRecords = month ? db.attendance.getByMonth(month) : [];
+    const companyScope = companyScopeOf(req.user);
+    const entries = (month ? db.timesheets.getByMonth(month) : db.timesheets.getAll().filter(t => !t.isVoided))
+      .filter(t => canSeeCompany(companyScope, t.company));
+    const attendanceRecords = (month ? db.attendance.getByMonth(month) : [])
+      .filter(a => canSeeCompany(companyScope, (a as any).company));
 
     const byCompany = new Map<string, TimesheetEntry[]>();
     for (const e of entries) {

@@ -42,7 +42,7 @@ function MonthOverMonthBadge({ current, previous }: { current?: number; previous
   return (
     <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${isUp ? 'text-emerald-600' : 'text-rose-600'}`}>
       {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-      {Math.abs(pct).toFixed(1)}% vs previous month
+      {isUp ? '+' : '−'}{Math.abs(pct).toFixed(1)}% vs previous month
     </span>
   );
 }
@@ -62,13 +62,23 @@ interface DashboardViewProps {
 
 type DashboardTab = 'payroll-insights' | 'workforce-deployment';
 
-// Default period is always the previous calendar month relative to today's real date,
-// regardless of whether a payroll run exists for it yet (a graceful empty state handles
-// that case) -- per explicit product requirement, never the current in-progress month.
+// Default period is the previous calendar month relative to today's real date -- per
+// explicit product requirement, never the current in-progress month.
 function getDefaultPeriodMonth(): string {
   const now = new Date();
   const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// ...but if that month has no payroll at all, the dashboard opened on a wall of
+// OMR 0.000 while real money was outstanding. Fall back to the most recent month that
+// actually has a payroll run, so the first thing an executive sees is real figures.
+function resolveInitialMonth(availableMonths: string[]): string {
+  const preferred = getDefaultPeriodMonth();
+  if (availableMonths.includes(preferred)) return preferred;
+  const earlier = availableMonths.filter(m => m <= preferred).sort();
+  if (earlier.length > 0) return earlier[earlier.length - 1];
+  return availableMonths.length > 0 ? availableMonths[availableMonths.length - 1] : preferred;
 }
 
 function formatTime(d: Date): string {
@@ -93,13 +103,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [fromMonth, setFromMonth] = useState<string>(getDefaultPeriodMonth());
   const [toMonth, setToMonth] = useState<string>(getDefaultPeriodMonth());
 
-  // Fetched once, purely to populate the period filter's month dropdowns.
+  // Whether the user has touched the period control yet. Once they have, the initial
+  // resolution below must never move the selection under them.
+  const [periodTouched, setPeriodTouched] = useState(false);
+
+  // Fetched once, purely to populate the period filter's month dropdowns -- and to
+  // resolve the opening month to one that actually has a payroll.
   useEffect(() => {
     async function fetchMonths() {
       try {
         const res = await apiRequest('/api/payroll');
-        const months = Array.from(new Set((Array.isArray(res) ? res : []).map((p: any) => p.payrollMonth))) as string[];
-        setAvailableMonths(months.sort());
+        const months = (Array.from(new Set((Array.isArray(res) ? res : []).map((p: any) => p.payrollMonth))) as string[]).sort();
+        setAvailableMonths(months);
+        if (months.length > 0) {
+          setPeriodTouched(touched => {
+            if (!touched) {
+              const resolved = resolveInitialMonth(months);
+              setSelectedMonth(resolved);
+              setFromMonth(resolved);
+              setToMonth(resolved);
+            }
+            return touched;
+          });
+        }
       } catch {
         // Non-critical -- the period filter still functions with just the default month.
       }
@@ -167,9 +193,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const wpsRecoveryPercentage = finances?.totalWpsRecoverable > 0
     ? (finances.totalWpsRecovered / finances.totalWpsRecoverable) * 100
     : 0;
-  const avgNetSalary = counts?.activeEmployees > 0 && currentPayroll?.netSalary
-    ? currentPayroll.netSalary / counts.activeEmployees
-    : 0;
+  // Server-computed across every finalized payroll line in the selected period. It used
+  // to divide the LATEST payroll's net by the active headcount, so in All Time mode a
+  // newer empty draft made it read OMR 0.000 over months of real pay.
+  const avgNetSalary = data?.averageNetSalary ?? 0;
 
   const TABS: { id: DashboardTab; label: string; icon: any }[] = [
     { id: 'payroll-insights', label: 'Payroll Insights', icon: Calculator },
@@ -213,13 +240,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           {activeTab === 'payroll-insights' ? (
             <PayrollPeriodFilter
               mode={periodMode}
-              onModeChange={setPeriodMode}
+              onModeChange={(m) => { setPeriodTouched(true); setPeriodMode(m); }}
               selectedMonth={selectedMonth}
-              onSelectedMonthChange={setSelectedMonth}
+              onSelectedMonthChange={(m) => { setPeriodTouched(true); setSelectedMonth(m); }}
               fromMonth={fromMonth}
-              onFromChange={setFromMonth}
+              onFromChange={(m) => { setPeriodTouched(true); setFromMonth(m); }}
               toMonth={toMonth}
-              onToChange={setToMonth}
+              onToChange={(m) => { setPeriodTouched(true); setToMonth(m); }}
               availableMonths={availableMonths}
             />
           ) : (
@@ -513,8 +540,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   <Users className="w-4 h-4 text-indigo-600" />
                   Workforce Cost Distribution
                 </h3>
+                {/* Names every month in scope, not just the newest -- this panel
+                    aggregates the whole period, and labelling it with one month read as
+                    if the other months were excluded. */}
                 <p className="text-xs text-slate-500">
-                  Avg. Net Salary by Category {data?.workforceCostSourceMonth ? `(${data.workforceCostSourceMonth} Payroll)` : ''}
+                  Avg. Net Salary per employee-month
+                  {data?.workforceCostMonths?.length
+                    ? data.workforceCostMonths.length === 1
+                      ? ` (${data.workforceCostMonths[0]} payroll)`
+                      : ` (${data.workforceCostMonths.length} finalized payrolls: ${data.workforceCostMonths[0]} – ${data.workforceCostMonths[data.workforceCostMonths.length - 1]})`
+                    : ''}
                 </p>
               </div>
               <div className="h-52 w-full">

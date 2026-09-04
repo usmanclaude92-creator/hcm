@@ -12,8 +12,14 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   isDemoMode: boolean;
+  // True while the signed-in account's password fails the security policy. The server
+  // confines such a session to /api/auth/change-password; the UI mirrors that by showing
+  // nothing but the change-password screen.
+  mustChangePassword: boolean;
+  passwordChangeReason: string | null;
   login: (credentials: { username: string; password: string }) => Promise<void>;
   loginDemo: (role: UserRole) => void;
+  completePasswordChange: (token: string, user: User) => void;
   logout: () => void;
   isAdmin: boolean;
   isManager: boolean;
@@ -28,6 +34,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(() => (isDemoSessionActive() ? getDemoUser() : getStoredUser()));
   const [token, setToken] = useState<string | null>(() => (isDemoSessionActive() ? DEMO_TOKEN : getStoredToken()));
   const [isLoading, setIsLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState<boolean>(() => Boolean(getStoredUser()?.mustChangePassword));
+  const [passwordChangeReason, setPasswordChangeReason] = useState<string | null>(null);
 
   useEffect(() => {
     // A demo marker can survive a hard refresh (sessionStorage) even though the in-memory
@@ -95,7 +103,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // dispatcher by apiRequest's isDemoSessionActive() check.
     endDemoSession();
 
-    const data = await apiRequest<{ token: string; user: User }>('/api/auth/login', {
+    const data = await apiRequest<{
+      token: string;
+      user: User;
+      mustChangePassword?: boolean;
+      passwordChangeReason?: string;
+    }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -103,6 +116,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStoredToken(data.token, data.user);
     setToken(data.token);
     setUser(data.user);
+    setMustChangePassword(Boolean(data.mustChangePassword));
+    setPasswordChangeReason(data.passwordChangeReason || null);
+  };
+
+  // Called after a successful forced password change. The server returns a fresh,
+  // unrestricted token, so the session continues without a sign-out round trip.
+  const completePasswordChange = (newToken: string, newUser: User) => {
+    setStoredToken(newToken, newUser);
+    setToken(newToken);
+    setUser(newUser);
+    setMustChangePassword(false);
+    setPasswordChangeReason(null);
   };
 
   const loginDemo = (role: UserRole) => {
@@ -123,6 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     removeStoredToken();
     setToken(null);
     setUser(null);
+    setMustChangePassword(false);
+    setPasswordChangeReason(null);
   };
 
   const role: UserRole = user?.role || 'Viewer';
@@ -140,8 +167,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user && !!token,
         isLoading,
         isDemoMode: isDemoSessionActive(),
+        mustChangePassword,
+        passwordChangeReason,
         login,
         loginDemo,
+        completePasswordChange,
         logout,
         isAdmin,
         isManager,

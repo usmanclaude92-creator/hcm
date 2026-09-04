@@ -3,9 +3,33 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { db } from '../db.js';
 import { verifyAuth, requireRoles, AuthRequest, validatePasswordStrength } from '../auth.js';
-import type { User, UserRole } from '../../src/types/index';
+import type { User, UserRole, EmployeeCompany } from '../../src/types/index';
 
 const router = Router();
+
+const EMPLOYEE_COMPANIES: EmployeeCompany[] = ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'];
+
+// An account can be limited to a set of companies. An empty list means "all companies".
+// Administrators are always unscoped -- a scope on an Administrator would be a false
+// sense of restriction, since the role bypasses every other check by design.
+function validateCompanyScope(value: any, role: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return 'Company access must be a list of companies.';
+  const invalid = value.filter((c: any) => !EMPLOYEE_COMPANIES.includes(c));
+  if (invalid.length > 0) {
+    return `Unknown company in company access: ${invalid.join(', ')}. Valid companies are ${EMPLOYEE_COMPANIES.join(', ')}.`;
+  }
+  if (role === 'Administrator' && value.length > 0) {
+    return 'Administrators always have access to every company; leave company access empty for this role.';
+  }
+  return null;
+}
+
+function normalizeCompanyScope(value: any, role: string): EmployeeCompany[] {
+  if (role === 'Administrator') return [];
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.filter((c: any) => EMPLOYEE_COMPANIES.includes(c)))) as EmployeeCompany[];
+}
 
 // GET /api/users (Admin only)
 router.get('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, res: Response) => {
@@ -33,6 +57,7 @@ router.get('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, 
       email: u.email,
       role: u.role,
       isActive: u.isActive,
+      companyScope: (u as any).companyScope || [],
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
     }));
@@ -46,10 +71,13 @@ router.get('/', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, 
 // POST /api/users (Admin only)
 router.post('/', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
   try {
-    const { username, name, email, role, password } = req.body;
+    const { username, name, email, role, password, companyScope } = req.body;
     if (!username || !name || !email || !role || !password) {
       return res.status(400).json({ error: 'All fields (username, name, email, role, password) are required.' });
     }
+
+    const scopeError = validateCompanyScope(companyScope, role);
+    if (scopeError) return res.status(400).json({ error: scopeError });
 
     const cleanUsername = username.trim().toLowerCase();
     const existing = db.users.findByUsername(cleanUsername);
@@ -71,6 +99,7 @@ router.post('/', verifyAuth, requireRoles(['Administrator']), async (req: AuthRe
       role: role as UserRole,
       passwordHash: bcrypt.hashSync(password, 10),
       isActive: true,
+      companyScope: normalizeCompanyScope(companyScope, role),
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -105,13 +134,31 @@ router.post('/', verifyAuth, requireRoles(['Administrator']), async (req: AuthRe
 router.put('/:id', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, email, role, isActive, password } = req.body;
+    const { name, email, role, isActive, password, companyScope } = req.body;
+
+    const existingUser = db.users.findById(id);
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    const effectiveRole = (role as UserRole) || existingUser.role;
+    if (companyScope !== undefined) {
+      const scopeError = validateCompanyScope(companyScope, effectiveRole);
+      if (scopeError) return res.status(400).json({ error: scopeError });
+    }
 
     const updates: Partial<User> = {};
     if (name) updates.name = name.trim();
     if (email) updates.email = email.trim().toLowerCase();
     if (role) updates.role = role as UserRole;
     if (isActive !== undefined) updates.isActive = Boolean(isActive);
+    // Promoting an account to Administrator clears any scope, so the stored record can
+    // never disagree with the effective permission.
+    if (companyScope !== undefined || role === 'Administrator') {
+      updates.companyScope = normalizeCompanyScope(
+        companyScope !== undefined ? companyScope : (existingUser as any).companyScope,
+        effectiveRole
+      );
+    }
     if (password && password.trim()) {
       const policyError = validatePasswordStrength(password);
       if (policyError) {
@@ -142,6 +189,7 @@ router.put('/:id', verifyAuth, requireRoles(['Administrator']), async (req: Auth
       email: updated.email,
       role: updated.role,
       isActive: updated.isActive,
+      companyScope: (updated as any).companyScope || [],
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update user.' });

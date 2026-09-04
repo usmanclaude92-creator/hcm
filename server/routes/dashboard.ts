@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { db, roundOMR } from '../db.js';
-import { verifyAuth, AuthRequest } from '../auth.js';
+import { db, roundOMR, normalizeEmployeeId } from '../db.js';
+import { verifyAuth, AuthRequest, companyScopeOf, canSeeCompany } from '../auth.js';
 
 const router = Router();
 
@@ -44,7 +44,18 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     const fromMonth = (req.query.fromMonth as string) || '';
     const toMonth = (req.query.toMonth as string) || '';
 
-    const employees = db.employees.getAll();
+    // Company isolation. Every figure below is derived from these collections, so scoping
+    // them here scopes the whole dashboard -- headcount, payroll, payments, WPS and loans.
+    const scope = companyScopeOf(req.user);
+    const inScopeEmployeeIds = new Set(
+      db.employees.getAll()
+        .filter(e => canSeeCompany(scope, e.employeeCompany))
+        .map(e => normalizeEmployeeId(e.employeeId))
+    );
+    const employeeInScope = (employeeId: string) =>
+      scope === null || inScopeEmployeeIds.has(normalizeEmployeeId(employeeId));
+
+    const employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
     const activeEmployees = employees.filter(e => e.isActive);
     const workers = activeEmployees.filter(e => e.employeeType === 'Worker');
     const staff = activeEmployees.filter(e => e.employeeType === 'Staff');
@@ -79,27 +90,41 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 
     // Financial balances -- scoped to the selected period's finalized payrolls/payments/WPS.
     const allFinalizedPayrolls = payrolls.filter(p => p.status === 'Finalized' && periodMonthSet.has(p.payrollMonth));
-    const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed && periodMonthSet.has(p.payrollMonth));
+    const allPayments = db.salaryPayments
+      .getAll()
+      .filter(p => !p.isReversed && periodMonthSet.has(p.payrollMonth) && employeeInScope(p.employeeId));
 
     let totalFinalizedNetSalary = 0;
     let totalActuallyPaid = 0;
+    // Outstanding must be summed PER PAYROLL LINE, not derived from the aggregate
+    // (net - paid). Aggregating first lets a negative or zero-net line, or an
+    // employee paid in full, absorb another employee's unpaid balance, so the
+    // dashboard reported less owed than Salary Payments and the reports did.
+    let totalOutstandingPerLine = 0;
 
     for (const p of allFinalizedPayrolls) {
       const details = db.payroll.getByMonth(p.payrollMonth);
       if (details?.lines) {
         for (const line of details.lines) {
+          if (!canSeeCompany(scope, line.employeeCompany)) continue;
           totalFinalizedNetSalary = roundOMR(totalFinalizedNetSalary + line.netSalary);
+          const paidForLine = roundOMR(
+            allPayments
+              .filter(t => t.payrollMonth === p.payrollMonth && normalizeEmployeeId(t.employeeId) === normalizeEmployeeId(line.employeeId))
+              .reduce((s, t) => s + t.payAmount, 0)
+          );
+          totalOutstandingPerLine = roundOMR(totalOutstandingPerLine + Math.max(0, roundOMR(line.netSalary - paidForLine)));
         }
       }
     }
 
     totalActuallyPaid = roundOMR(allPayments.reduce((s, p) => s + p.payAmount, 0));
-    const totalOutstandingSalary = roundOMR(Math.max(0, totalFinalizedNetSalary - totalActuallyPaid));
+    const totalOutstandingSalary = roundOMR(Math.max(0, totalOutstandingPerLine));
 
     // Loan balances -- outstanding/principal/recovered/count stay a live, current-moment
     // snapshot (no historical per-month loan-balance snapshot exists to reconstruct from);
     // only "recovery within the selected period" is period-scoped.
-    const loans = db.loans.getAll();
+    const loans = db.loans.getAll().filter(l => employeeInScope(l.employeeId));
     const activeLoans = loans.filter(l => l.status === 'Active');
     const totalOutstandingLoans = roundOMR(activeLoans.reduce((s, l) => s + l.outstandingBalance, 0));
     const totalActiveLoanPrincipal = roundOMR(activeLoans.reduce((s, l) => s + l.loanAmount, 0));
@@ -107,15 +132,23 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     const loanRecoveryPercentage = totalActiveLoanPrincipal > 0
       ? roundOMR((totalLoanRecovered / totalActiveLoanPrincipal) * 100)
       : 0;
+    // Recovery in period: match on the payroll month the recovery belongs to (falling back
+    // to the recovery date only for direct, non-payroll repayments), and exclude reversed
+    // recoveries -- a revised payroll's rolled-back deduction was still being counted, so
+    // this KPI over-reported recovery by the reversed amount.
     const periodRecovery = roundOMR(
       loans.reduce((sum, l) => {
-        const recoveriesInPeriod = (l.recoveries || []).filter(r => periodMonthSet.has((r.recoveryDate || '').slice(0, 7)));
-        return sum + recoveriesInPeriod.reduce((s, r) => s + (r.recoveryAmount || 0), 0);
+        const recoveriesInPeriod = ((l as any).recoveries || []).filter((r: any) =>
+          !r.isReversed && periodMonthSet.has(r.payrollMonth || (r.recoveryDate || '').slice(0, 7))
+        );
+        return sum + recoveriesInPeriod.reduce((s: number, r: any) => s + (r.recoveryAmount || 0), 0);
       }, 0)
     );
 
     // WPS Recoveries -- scoped to the selected period.
-    const wpsList = db.wps.getAll().filter(w => periodMonthSet.has((w.payrollMonth || (w as any).month || '') as string));
+    const wpsList = db.wps
+      .getAll()
+      .filter(w => periodMonthSet.has((w.payrollMonth || (w as any).month || '') as string) && employeeInScope(w.employeeId));
     const totalWpsRecoverable = roundOMR(wpsList.reduce((s, w) => s + w.totalRecoverable, 0));
     const totalWpsRecovered = roundOMR(wpsList.reduce((s, w) => s + w.totalRecovered, 0));
     const totalWpsRemaining = roundOMR(wpsList.reduce((s, w) => s + w.remainingBalance, 0));
@@ -123,18 +156,33 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     // Workforce cost distribution by employee type -- aggregated across every finalized
     // payroll in the selected period (collapses to the old "single latest payroll" behavior
     // when scope = exactly one month, so no regression for the common case).
+    // Counts are DISTINCT EMPLOYEES, not payroll lines. Summing lines across months
+    // counted the same person once per month, so "7 Staff" appeared against an actual
+    // workforce of 6 -- and the average was divided by that inflated number too.
     const workforceCostByCategory = ['Staff', 'Worker'].map(type => {
-      const lines = allFinalizedPayrolls.flatMap(p => (db.payroll.getByMonth(p.payrollMonth)?.lines || [])).filter(l => l.employeeType === type);
+      const lines = allFinalizedPayrolls
+        .flatMap(p => (db.payroll.getByMonth(p.payrollMonth)?.lines || []))
+        .filter(l => l.employeeType === type && canSeeCompany(scope, l.employeeCompany));
+      const distinctEmployees = new Set(lines.map(l => normalizeEmployeeId(l.employeeId)));
       const totalNetSalary = roundOMR(lines.reduce((s, l) => s + l.netSalary, 0));
       return {
         name: type,
-        count: lines.length,
+        count: distinctEmployees.size,
+        lineCount: lines.length,
         totalNetSalary,
+        // Average per employee per month: total pay over the number of monthly lines,
+        // which is what "average net salary" means for a multi-month period.
         avgNetSalary: lines.length > 0 ? roundOMR(totalNetSalary / lines.length) : 0,
       };
     });
-    const workforceCostSourceMonth = allFinalizedPayrolls.length > 0
-      ? [...allFinalizedPayrolls].sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth))[0].payrollMonth
+    // The months this distribution actually covers. Labelling the panel with only the
+    // latest month while aggregating several was misleading whenever the period spanned
+    // more than one payroll.
+    const workforceCostMonths = [...allFinalizedPayrolls]
+      .map(p => p.payrollMonth)
+      .sort((a, b) => a.localeCompare(b));
+    const workforceCostSourceMonth = workforceCostMonths.length > 0
+      ? workforceCostMonths[workforceCostMonths.length - 1]
       : null;
 
     // Monthly trends -- calendar-continuous and zero-filled (never silently skips a
@@ -150,15 +198,26 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     } else {
       trendMonths = [];
     }
-    const allPaymentsForTrends = db.salaryPayments.getAll().filter(p => !p.isReversed);
+    const allPaymentsForTrends = db.salaryPayments
+      .getAll()
+      .filter(p => !p.isReversed && employeeInScope(p.employeeId));
     const monthlyTrends = trendMonths.map(month => {
       const p = payrolls.find(pr => pr.payrollMonth === month);
       const paymentsForMonth = allPaymentsForTrends.filter(tx => tx.payrollMonth === month);
       const paidAmount = roundOMR(paymentsForMonth.reduce((s, tx) => s + tx.payAmount, 0));
+      // Stored payroll totals cover every company, so a scoped account recomputes the
+      // trend from the lines it may actually see.
+      const monthLines = p && scope !== null
+        ? (db.payroll.getByMonth(month)?.lines || []).filter(l => canSeeCompany(scope, l.employeeCompany))
+        : null;
       return {
         month,
-        grossSalary: p ? roundOMR(p.totalGrossSalary) : 0,
-        netSalary: p ? roundOMR(p.totalNetSalary) : 0,
+        grossSalary: monthLines
+          ? roundOMR(monthLines.reduce((s, l) => s + l.grossSalary, 0))
+          : p ? roundOMR(p.totalGrossSalary) : 0,
+        netSalary: monthLines
+          ? roundOMR(monthLines.reduce((s, l) => s + l.netSalary, 0))
+          : p ? roundOMR(p.totalNetSalary) : 0,
         paidSalary: paidAmount,
         status: p ? p.status : 'No Payroll Run',
       };
@@ -167,7 +226,12 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     // currentPayroll reflects the primary month of the current view: the selected month
     // itself (month mode), the most recent month in scope (range mode), or the latest
     // payroll ever (all mode, unchanged from prior behavior).
-    let currentPayrollSource = latestPayroll;
+    // In All Time mode the tile summarises the whole period's FINALIZED figures, so it
+    // must not be stamped with the status of the newest payroll of any kind: a fresh
+    // empty draft made an all-time finalized total read "Draft".
+    let currentPayrollSource = allFinalizedPayrolls.length > 0
+      ? [...allFinalizedPayrolls].sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth))[0]
+      : latestPayroll;
     if (periodMode === 'month') {
       currentPayrollSource = monthParam ? (payrolls.find(p => p.payrollMonth === monthParam) || null) : null;
     } else if (periodMode === 'range' && periodMonths.length > 0) {
@@ -212,6 +276,18 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
       },
       workforceCostByCategory,
       workforceCostSourceMonth,
+      workforceCostMonths,
+      // Average net salary across the period's finalized lines. Previously the UI derived
+      // this from currentPayroll, which in All Time mode is the newest payroll of any
+      // status -- so a fresh empty draft made the whole period read OMR 0.000.
+      averageNetSalary: (() => {
+        const allLines = allFinalizedPayrolls
+          .flatMap(p => db.payroll.getByMonth(p.payrollMonth)?.lines || [])
+          .filter(l => canSeeCompany(scope, l.employeeCompany));
+        return allLines.length > 0
+          ? roundOMR(allLines.reduce((s, l) => s + l.netSalary, 0) / allLines.length)
+          : 0;
+      })(),
       distribution: {
         employeeTypes: [
           { name: 'Staff', value: staff.length },

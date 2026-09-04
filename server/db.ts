@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import pg from 'pg';
+import { currentRequestContext } from './requestContext.js';
 import type {
   User,
   Employee,
@@ -25,6 +26,10 @@ import type {
   EmployeeLoan,
   LoanRecoveryTransaction,
   LoanStatus,
+  LeaveType,
+  Department,
+  Designation,
+  LeaveRequest,
   AuditLog,
   EmployeeCivilId,
   EmployeeDrivingLicence,
@@ -49,6 +54,85 @@ export function roundOMR(amount: number): number {
 export function normalizeEmployeeId(id: string): string {
   if (!id) return '';
   return id.trim().toUpperCase();
+}
+
+// --- Wage basis ---------------------------------------------------------------------
+// wageType used to be stored and displayed but never consulted: attendance capture and
+// the payroll calculation both branched on employeeType, so a Staff employee marked
+// "Per Hour" was paid a monthly salary while every screen said otherwise. wageType is
+// now the single source of truth for both, falling back to employeeType only when it is
+// missing on an older record.
+export function isHourlyPaid(emp: { wageType?: string | null; employeeType?: string | null }): boolean {
+  if (emp?.wageType === 'Per Hour') return true;
+  if (emp?.wageType === 'Fixed Monthly') return false;
+  return emp?.employeeType === 'Worker';
+}
+
+// --- Oman payroll constants ----------------------------------------------------------
+// Oman Labour Law (RD 53/2023): a standard working month is treated as 30 days and a
+// standard working day as 8 hours. Overtime is paid at not less than 125% of the normal
+// hourly wage for daytime hours.
+export const STANDARD_DAYS_PER_MONTH = 30;
+export const STANDARD_HOURS_PER_DAY = 8;
+export const DEFAULT_OVERTIME_MULTIPLIER = 1.25;
+
+// The normal hourly wage used as the overtime base: the rate itself for an hourly
+// employee, otherwise the monthly salary reduced to an hour.
+export function normalHourlyWage(emp: { wageType?: string | null; employeeType?: string | null }, rate: number): number {
+  if (isHourlyPaid(emp)) return roundOMR(rate);
+  return roundOMR(rate / STANDARD_DAYS_PER_MONTH / STANDARD_HOURS_PER_DAY);
+}
+
+// Days in `month` (YYYY-MM) during which the employee was actually employed. Used to stop
+// a mid-month joiner or leaver being paid for days before they joined or after they left.
+export function employedDaysInMonth(
+  emp: { dateOfJoining?: string | null; dateOfLeaving?: string | null },
+  month: string
+): number {
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) return STANDARD_DAYS_PER_MONTH;
+  const [y, m] = month.split('-').map(Number);
+  const monthStart = new Date(Date.UTC(y, m - 1, 1));
+  const monthEnd = new Date(Date.UTC(y, m, 0));
+  const calendarDays = monthEnd.getUTCDate();
+
+  const join = emp?.dateOfJoining ? new Date(emp.dateOfJoining + 'T00:00:00Z') : null;
+  const leave = emp?.dateOfLeaving ? new Date(emp.dateOfLeaving + 'T00:00:00Z') : null;
+
+  const start = join && join > monthStart ? join : monthStart;
+  const end = leave && leave < monthEnd ? leave : monthEnd;
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 0;
+
+  const days = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+  // A 31-day calendar month is still a 30-day payroll month, so a full month of
+  // employment is never reported as more than the payroll month length.
+  const proportionOfMonth = days / calendarDays;
+  return Math.min(STANDARD_DAYS_PER_MONTH, Math.round(proportionOfMonth * STANDARD_DAYS_PER_MONTH));
+}
+
+// --- Leave date arithmetic -----------------------------------------------------------
+// Inclusive calendar-day count. Leave in Oman is granted in calendar days, so a Thursday
+// to Saturday absence is three days regardless of the weekend.
+export function inclusiveDayCount(startDate: string, endDate: string): number {
+  const s = new Date(startDate + 'T00:00:00Z');
+  const e = new Date(endDate + 'T00:00:00Z');
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return 0;
+  return Math.floor((e.getTime() - s.getTime()) / 86400000) + 1;
+}
+
+// How many days of a leave request fall inside a given payroll month (YYYY-MM). A request
+// spanning a month boundary is split across both months rather than counted twice.
+export function leaveDaysInMonth(startDate: string, endDate: string, month: string): number {
+  if (!/^\d{4}-\d{2}$/.test(month || '')) return 0;
+  const [y, m] = month.split('-').map(Number);
+  const monthStart = new Date(Date.UTC(y, m - 1, 1));
+  const monthEnd = new Date(Date.UTC(y, m, 0));
+  const s = new Date(startDate + 'T00:00:00Z');
+  const e = new Date(endDate + 'T00:00:00Z');
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+  const from = s > monthStart ? s : monthStart;
+  const to = e < monthEnd ? e : monthEnd;
+  if (to < from) return 0;
+  return Math.floor((to.getTime() - from.getTime()) / 86400000) + 1;
 }
 
 // Deterministic expiry status calculation based on configurable thresholds
@@ -180,6 +264,12 @@ interface DatabaseSchema {
   wpsRecoveryTransactions: WPSRecoveryTransaction[];
   loans: EmployeeLoan[];
   loanRecoveries: LoanRecoveryTransaction[];
+  leaveTypes: LeaveType[];
+  leaveRequests: LeaveRequest[];
+  // Organisation master data. Designations were free text on every employee record,
+  // so the same role existed under several spellings and could not be reported on.
+  departments: Department[];
+  designations: Designation[];
   auditLogs: AuditLog[];
   // Oman HR Compliance Architecture
   civilIds: EmployeeCivilId[];
@@ -223,6 +313,10 @@ class DatabaseManager {
     wpsRecoveryTransactions: [],
     loans: [],
     loanRecoveries: [],
+    leaveTypes: [],
+    leaveRequests: [],
+    departments: [],
+    designations: [],
     auditLogs: [],
     civilIds: [],
     drivingLicences: [],
@@ -244,6 +338,9 @@ class DatabaseManager {
   private pgPool: pg.Pool | null = null;
   private isPostgresConnected: boolean = false;
   private isInitialized: boolean = false;
+  // True only when production was deliberately started on the local JSON store via
+  // ALLOW_FILE_STORE. Surfaced through getStatus() so the UI can say so plainly.
+  private fileStoreAcknowledged: boolean = false;
   private stateVersion: number = 1;
 
   constructor() {
@@ -268,6 +365,32 @@ class DatabaseManager {
 
   public async init() {
     if (this.isInitialized) return;
+
+    // A production deployment with NO connection string configured at all used to start
+    // silently on the local JSON file. On a serverless host that filesystem is per-instance
+    // and ephemeral, so every finalized payroll and recorded payment written after a cold
+    // start is lost at the next one, with concurrent instances diverging in the meantime --
+    // and nothing surfaced that to the operator. Production must therefore have a database.
+    //
+    // ALLOW_FILE_STORE=true is the deliberate, documented escape hatch for a single-process
+    // production install on durable local disk (an on-premise server). It is never safe on
+    // a serverless host and the startup banner says so every time.
+    if (process.env.NODE_ENV === 'production' && !POSTGRES_CONNECTION_STRING) {
+      if (process.env.ALLOW_FILE_STORE !== 'true') {
+        throw new Error(
+          'Refusing to start: NODE_ENV=production but no database is configured. ' +
+          'Set DATABASE_URL (use the transaction pooler on a serverless host). ' +
+          'If this is a single-process on-premise install on durable local disk, set ' +
+          'ALLOW_FILE_STORE=true to run on the local JSON store deliberately.'
+        );
+      }
+      this.fileStoreAcknowledged = true;
+      console.warn(
+        '[storage] PRODUCTION IS RUNNING ON THE LOCAL JSON FILE (ALLOW_FILE_STORE=true). ' +
+        'This is only safe on a single process with durable local disk. On a serverless ' +
+        'host every write will be lost at the next cold start.'
+      );
+    }
 
     // Check for PostgreSQL environment variable
     if (POSTGRES_CONNECTION_STRING) {
@@ -506,6 +629,10 @@ class DatabaseManager {
       wpsRecoveryTransactions: parsed.wpsRecoveryTransactions || [],
       loans: parsed.loans || [],
       loanRecoveries: parsed.loanRecoveries || [],
+      leaveTypes: parsed.leaveTypes || [],
+      leaveRequests: parsed.leaveRequests || [],
+      departments: parsed.departments || [],
+      designations: parsed.designations || [],
       auditLogs: parsed.auditLogs || [],
       civilIds: parsed.civilIds || [],
       drivingLicences: parsed.drivingLicences || [],
@@ -633,8 +760,18 @@ class DatabaseManager {
 
   public getStatus() {
     return {
-      storageType: this.isPostgresConnected ? 'PostgreSQL (Cloud Database)' : 'High-Integrity Persistent Storage (Cloud/JSON)',
+      // Name the store for what it actually is. "High-Integrity Persistent Storage
+      // (Cloud/JSON)" read as a database to every operator who saw it, while the data
+      // was in a file on local disk.
+      storageType: this.isPostgresConnected
+        ? 'PostgreSQL database'
+        : 'Local JSON file (data/payroll_database.json)',
       isPostgresConnected: this.isPostgresConnected,
+      isDurable: this.isPostgresConnected,
+      fileStoreAcknowledged: this.fileStoreAcknowledged,
+      storageWarning: this.isPostgresConnected
+        ? null
+        : 'Data is stored in a local JSON file, not a database. This is not durable on a serverless or containerised host.',
       counts: {
         users: this.inMemoryData.users.length,
         employees: this.inMemoryData.employees.length,
@@ -653,1315 +790,43 @@ class DatabaseManager {
     };
   }
 
+  // Creates the first administrator account and nothing else. This function previously
+  // wrote a complete fabricated business -- five invented employees, a finalized payroll,
+  // salary payments, a loan, WPS recoveries, Civil IDs, visas, passports and personal
+  // details -- which was indistinguishable from real data once written. The system now
+  // starts empty and every record in it is one a user entered.
   public async ensureInitialSeed(forceReset: boolean = false) {
+    if (this.inMemoryData.users.length > 0) return;
+
     const timestamp = new Date().toISOString();
+    const bootstrapUsername = (process.env.ADMIN_INITIAL_USERNAME || 'admin').trim().toLowerCase();
+    const bootstrapPassword = process.env.ADMIN_INITIAL_PASSWORD;
 
-    // Demo employees, payrolls, loans and compliance documents are a local-development
-    // convenience only. In production they would be fabricated records indistinguishable
-    // from real ones, so they are never written there.
-    const allowDemoData = forceReset || (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEMO_SEED !== 'false');
-
-    // --- Account bootstrap -------------------------------------------------------------
-    // Only ever runs against a database with no users at all. Accounts that an
-    // administrator deleted are never resurrected, and production never gets a
-    // publicly-known password.
-    let bootstrappedAdmin = false;
-    if (this.inMemoryData.users.length === 0) {
-      const bootstrapUsername = (process.env.ADMIN_INITIAL_USERNAME || 'admin').trim().toLowerCase();
-      const bootstrapPassword = process.env.ADMIN_INITIAL_PASSWORD;
-
-      if (process.env.NODE_ENV === 'production' && !bootstrapPassword) {
-        throw new Error(
-          'No user accounts exist and ADMIN_INITIAL_PASSWORD is not set. ' +
-          'Set ADMIN_INITIAL_PASSWORD (and optionally ADMIN_INITIAL_USERNAME) to create the first administrator.'
-        );
-      }
-
-      this.inMemoryData.users.push({
-        id: crypto.randomUUID(),
-        username: bootstrapUsername,
-        name: 'System Administrator',
-        email: process.env.ADMIN_INITIAL_EMAIL || 'admin@company.com',
-        role: 'Administrator',
-        passwordHash: bcrypt.hashSync(bootstrapPassword || 'admin123', 10),
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isActive: true,
-      });
-      bootstrappedAdmin = true;
-
-      if (!bootstrapPassword) {
-        console.warn('[bootstrap] Created development administrator with the default password. Set ADMIN_INITIAL_PASSWORD before deploying.');
-      }
+    if (process.env.NODE_ENV === 'production' && !bootstrapPassword) {
+      throw new Error(
+        'No user accounts exist and ADMIN_INITIAL_PASSWORD is not set. ' +
+        'Set ADMIN_INITIAL_PASSWORD (and optionally ADMIN_INITIAL_USERNAME) to create the first administrator.'
+      );
     }
 
-    if (!allowDemoData) {
-      if (bootstrappedAdmin) {
-        await this.persist();
-      }
-      return;
+    this.inMemoryData.users.push({
+      id: crypto.randomUUID(),
+      username: bootstrapUsername,
+      name: 'System Administrator',
+      email: process.env.ADMIN_INITIAL_EMAIL || 'admin@company.com',
+      role: 'Administrator',
+      passwordHash: bcrypt.hashSync(bootstrapPassword || 'ChangeMe123', 10),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isActive: true,
+    });
+
+    if (!bootstrapPassword) {
+      console.warn('[bootstrap] Created administrator "' + bootstrapUsername + '" with the placeholder password "ChangeMe123". Change it immediately and set ADMIN_INITIAL_PASSWORD before deploying.');
     }
-
-    const adminPasswordHash = bcrypt.hashSync('admin123', 10);
-    const managerPasswordHash = bcrypt.hashSync('manager123', 10);
-    const userPasswordHash = bcrypt.hashSync('user123', 10);
-    const viewerPasswordHash = bcrypt.hashSync('viewer123', 10);
-
-    const defaultCoreUsers: User[] = [
-      {
-        id: 'user-admin-uuid-001',
-        username: 'admin',
-        name: 'System Administrator',
-        email: 'admin@company.com',
-        role: 'Administrator',
-        passwordHash: adminPasswordHash,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isActive: true,
-      },
-      {
-        id: 'user-manager-uuid-002',
-        username: 'manager',
-        name: 'Payroll Manager',
-        email: 'manager@company.com',
-        role: 'Payroll Manager',
-        passwordHash: managerPasswordHash,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isActive: true,
-      },
-      {
-        id: 'user-payroll-uuid-003',
-        username: 'user',
-        name: 'Operations Officer',
-        email: 'user@company.com',
-        role: 'Payroll User',
-        passwordHash: userPasswordHash,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isActive: true,
-      },
-      {
-        id: 'user-payroll-uuid-003b',
-        username: 'payroll_user',
-        name: 'Operations Officer',
-        email: 'payroll_user@company.com',
-        role: 'Payroll User',
-        passwordHash: userPasswordHash,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isActive: true,
-      },
-      {
-        id: 'user-viewer-uuid-004',
-        username: 'viewer',
-        name: 'Auditor / Viewer',
-        email: 'viewer@company.com',
-        role: 'Viewer',
-        passwordHash: viewerPasswordHash,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isActive: true,
-      },
-    ];
-
-    // Development convenience accounts. Only added when the database has just been
-    // bootstrapped, never re-created on a later start -- a deleted account stays deleted.
-    if (bootstrappedAdmin) {
-      for (const coreUser of defaultCoreUsers) {
-        const existing = this.inMemoryData.users.find(u => u.username.toLowerCase() === coreUser.username.toLowerCase());
-        if (!existing) {
-          this.inMemoryData.users.push(coreUser);
-        }
-      }
-    }
-
-    const initialProjects: Project[] = [
-      {
-        id: crypto.randomUUID(),
-        projectCode: 'PRJ-A',
-        projectName: 'Project A - Commercial Tower Muscat',
-        status: 'Active',
-        startDate: '2024-01-01',
-        endDate: '2027-12-31',
-        remarks: 'Major commercial build in Muscat CBD',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        projectCode: 'PRJ-B',
-        projectName: 'Project B - Sohar Logistics Hub',
-        status: 'Active',
-        startDate: '2024-03-15',
-        endDate: '2026-11-30',
-        remarks: 'Warehouse and distribution expansion',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        projectCode: 'PRJ-C',
-        projectName: 'Project C - Salalah Energy Plant',
-        status: 'Active',
-        startDate: '2024-06-01',
-        endDate: '2028-06-01',
-        remarks: 'Renewable power facility setup',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    const initialEmployees: Employee[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        employeeName: 'Ahmed Al-Balushi',
-        employeeType: 'Staff',
-        nationalityType: 'Omani',
-        wageType: 'Fixed Monthly',
-        dateOfJoining: '2023-01-15',
-        designation: 'Site Manager',
-        employeeCompany: 'DGO',
-        salaryPaidBy: 'DGO',
-        monthlySalaryOrRate: 650.000,
-        wpsEmployee: 'Yes',
-        wpsSalary: 700.000,
-        actualSalary: 650.000,
-        recoverFrom: 'DGO',
-        isActive: true,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        employeeName: 'Ali Hassan',
-        employeeType: 'Worker',
-        nationalityType: 'Expat',
-        wageType: 'Per Hour',
-        dateOfJoining: '2023-04-10',
-        designation: 'Mason',
-        employeeCompany: 'SMI',
-        salaryPaidBy: 'SMI',
-        monthlySalaryOrRate: 2.000,
-        wpsEmployee: 'Yes',
-        wpsSalary: 450.000,
-        actualSalary: 480.000,
-        recoverFrom: 'SMI',
-        isActive: true,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        employeeName: 'Mohammed Tariq',
-        employeeType: 'Worker',
-        nationalityType: 'Expat',
-        wageType: 'Per Hour',
-        dateOfJoining: '2023-07-01',
-        designation: 'Electrician',
-        employeeCompany: 'NC',
-        salaryPaidBy: 'NC',
-        monthlySalaryOrRate: 2.250,
-        wpsEmployee: 'No',
-        wpsSalary: 0.000,
-        actualSalary: 450.000,
-        recoverFrom: '',
-        isActive: true,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP004',
-        employeeName: 'Khalid Al-Harthy',
-        employeeType: 'Staff',
-        nationalityType: 'Omani',
-        wageType: 'Fixed Monthly',
-        dateOfJoining: '2023-09-01',
-        designation: 'Safety Officer',
-        employeeCompany: 'Supplier',
-        salaryPaidBy: 'Supplier',
-        monthlySalaryOrRate: 550.000,
-        wpsEmployee: 'Yes',
-        wpsSalary: 600.000,
-        actualSalary: 550.000,
-        recoverFrom: 'Supplier',
-        isActive: true,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        employeeName: 'Suresh Kumar',
-        employeeType: 'Worker',
-        nationalityType: 'Expat',
-        wageType: 'Per Hour',
-        dateOfJoining: '2024-02-15',
-        designation: 'Carpenter',
-        employeeCompany: 'Azad',
-        salaryPaidBy: 'DGO',
-        monthlySalaryOrRate: 1.850,
-        wpsEmployee: 'No',
-        wpsSalary: 0.000,
-        actualSalary: 370.000,
-        recoverFrom: '',
-        isActive: true,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    // Seed designation & salary history
-    const initialDesignationHistory: DesignationHistory[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        previousDesignation: 'Assistant Site Manager',
-        newDesignation: 'Site Manager',
-        effectiveDate: '2024-01-01',
-        changedBy: 'System Init',
-        createdAt: timestamp,
-      }
-    ];
-
-    const initialSalaryHistory: SalaryHistory[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        previousSalary: 550.000,
-        newSalary: 650.000,
-        wageType: 'Fixed Monthly',
-        effectiveDate: '2024-01-01',
-        changedBy: 'System Init',
-        createdAt: timestamp,
-      }
-    ];
-
-    // Sample Attendance for 2026-08 (Ahmed with multi-project: PRJ-A 15 days, PRJ-B 10 days; Ali with PRJ-A 160h, PRJ-B 80h)
-    const initialAttendance: AttendanceRecord[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        employeeInternalId: initialEmployees[0].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[0].id,
-        projectCode: 'PRJ-A',
-        projectName: 'Project A - Commercial Tower Muscat',
-        daysWorked: 15,
-        hoursWorked: 0,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        employeeInternalId: initialEmployees[0].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[1].id,
-        projectCode: 'PRJ-B',
-        projectName: 'Project B - Sohar Logistics Hub',
-        daysWorked: 10,
-        hoursWorked: 0,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        employeeInternalId: initialEmployees[1].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[0].id,
-        projectCode: 'PRJ-A',
-        projectName: 'Project A - Commercial Tower Muscat',
-        daysWorked: 0,
-        hoursWorked: 160,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        employeeInternalId: initialEmployees[1].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[1].id,
-        projectCode: 'PRJ-B',
-        projectName: 'Project B - Sohar Logistics Hub',
-        daysWorked: 0,
-        hoursWorked: 80,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        employeeInternalId: initialEmployees[2].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[2].id,
-        projectCode: 'PRJ-C',
-        projectName: 'Project C - Salalah Energy Plant',
-        daysWorked: 0,
-        hoursWorked: 200,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP004',
-        employeeInternalId: initialEmployees[3].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[0].id,
-        projectCode: 'PRJ-A',
-        projectName: 'Project A - Commercial Tower Muscat',
-        daysWorked: 28,
-        hoursWorked: 0,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        employeeInternalId: initialEmployees[4].id,
-        payrollMonth: '2026-08',
-        projectId: initialProjects[1].id,
-        projectCode: 'PRJ-B',
-        projectName: 'Project B - Sohar Logistics Hub',
-        daysWorked: 0,
-        hoursWorked: 190,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }
-    ];
-
-    // Seed a sample Employee Loan for EMP001 (Loan amount OMR 300, Monthly recovery OMR 50)
-    const loanId1 = crypto.randomUUID();
-    const initialLoans: EmployeeLoan[] = [
-      {
-        id: loanId1,
-        employeeId: 'EMP001',
-        employeeName: 'Ahmed Al-Balushi',
-        loanAmount: 300.000,
-        loanDate: '2026-06-01',
-        monthlyRecoveryAmount: 50.000,
-        totalRecovered: 50.000,
-        outstandingBalance: 250.000,
-        status: 'Active',
-        remarks: 'Personal vehicle emergency repair',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        recoveries: [
-          {
-            id: crypto.randomUUID(),
-            loanId: loanId1,
-            employeeId: 'EMP001',
-            recoverySource: 'Payroll',
-            payrollMonth: '2026-07',
-            recoveryAmount: 50.000,
-            recoveryDate: '2026-07-31',
-            remarks: 'July Payroll Loan Deduction',
-            createdAt: timestamp,
-          }
-        ]
-      }
-    ];
-
-    // Seed Finalized Payroll for 2026-07 (July 2026) to show payment history, WPS, and outstanding calculations
-    const payrollJulyId = crypto.randomUUID();
-    const lineJuly1Id = crypto.randomUUID();
-    const lineJuly2Id = crypto.randomUUID();
-    const lineJuly3Id = crypto.randomUUID();
-
-    const initialPayrollLines: PayrollLine[] = [
-      {
-        id: lineJuly1Id,
-        payrollId: payrollJulyId,
-        employeeId: 'EMP001',
-        employeeName: 'Ahmed Al-Balushi',
-        employeeType: 'Staff',
-        nationalityType: 'Omani',
-        wageType: 'Fixed Monthly',
-        designation: 'Site Manager',
-        employeeCompany: 'DGO',
-        salaryPaidBy: 'DGO',
-        projectsSummary: 'Project A (25d)',
-        daysWorked: 25,
-        hoursWorked: 0,
-        basicSalaryOrRate: 650.000,
-        grossSalary: roundOMR((650.000 / 30) * 25), // 541.667
-        houseAllowance: 50.000,
-        transportAllowance: 25.000,
-        bonus: 0.000,
-        otherAllowance: 0.000,
-        totalAdditions: 75.000,
-        loanRecovery: 50.000,
-        otherDeductions: 0.000,
-        totalDeductions: 50.000,
-        netSalary: roundOMR(541.667 + 75.000 - 50.000), // 566.667
-        paymentMethod: 'WPS',
-        wpsSalary: 700.000,
-        recoverableSalary: roundOMR(Math.max(700.000 - 566.667, 0)), // 133.333
-        recoverFrom: 'DGO',
-        wpsEmployee: 'Yes',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: lineJuly2Id,
-        payrollId: payrollJulyId,
-        employeeId: 'EMP002',
-        employeeName: 'Ali Hassan',
-        employeeType: 'Worker',
-        nationalityType: 'Expat',
-        wageType: 'Per Hour',
-        designation: 'Mason',
-        employeeCompany: 'SMI',
-        salaryPaidBy: 'SMI',
-        projectsSummary: 'Project A (240h)',
-        daysWorked: 0,
-        hoursWorked: 240,
-        basicSalaryOrRate: 2.000,
-        grossSalary: 480.000, // 240 * 2
-        houseAllowance: 0.000,
-        transportAllowance: 0.000,
-        bonus: 20.000,
-        otherAllowance: 0.000,
-        totalAdditions: 20.000,
-        loanRecovery: 0.000,
-        otherDeductions: 0.000,
-        totalDeductions: 0.000,
-        netSalary: 500.000, // 480 + 20
-        paymentMethod: 'WPS',
-        wpsSalary: 450.000,
-        recoverableSalary: 0.000,
-        recoverFrom: 'SMI',
-        wpsEmployee: 'Yes',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: lineJuly3Id,
-        payrollId: payrollJulyId,
-        employeeId: 'EMP003',
-        employeeName: 'Mohammed Tariq',
-        employeeType: 'Worker',
-        nationalityType: 'Expat',
-        wageType: 'Per Hour',
-        designation: 'Electrician',
-        employeeCompany: 'NC',
-        salaryPaidBy: 'NC',
-        projectsSummary: 'Project C (200h)',
-        daysWorked: 0,
-        hoursWorked: 200,
-        basicSalaryOrRate: 2.250,
-        grossSalary: 450.000, // 200 * 2.25
-        houseAllowance: 0.000,
-        transportAllowance: 0.000,
-        bonus: 0.000,
-        otherAllowance: 0.000,
-        totalAdditions: 0.000,
-        loanRecovery: 0.000,
-        otherDeductions: 0.000,
-        totalDeductions: 0.000,
-        netSalary: 450.000,
-        paymentMethod: 'Non-WPS',
-        wpsSalary: 0.000,
-        recoverableSalary: 0.000,
-        recoverFrom: '',
-        wpsEmployee: 'No',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }
-    ];
-
-    const initialPayrolls: MonthlyPayroll[] = [
-      {
-        id: payrollJulyId,
-        payrollMonth: '2026-07',
-        status: 'Finalized',
-        totalEmployees: 3,
-        totalGrossSalary: roundOMR(541.667 + 480.000 + 450.000),
-        totalAdditions: 95.000,
-        totalDeductions: 50.000,
-        totalNetSalary: roundOMR(566.667 + 500.000 + 450.000), // 1516.667
-        totalWpsSalary: 1150.000,
-        totalRecoverableSalary: 133.333,
-        finalizedAt: '2026-08-02T10:00:00.000Z',
-        finalizedBy: 'admin',
-        revisionNumber: 0,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }
-    ];
-
-    // Seed Partial Payments for July 2026
-    // Ahmed: Net 566.667. Paid 300.000 (Partially Paid, Outstanding 266.667)
-    // Ali: Net 500.000. Paid 200.000 then 300.000 (Fully Paid, Outstanding 0.000)
-    // Mohammed: Net 450.000. Unpaid (Paid 0.000, Outstanding 450.000)
-    const initialPayments: SalaryPaymentTransaction[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        employeeName: 'Ahmed Al-Balushi',
-        payrollMonth: '2026-07',
-        payrollLineId: lineJuly1Id,
-        paymentDate: '2026-08-05',
-        payAmount: 300.000,
-        payTo: 'Ahmed Al-Balushi',
-        receiptStatus: 'Attached',
-        receiptFileName: 'bank_slip_jul_ahmed_part1.pdf',
-        remarks: 'Advance partial transfer via Bank Muscat',
-        createdBy: 'admin',
-        isReversed: false,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        employeeName: 'Ali Hassan',
-        payrollMonth: '2026-07',
-        payrollLineId: lineJuly2Id,
-        paymentDate: '2026-08-06',
-        payAmount: 200.000,
-        payTo: 'Ali Hassan',
-        receiptStatus: 'Attached',
-        receiptFileName: 'receipt_ali_part1.jpg',
-        remarks: 'Cash remittance voucher #4421',
-        createdBy: 'admin',
-        isReversed: false,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        employeeName: 'Ali Hassan',
-        payrollMonth: '2026-07',
-        payrollLineId: lineJuly2Id,
-        paymentDate: '2026-08-15',
-        payAmount: 300.000,
-        payTo: 'Ali Hassan',
-        receiptStatus: 'Attachment Pending',
-        remarks: 'Final settlement for July salary',
-        createdBy: 'admin',
-        isReversed: false,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    // Seed WPS Recovery for July 2026 (Ahmed: Total Recoverable 133.333, Recovered 80.000, Remaining 53.333)
-    const wpsRecId1 = crypto.randomUUID();
-    const initialWpsRecoveries: WPSRecovery[] = [
-      {
-        id: wpsRecId1,
-        employeeId: 'EMP001',
-        employeeName: 'Ahmed Al-Balushi',
-        payrollMonth: '2026-07',
-        wpsSalary: 700.000,
-        netSalary: 566.667,
-        totalRecoverable: 133.333,
-        recoveredFrom: 'DGO',
-        totalRecovered: 80.000,
-        remainingBalance: 53.333,
-        status: 'Partially Recovered',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        transactions: [
-          {
-            id: crypto.randomUUID(),
-            wpsRecoveryId: wpsRecId1,
-            employeeId: 'EMP001',
-            payrollMonth: '2026-07',
-            recoveredFrom: 'DGO',
-            recoveryAmount: 80.000,
-            recoveryDate: '2026-08-10',
-            remarks: 'Partial recovery from DGO petty cash refund',
-            createdBy: 'admin',
-            createdAt: timestamp,
-          }
-        ]
-      }
-    ];
-
-    const initialAuditLogs: AuditLog[] = [
-      {
-        id: crypto.randomUUID(),
-        username: 'system',
-        userRole: 'Administrator',
-        action: 'SYSTEM_INITIALIZATION',
-        module: 'System',
-        description: 'Initialized Employee & Payroll ERP persistent relational data and demo baseline.',
-        timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        username: 'admin',
-        userRole: 'Administrator',
-        action: 'PAYROLL_FINALIZED',
-        module: 'Payroll',
-        recordId: payrollJulyId,
-        description: 'Finalized monthly payroll for 2026-07 (July 2026) for 3 employees.',
-        timestamp,
-      }
-    ];
-
-    const initialCivilIds: EmployeeCivilId[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        civilIdNumber: '10293847',
-        issueDate: '2023-01-10',
-        expiryDate: '2028-01-10',
-        status: 'Valid',
-        issuingAuthority: 'Royal Oman Police (ROP)',
-        country: 'Oman',
-        documentAttachment: 'civil_id_ahmed.pdf',
-        fileName: 'civil_id_ahmed.pdf',
-        storagePath: '/documents/civil_id_ahmed.pdf',
-        remarks: 'Omani National Smart Civil ID Card',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        civilIdNumber: '83726194',
-        issueDate: '2024-03-01',
-        expiryDate: '2026-09-10',
-        status: 'Expiring Soon',
-        issuingAuthority: 'ROP Directorate General of Civil Status',
-        country: 'Oman',
-        documentAttachment: 'resident_card_ali.pdf',
-        fileName: 'resident_card_ali.pdf',
-        storagePath: '/documents/resident_card_ali.pdf',
-        remarks: 'Expat Resident Identity Card - SMI Sponsorship',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        civilIdNumber: '74928103',
-        issueDate: '2023-06-15',
-        expiryDate: '2025-06-14',
-        status: 'Expired',
-        issuingAuthority: 'ROP Directorate General of Civil Status',
-        country: 'Oman',
-        remarks: 'Expired Resident Card - Renewal in process with MoL',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP004',
-        civilIdNumber: '92837461',
-        issueDate: '2022-08-20',
-        expiryDate: '2027-08-19',
-        status: 'Valid',
-        issuingAuthority: 'Royal Oman Police (ROP)',
-        country: 'Oman',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        civilIdNumber: '61928374',
-        issueDate: '2024-02-01',
-        expiryDate: '2026-09-25',
-        status: 'Expiring Soon',
-        issuingAuthority: 'ROP Directorate General of Civil Status',
-        country: 'Oman',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    const initialDrivingLicences: EmployeeDrivingLicence[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        licenceNumber: 'DL-OM-89214',
-        category: 'Light Vehicle',
-        issuingCountry: 'Oman',
-        issuingAuthority: 'ROP Directorate General of Traffic',
-        vehicleClass: 'Private / Light Commercial',
-        issueDate: '2021-05-12',
-        expiryDate: '2026-09-15',
-        status: 'Expiring Soon',
-        documentAttachment: 'dl_ahmed.pdf',
-        fileName: 'dl_ahmed.pdf',
-        remarks: 'Oman Light Vehicle Driving Licence',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        licenceNumber: 'DL-OM-47291',
-        category: 'Heavy Equipment',
-        issuingCountry: 'Oman',
-        issuingAuthority: 'ROP Directorate General of Traffic',
-        vehicleClass: 'Excavator / Bulldozer / Heavy Plant',
-        restrictions: 'Corrective lenses required',
-        issueDate: '2022-01-15',
-        expiryDate: '2027-01-14',
-        status: 'Valid',
-        documentAttachment: 'heavy_dl_ali.pdf',
-        fileName: 'heavy_dl_ali.pdf',
-        remarks: 'Certified Plant & Heavy Machinery Operator',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        licenceNumber: 'DL-OM-10293',
-        category: 'Motorcycle',
-        issuingCountry: 'Oman',
-        issuingAuthority: 'ROP Directorate General of Traffic',
-        vehicleClass: 'Motorcycle / Delivery',
-        issueDate: '2020-11-20',
-        expiryDate: '2025-11-19',
-        status: 'Expired',
-        remarks: 'Expired Motorcycle Licence',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP004',
-        licenceNumber: 'DL-OM-55612',
-        category: 'Light Vehicle',
-        issuingCountry: 'Oman',
-        issuingAuthority: 'ROP Directorate General of Traffic',
-        issueDate: '2020-04-10',
-        expiryDate: '2030-04-09',
-        status: 'Valid',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    const initialVisas: EmployeeVisa[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        visaNumber: 'V-882910',
-        tradeOnVisa: 'Mason',
-        visaProfessionCode: '711201',
-        visaType: 'Employment Visa',
-        issueDate: '2024-03-01',
-        expiryDate: '2026-09-10',
-        sponsor: 'SMI LLC',
-        sponsorshipType: 'Corporate',
-        issuingAuthority: 'Royal Oman Police - Passports & Residence',
-        country: 'Oman',
-        status: 'Expiring Soon',
-        documentAttachment: 'visa_ali.pdf',
-        fileName: 'visa_ali.pdf',
-        remarks: 'Matches job designation',
-        isCurrent: true,
-        effectiveFrom: '2024-03-01',
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        visaNumber: 'V-339182',
-        tradeOnVisa: 'General Helper',
-        visaProfessionCode: '931301',
-        visaType: 'Employment Visa',
-        issueDate: '2023-06-15',
-        expiryDate: '2025-06-14',
-        sponsor: 'NC Engineering',
-        sponsorshipType: 'Corporate',
-        issuingAuthority: 'Royal Oman Police - Passports & Residence',
-        country: 'Oman',
-        status: 'Expired',
-        remarks: 'Trade on Visa is General Helper but active Designation is Electrician',
-        isCurrent: true,
-        effectiveFrom: '2023-06-15',
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        visaNumber: 'V-994821',
-        tradeOnVisa: 'Carpenter',
-        visaProfessionCode: '711501',
-        visaType: 'Employment Visa',
-        issueDate: '2024-02-01',
-        expiryDate: '2026-09-25',
-        sponsor: 'Artify DGO',
-        sponsorshipType: 'Corporate',
-        issuingAuthority: 'Royal Oman Police',
-        country: 'Oman',
-        status: 'Expiring Soon',
-        isCurrent: true,
-        effectiveFrom: '2024-02-01',
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    const initialGovtDocs: EmployeeGovernmentDocument[] = [
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        documentType: 'Passport',
-        documentNumber: 'P01928374',
-        issueDate: '2020-02-15',
-        expiryDate: '2030-02-14',
-        issuingAuthority: 'ROP Passports Dept',
-        country: 'Oman',
-        status: 'Valid',
-        documentAttachment: 'passport_ahmed.pdf',
-        fileName: 'passport_ahmed.pdf',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP001',
-        documentType: 'Employment Contract',
-        documentNumber: 'CNT-2023-0192',
-        issueDate: '2023-01-10',
-        expiryDate: '2028-01-10',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Valid',
-        documentAttachment: 'contract_ahmed.pdf',
-        fileName: 'contract_ahmed.pdf',
-        remarks: 'Permanent Senior Employment Contract under RD 53/2023',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        documentType: 'Passport',
-        documentNumber: 'L9283741',
-        issueDate: '2021-08-10',
-        expiryDate: '2031-08-09',
-        issuingAuthority: 'Regional Passport Office',
-        country: 'India',
-        status: 'Valid',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        documentType: 'Work Permit',
-        documentNumber: 'WP-2024-9182',
-        issueDate: '2024-03-01',
-        expiryDate: '2026-09-10',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Expiring Soon',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP002',
-        documentType: 'Employment Contract',
-        documentNumber: 'CNT-2024-4412',
-        issueDate: '2024-03-01',
-        expiryDate: '2026-09-10',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Expiring Soon',
-        remarks: '2-Year Expat Fixed Term Contract',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        documentType: 'Passport',
-        documentNumber: 'Z8472910',
-        issueDate: '2019-10-01',
-        expiryDate: '2029-09-30',
-        issuingAuthority: 'Directorate of Immigration',
-        country: 'Pakistan',
-        status: 'Valid',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        documentType: 'Work Permit',
-        documentNumber: 'WP-2023-3391',
-        issueDate: '2023-06-15',
-        expiryDate: '2025-06-14',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Expired',
-        remarks: 'Expired Work Permit - Labour clearance pending',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP003',
-        documentType: 'Employment Contract',
-        documentNumber: 'CNT-2023-8821',
-        issueDate: '2023-06-15',
-        expiryDate: '2025-06-14',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Expired',
-        remarks: 'Expired Contract - Pending MoL Renewal',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP004',
-        documentType: 'Passport',
-        documentNumber: 'P8839201',
-        issueDate: '2022-01-01',
-        expiryDate: '2032-01-01',
-        issuingAuthority: 'ROP Passports Dept',
-        country: 'Oman',
-        status: 'Valid',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP004',
-        documentType: 'Employment Contract',
-        documentNumber: 'CNT-2024-5519',
-        issueDate: '2024-09-02',
-        expiryDate: '2026-09-02',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Urgent',
-        remarks: 'Renewing Contract - Notice period active',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        documentType: 'Passport',
-        documentNumber: 'K7728193',
-        issueDate: '2023-05-10',
-        expiryDate: '2033-05-09',
-        issuingAuthority: 'Passport Authority',
-        country: 'India',
-        status: 'Valid',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        documentType: 'Work Permit',
-        documentNumber: 'WP-2024-7712',
-        issueDate: '2024-02-01',
-        expiryDate: '2026-09-25',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Expiring Soon',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      {
-        id: crypto.randomUUID(),
-        employeeId: 'EMP005',
-        documentType: 'Employment Contract',
-        documentNumber: 'CNT-2024-9921',
-        issueDate: '2024-02-01',
-        expiryDate: '2026-09-25',
-        issuingAuthority: 'Ministry of Labour (MoL)',
-        country: 'Oman',
-        status: 'Expiring Soon',
-        remarks: 'Expat Carpenter Employment Contract',
-        isCurrent: true,
-        createdBy: 'admin',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    ];
-
-    const initialPersonalDetails: Record<string, EmployeePersonalDetails> = {
-      EMP001: {
-        employeeId: 'EMP001',
-        fatherName: 'Hamdan Al-Balushi',
-        dateOfBirth: '1988-04-12',
-        gender: 'Male',
-        maritalStatus: 'Married',
-        bloodGroup: 'O+',
-        personalEmail: 'ahmed.balushi@artify.om',
-        mobileNumber: '+968 9123 4567',
-        whatsappNumber: '+968 9123 4567',
-        residentialAddress: 'Villa 14, Way 2819, Al Khuwair, Muscat, Oman',
-        permanentAddress: 'Barka, South Al Batinah Governorate, Oman',
-        qualifications: [
-          { degree: 'B.Sc. in Civil Engineering', institution: 'Sultan Qaboos University', yearOfPassing: '2010', grade: 'Distinction' }
-        ],
-        emergencyContacts: [
-          { name: 'Said Al-Balushi', relationship: 'Brother', contactNumber: '+968 9234 5678', address: 'Muscat, Oman', isPrimary: true }
-        ],
-        skills: ['Site Supervision', 'AutoCAD', 'Structural Engineering', 'Project Safety'],
-        notes: 'Senior Site Manager with over 14 years of civil construction experience in Oman.',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      EMP002: {
-        employeeId: 'EMP002',
-        fatherName: 'Ali Hassan',
-        dateOfBirth: '1992-07-22',
-        gender: 'Male',
-        maritalStatus: 'Married',
-        bloodGroup: 'B+',
-        mobileNumber: '+968 9876 5432',
-        residentialAddress: 'Al Ghubrah Labour Camp, Block B, Muscat',
-        emergencyContacts: [
-          { name: 'Fatima Hassan', relationship: 'Spouse', contactNumber: '+91 98765 43210', address: 'Kerala, India', isPrimary: true }
-        ],
-        skills: ['Masonry', 'Plastering', 'Heavy Equipment Operation', 'Tiling'],
-        notes: 'Certified heavy plant operator and skilled master mason.',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-      EMP003: {
-        employeeId: 'EMP003',
-        fatherName: 'Tariq Mehmood',
-        dateOfBirth: '1995-11-05',
-        gender: 'Male',
-        maritalStatus: 'Single',
-        bloodGroup: 'A+',
-        mobileNumber: '+968 9345 6789',
-        residentialAddress: 'Al Mabelah Camp, Building 4',
-        emergencyContacts: [
-          { name: 'Tariq Mehmood', relationship: 'Father', contactNumber: '+92 300 1234567', address: 'Lahore, Pakistan', isPrimary: true }
-        ],
-        skills: ['Industrial Electrical Wiring', 'Cable Tray Installation', 'DB Dressing'],
-        notes: 'Electrician on site; visa trade amendment from General Helper currently requested.',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      },
-    };
-
-    if (!forceReset && this.inMemoryData.employees.length > 0) {
-      // A database that already holds employees is never topped up with sample records.
-      // This previously injected invented Civil ID, visa, passport and work-permit numbers
-      // into a live Ministry-of-Labour compliance record set whenever the civil-ID table
-      // happened to be empty, on every cold start.
-      if (bootstrappedAdmin) {
-        await this.persist();
-      }
-      return;
-    }
-
-    this.inMemoryData = {
-      // Keep whatever the bootstrap above created, so a custom ADMIN_INITIAL_USERNAME is
-      // not replaced by the development defaults.
-      users: this.inMemoryData.users.length > 0 ? this.inMemoryData.users : defaultCoreUsers,
-      employees: initialEmployees,
-      designationHistory: initialDesignationHistory,
-      salaryHistory: initialSalaryHistory,
-      projects: initialProjects,
-      attendance: initialAttendance,
-      attendanceMonths: [],
-      timesheets: [],
-      cifBatches: [],
-      cifRecords: [],
-      payrolls: initialPayrolls,
-      payrollLines: initialPayrollLines,
-      payrollRevisions: [],
-      salaryPayments: initialPayments,
-      paymentPlans: [],
-      paymentPlanLines: [],
-      wpsRecoveries: initialWpsRecoveries,
-      wpsRecoveryTransactions: initialWpsRecoveries[0].transactions || [],
-      loans: initialLoans,
-      loanRecoveries: initialLoans[0].recoveries || [],
-      auditLogs: initialAuditLogs,
-      civilIds: initialCivilIds,
-      drivingLicences: initialDrivingLicences,
-      visas: initialVisas,
-      governmentDocuments: initialGovtDocs,
-      documents: [
-        {
-          id: crypto.randomUUID(),
-          employeeId: 'EMP001',
-          documentType: 'Civil ID',
-          category: 'civil-id',
-          title: 'Ahmed Al-Balushi Civil ID Card (Front & Back)',
-          documentNumber: '10928374',
-          fileName: 'ahmed_civil_id_scan.pdf',
-          storagePath: 'employees/EMP001/civil-id/sample_cid.pdf',
-          fileSize: 1048576,
-          mimeType: 'application/pdf',
-          issueDate: '2022-05-15',
-          expiryDate: '2027-05-14',
-          status: 'Valid',
-          remarks: 'Verified against ROP civil status database',
-          uploadedBy: 'admin',
-          uploadedAt: timestamp,
-        },
-        {
-          id: crypto.randomUUID(),
-          employeeId: 'EMP001',
-          documentType: 'Driving Licence',
-          category: 'driving-licence',
-          title: 'Light & Heavy Vehicle Driving Licence',
-          documentNumber: 'DL-882910',
-          fileName: 'ahmed_dl_oman.pdf',
-          storagePath: 'employees/EMP001/driving-licence/sample_dl.pdf',
-          fileSize: 845000,
-          mimeType: 'application/pdf',
-          issueDate: '2023-01-10',
-          expiryDate: '2033-01-09',
-          status: 'Valid',
-          remarks: 'ROP issued licence with clean record',
-          uploadedBy: 'admin',
-          uploadedAt: timestamp,
-        },
-        {
-          id: crypto.randomUUID(),
-          employeeId: 'EMP002',
-          documentType: 'Visa',
-          category: 'visa',
-          title: 'Resident Employment Visa Stamp',
-          documentNumber: 'VS-9928172',
-          fileName: 'rahul_resident_visa.pdf',
-          storagePath: 'employees/EMP002/visa/sample_visa.pdf',
-          fileSize: 1250000,
-          mimeType: 'application/pdf',
-          issueDate: '2024-09-01',
-          expiryDate: '2026-08-31',
-          status: 'Valid',
-          remarks: 'Trade: Civil Foreman. Sponsored by DGO.',
-          uploadedBy: 'admin',
-          uploadedAt: timestamp,
-        },
-        {
-          id: crypto.randomUUID(),
-          employeeId: 'EMP002',
-          documentType: 'Work Permit',
-          category: 'govt-docs',
-          title: 'Ministry of Labour Work Permit Card',
-          documentNumber: 'WP-2024-9182',
-          fileName: 'rahul_work_permit.pdf',
-          storagePath: 'employees/EMP002/govt-docs/sample_wp.pdf',
-          fileSize: 620000,
-          mimeType: 'application/pdf',
-          issueDate: '2024-03-01',
-          expiryDate: '2026-09-10',
-          status: 'Expiring Soon',
-          remarks: 'Renewal paperwork to be initiated with MoL',
-          uploadedBy: 'admin',
-          uploadedAt: timestamp,
-        },
-        {
-          id: crypto.randomUUID(),
-          employeeId: 'EMP001',
-          documentType: 'Employment Contract',
-          category: 'contract',
-          title: 'MOL Registered Employment Contract',
-          documentNumber: 'CTR-2022-001',
-          fileName: 'ahmed_employment_contract.pdf',
-          storagePath: 'employees/EMP001/contract/sample_contract.pdf',
-          fileSize: 2100000,
-          mimeType: 'application/pdf',
-          issueDate: '2022-01-01',
-          expiryDate: '2027-01-01',
-          status: 'Valid',
-          remarks: 'Indefinite duration contract attested by MoL',
-          uploadedBy: 'admin',
-          uploadedAt: timestamp,
-        },
-        {
-          id: crypto.randomUUID(),
-          employeeId: 'EMP001',
-          documentType: 'Educational Certificate',
-          category: 'education',
-          title: 'B.Sc. Civil Engineering Degree Certificate',
-          documentNumber: 'SQU-ENG-2010-09',
-          fileName: 'squ_civil_eng_degree.pdf',
-          storagePath: 'employees/EMP001/education/sample_degree.pdf',
-          fileSize: 1800000,
-          mimeType: 'application/pdf',
-          issueDate: '2010-06-30',
-          status: 'Valid',
-          remarks: 'Sultan Qaboos University with distinction',
-          uploadedBy: 'admin',
-          uploadedAt: timestamp,
-        },
-      ],
-      personalDetails: initialPersonalDetails,
-      drivingLicenceCategories: [
-        'Light Vehicle',
-        'Heavy Vehicle',
-        'Motorcycle',
-        'Bus',
-        'Truck',
-        'Heavy Equipment',
-        'Other',
-      ],
-    };
 
     await this.persist();
-    console.log('Database initialized with production baseline & realistic demo records.');
+    console.log('Database initialized. No sample data was created.');
   }
 
   // --- REPOSITORIES & TRANSACTIONAL METHODS ---
@@ -2814,12 +1679,130 @@ class DatabaseManager {
     };
   }
 
+  // --- Organisation master data -------------------------------------------------------
+
+  public get departments() {
+    return {
+      getAll: () => [...this.inMemoryData.departments],
+      findById: (id: string) => this.inMemoryData.departments.find(d => d.id === id),
+      findByName: (name: string) =>
+        this.inMemoryData.departments.find(
+          d => d.name.trim().toLowerCase() === String(name).trim().toLowerCase()
+        ),
+      create: async (department: Department) => {
+        this.inMemoryData.departments.push(department);
+        await this.persist();
+        return department;
+      },
+      update: async (id: string, updates: Partial<Department>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.departments.findIndex(d => d.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.departments[idx] = {
+            ...this.inMemoryData.departments[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.departments[idx] };
+        });
+      },
+    };
+  }
+
+  public get designations() {
+    return {
+      getAll: () => [...this.inMemoryData.designations],
+      findById: (id: string) => this.inMemoryData.designations.find(d => d.id === id),
+      findByTitle: (title: string) =>
+        this.inMemoryData.designations.find(
+          d => d.title.trim().toLowerCase() === String(title).trim().toLowerCase()
+        ),
+      create: async (designation: Designation) => {
+        this.inMemoryData.designations.push(designation);
+        await this.persist();
+        return designation;
+      },
+      update: async (id: string, updates: Partial<Designation>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.designations.findIndex(d => d.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.designations[idx] = {
+            ...this.inMemoryData.designations[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.designations[idx] };
+        });
+      },
+    };
+  }
+
+  // --- Leave management ---------------------------------------------------------------
+
+  public get leaveTypes() {
+    return {
+      getAll: () => [...this.inMemoryData.leaveTypes],
+      findById: (id: string) => this.inMemoryData.leaveTypes.find(t => t.id === id),
+      findByCode: (code: string) =>
+        this.inMemoryData.leaveTypes.find(t => t.code.toUpperCase() === String(code).trim().toUpperCase()),
+      create: async (type: LeaveType) => {
+        this.inMemoryData.leaveTypes.push(type);
+        await this.persist();
+        return type;
+      },
+      update: async (id: string, updates: Partial<LeaveType>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.leaveTypes.findIndex(t => t.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.leaveTypes[idx] = {
+            ...this.inMemoryData.leaveTypes[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.leaveTypes[idx] };
+        });
+      },
+    };
+  }
+
+  public get leaveRequests() {
+    return {
+      getAll: () => [...this.inMemoryData.leaveRequests],
+      findById: (id: string) => this.inMemoryData.leaveRequests.find(r => r.id === id),
+      getByEmployee: (employeeId: string) =>
+        this.inMemoryData.leaveRequests.filter(
+          r => normalizeEmployeeId(r.employeeId) === normalizeEmployeeId(employeeId)
+        ),
+      create: async (request: LeaveRequest) => {
+        this.inMemoryData.leaveRequests.push(request);
+        await this.persist();
+        return request;
+      },
+      update: async (id: string, updates: Partial<LeaveRequest>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.leaveRequests.findIndex(r => r.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.leaveRequests[idx] = {
+            ...this.inMemoryData.leaveRequests[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.leaveRequests[idx] };
+        });
+      },
+    };
+  }
+
   public get audit() {
     return {
       getAll: () => [...this.inMemoryData.auditLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
       log: async (entry: Omit<AuditLog, 'id' | 'timestamp'>) => {
         const logEntry: AuditLog = {
           ...entry,
+          // Every audit entry gets the caller's IP address, whether or not the call site
+          // remembered to pass one. Financial actions -- payroll finalisation, payments,
+          // loan recoveries -- previously recorded no IP at all.
+          ipAddress: entry.ipAddress || currentRequestContext()?.ipAddress,
           id: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
         };

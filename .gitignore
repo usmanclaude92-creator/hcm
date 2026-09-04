@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 .storage_uploads/
+tsc_out.txt
+*.AUDIT_BACKUP.json

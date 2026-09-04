@@ -2,7 +2,13 @@ import { Router, Response } from 'express';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import { db, normalizeEmployeeId, roundOMR, ConcurrencyConflictError } from '../db.js';
-import { verifyAuth, requirePermission, AuthRequest } from '../auth.js';
+import {
+  verifyAuth,
+  requirePermission,
+  AuthRequest,
+  companyScopeOf,
+  canSeeCompany,
+} from '../auth.js';
 import { decodeReceiptDataUrl, validateReceiptFile, uploadReceipt, getSignedReceiptUrl } from '../storage.js';
 import type {
   SalaryPaymentTransaction,
@@ -25,6 +31,9 @@ function getGroupedPaymentSummaries(filters: {
   wps?: string;
   wageType?: string;
   receiptStatus?: string;
+  // Companies the caller may see; null means all. Applied inside the loop so no caller
+  // can bypass it by omitting the company filter.
+  scope?: EmployeeCompany[] | null;
 }) {
   const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized');
   const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed);
@@ -74,11 +83,18 @@ function getGroupedPaymentSummaries(filters: {
         p => normalizeEmployeeId(p.employeeId) === normId && p.payrollMonth === payroll.payrollMonth
       );
 
+      // Company isolation: a scoped account never sees another company's salary or
+      // payment history, whatever filters it sends.
+      if (!canSeeCompany(filters.scope ?? null, line.employeeCompany)) continue;
+
       const totalPaid = roundOMR(linePayments.reduce((sum, p) => sum + p.payAmount, 0));
       const outstanding = roundOMR(Math.max(0, line.netSalary - totalPaid));
 
       let paymentStatus: PaymentStatus = 'Unpaid';
-      if (totalPaid >= line.netSalary) {
+      if (line.netSalary <= 0 && totalPaid <= 0) {
+        // Nothing was ever payable for this month, so "Fully Paid" would be misleading.
+        paymentStatus = 'No Payable';
+      } else if (totalPaid >= line.netSalary) {
         paymentStatus = 'Fully Paid';
       } else if (totalPaid > 0) {
         paymentStatus = 'Partially Paid';
@@ -153,6 +169,7 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
       wps: wps as string,
       wageType: wageType as string,
       receiptStatus: receiptStatus as string,
+      scope: companyScopeOf(req.user),
     });
 
     let totalNetSalary = 0;
@@ -161,6 +178,7 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
     let unpaidCount = 0;
     let partiallyPaidCount = 0;
     let fullyPaidCount = 0;
+    let noPayableCount = 0;
     let pendingReceiptsCount = 0;
 
     for (const emp of summaries) {
@@ -172,6 +190,7 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
         if (m.status === 'Unpaid') unpaidCount++;
         else if (m.status === 'Partially Paid') partiallyPaidCount++;
         else if (m.status === 'Fully Paid') fullyPaidCount++;
+        else if (m.status === 'No Payable') noPayableCount++;
 
         for (const tx of m.transactions) {
           if (tx.receiptStatus === 'Attachment Pending') {
@@ -188,6 +207,7 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
       unpaidCount,
       partiallyPaidCount,
       fullyPaidCount,
+      noPayableCount,
       pendingReceiptsCount,
       totalEmployeeGroups: summaries.length,
     });
@@ -209,6 +229,7 @@ router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (re
       wps: wps as string,
       wageType: wageType as string,
       receiptStatus: receiptStatus as string,
+      scope: companyScopeOf(req.user),
     });
 
     // Sort by employeeId
@@ -224,7 +245,12 @@ router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (re
 router.get('/transactions', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, month } = req.query;
-    let transactions = db.salaryPayments.getAll();
+    const scope = companyScopeOf(req.user);
+    let transactions = db.salaryPayments.getAll().filter(t => {
+      if (scope === null) return true;
+      const emp = db.employees.findByEmployeeId(normalizeEmployeeId(t.employeeId));
+      return canSeeCompany(scope, emp?.employeeCompany);
+    });
 
     if (employeeId) {
       const norm = normalizeEmployeeId(String(employeeId));
@@ -298,6 +324,9 @@ router.post('/transactions', verifyAuth, requirePermission('salary_payment.creat
     if (!emp) {
       return res.status(404).json({ error: `Employee '${normId}' not found.` });
     }
+    if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
+      return res.status(404).json({ error: `Employee '${normId}' not found.` });
+    }
 
     const payroll = db.payroll.getByMonth(payrollMonth);
     if (!payroll) {
@@ -315,6 +344,30 @@ router.post('/transactions', verifyAuth, requirePermission('salary_payment.creat
     const numericAmount = roundOMR(Number(payAmount));
     if (numericAmount <= 0) {
       return res.status(400).json({ error: 'Payment amount must be greater than zero.' });
+    }
+
+    // The duplicate check used to live only in a separate advisory endpoint the UI called
+    // first, so anything that posted straight to this route could record the same payment
+    // twice. It is enforced here as well; `allowDuplicate: true` records it deliberately
+    // (a genuine second payment of the same amount on the same day).
+    if (req.body?.allowDuplicate !== true) {
+      const duplicate = db.salaryPayments.getAll().find(t =>
+        !t.isReversed &&
+        normalizeEmployeeId(t.employeeId) === normId &&
+        t.payrollMonth === payrollMonth &&
+        t.paymentDate === paymentDate &&
+        roundOMR(t.payAmount) === numericAmount &&
+        t.payTo.trim().toLowerCase() === String(payTo || '').trim().toLowerCase()
+      );
+      if (duplicate) {
+        return res.status(409).json({
+          error:
+            `An identical payment of OMR ${numericAmount.toFixed(3)} to '${payTo}' on ${paymentDate} ` +
+            `is already recorded for ${normId} (${payrollMonth}). Confirm to record it anyway.`,
+          isDuplicate: true,
+          existingTransactionId: duplicate.id,
+        });
+      }
     }
 
     // Calculate current total paid and outstanding balance
@@ -809,6 +862,7 @@ router.get('/export/data', verifyAuth, requirePermission('salary_payment.export'
       wps: wps as string,
       wageType: wageType as string,
       receiptStatus: receiptStatus as string,
+      scope: companyScopeOf(req.user),
     });
 
     const exportRows: any[] = [];

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginView } from './components/auth/LoginView';
+import { ForcePasswordChangeView } from './components/auth/ForcePasswordChangeView';
 import { DemoBanner } from './demo/DemoBanner';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
@@ -16,6 +17,9 @@ import { SalaryPaymentsView } from './components/payments/SalaryPaymentsView';
 import { PaymentPlanningView } from './components/payments/PaymentPlanningView';
 import { WPSRecoveryView } from './components/wps/WPSRecoveryView';
 import { LoanManagementView } from './components/loans/LoanManagementView';
+import { LeaveManagementView } from './components/leave/LeaveManagementView';
+import { EndOfServiceView } from './components/gratuity/EndOfServiceView';
+import { MasterDataView } from './components/masters/MasterDataView';
 import { ReportsView } from './components/reports/ReportsView';
 import { SalaryPayrollReportView } from './components/reports/SalaryPayrollReportView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
@@ -24,7 +28,7 @@ import { ComplianceDashboardView } from './components/compliance/ComplianceDashb
 import { DocumentRepositoryView } from './components/documents/DocumentRepositoryView';
 
 const MainApp: React.FC = () => {
-  const { isAuthenticated, isLoading, isDemoMode } = useAuth();
+  const { isAuthenticated, isLoading, isDemoMode, mustChangePassword } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
   const [viewParams, setViewParams] = useState<Record<string, any>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -47,6 +51,12 @@ const MainApp: React.FC = () => {
 
   if (!isAuthenticated) {
     return <LoginView />;
+  }
+
+  // The API refuses every endpoint except change-password for a restricted session, so
+  // rendering the application here would only produce a wall of 403s.
+  if (mustChangePassword) {
+    return <ForcePasswordChangeView />;
   }
 
   const renderView = () => {
@@ -94,6 +104,12 @@ const MainApp: React.FC = () => {
         return <WPSRecoveryView />;
       case 'loans':
         return <LoanManagementView />;
+      case 'leave':
+        return <LeaveManagementView />;
+      case 'gratuity':
+        return <EndOfServiceView />;
+      case 'master-data':
+        return <MasterDataView />;
       case 'reports':
         return <ReportsView />;
       case 'salary-payroll-report':

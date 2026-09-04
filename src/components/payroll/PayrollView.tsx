@@ -47,10 +47,10 @@ export const PayrollView: React.FC = () => {
   // failure to load either just leaves those filters inert rather than breaking the page.
   const [employeeActiveMap, setEmployeeActiveMap] = useState<Record<string, boolean>>({});
   const [receiptStatusMap, setReceiptStatusMap] = useState<Record<string, ReceiptStatus>>({});
-  // Attendance Ledger's per-employee overtime hours for this month -- informational only.
-  // This payroll system has no overtime-pay component anywhere (Net Salary never factors
-  // OT in), so this is shown purely as a reference figure, never used in any calculation.
-  const [overtimeMap, setOvertimeMap] = useState<Record<string, number>>({});
+  // Wage basis follows wageType, matching the server. employeeType is the fallback for
+  // older lines written before wageType was authoritative.
+  const isLineHourly = (line: PayrollLine) =>
+    line.wageType === 'Per Hour' || (line.wageType !== 'Fixed Monthly' && line.employeeType === 'Worker');
 
   // Line Editing Modal
   const [editingLine, setEditingLine] = useState<PayrollLine | null>(null);
@@ -62,6 +62,7 @@ export const PayrollView: React.FC = () => {
     otherAllowance: '0.000',
     loanRecovery: '0.000',
     otherDeductions: '0.000',
+    overtimeRate: '0.000',
     paymentMethod: 'Non-WPS' as PaymentMethod,
     wpsSalary: '0.000',
     recoverFrom: '',
@@ -136,24 +137,8 @@ export const PayrollView: React.FC = () => {
     };
   }, [month]);
 
-  // Attendance Ledger's per-employee overtime hours for this month -- a read-only join
-  // from a separate module, informational display only.
-  useEffect(() => {
-    let cancelled = false;
-    apiRequest(`/api/attendance?month=${month}`)
-      .then((data) => {
-        if (cancelled) return;
-        const map: Record<string, number> = {};
-        (data.grouped || []).forEach((g: any) => {
-          map[g.employeeId] = Number(g.totalOvertimeHours) || 0;
-        });
-        setOvertimeMap(map);
-      })
-      .catch(() => setOvertimeMap({}));
-    return () => {
-      cancelled = true;
-    };
-  }, [month]);
+  // Overtime hours now live on the payroll line itself (and are paid), so the sheet no
+  // longer needs a second fetch of the attendance ledger to display them.
 
   const filteredLines = useMemo(() => {
     return lines.filter((line) => {
@@ -256,10 +241,27 @@ export const PayrollView: React.FC = () => {
       otherAllowance: formatOMR(line.otherAllowance),
       loanRecovery: formatOMR(line.loanRecovery),
       otherDeductions: formatOMR(line.otherDeductions),
+      overtimeRate: formatOMR(line.overtimeRate || 0),
       paymentMethod: line.paymentMethod,
       wpsSalary: formatOMR(line.wpsSalary),
       recoverFrom: line.recoverFrom || '',
     });
+  };
+
+  // Clears the manual rate override so the next recalculation tracks Employee Master again.
+  const handleResetRateToMaster = async () => {
+    if (!editingLine) return;
+    try {
+      const updatedPayroll = await apiRequest(`/api/payroll/${month}/lines/${editingLine.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ resetRateToMaster: true }),
+      });
+      setPayroll(updatedPayroll);
+      setLines(updatedPayroll.lines || []);
+      setEditingLine(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to reset the rate to the Employee Master value.');
+    }
   };
 
   const handleSaveLine = async (e: React.FormEvent) => {
@@ -342,16 +344,40 @@ export const PayrollView: React.FC = () => {
     }
   };
 
-  // Preview Line Calculation
-  const previewGross = editingLine?.employeeType === 'Worker'
-    ? Number(lineFormData.basicSalaryOrRate || 0) * (editingLine?.hoursWorked || 0)
-    : (Number(lineFormData.basicSalaryOrRate || 0) / 30) * Math.min(editingLine?.daysWorked || 0, 30);
-  const previewAdditions = Number(lineFormData.houseAllowance || 0) + Number(lineFormData.transportAllowance || 0) + Number(lineFormData.bonus || 0) + Number(lineFormData.otherAllowance || 0);
-  const previewDeductions = Number(lineFormData.loanRecovery || 0) + Number(lineFormData.otherDeductions || 0);
+  // Preview Line Calculation. Mirrors the server: wage basis from wageType, overtime and
+  // attendance-captured bonus/deduction included, and no WPS recoverable without work.
+  const previewHourly = editingLine
+    ? editingLine.wageType === 'Per Hour' || (editingLine.wageType !== 'Fixed Monthly' && editingLine.employeeType === 'Worker')
+    : false;
+  // Approved paid leave is payable time, so it is part of the wage basis exactly as it is
+  // on the server; leaving it out here made the preview understate the gross of anyone
+  // who had leave in the month.
+  const previewPaidLeaveDays = editingLine?.paidLeaveDays || 0;
+  const previewPayableHours = (editingLine?.hoursWorked || 0) + previewPaidLeaveDays * 8;
+  const previewPayableDays = Math.min((editingLine?.daysWorked || 0) + previewPaidLeaveDays, 30);
+  const previewGross = previewHourly
+    ? Number(lineFormData.basicSalaryOrRate || 0) * previewPayableHours
+    : (Number(lineFormData.basicSalaryOrRate || 0) / 30) * previewPayableDays;
+  const previewOvertimePay = Number(lineFormData.overtimeRate || 0) * (editingLine?.overtimeHours || 0);
+  const previewAttendanceBonus = editingLine?.attendanceBonus || 0;
+  const previewAttendanceDeduction = editingLine?.attendanceDeduction || 0;
+  const previewAdditions =
+    Number(lineFormData.houseAllowance || 0) +
+    Number(lineFormData.transportAllowance || 0) +
+    Number(lineFormData.bonus || 0) +
+    Number(lineFormData.otherAllowance || 0) +
+    previewOvertimePay +
+    previewAttendanceBonus;
+  const previewDeductions =
+    Number(lineFormData.loanRecovery || 0) +
+    Number(lineFormData.otherDeductions || 0) +
+    previewAttendanceDeduction;
   const previewNet = previewGross + previewAdditions - previewDeductions;
-  const previewWpsRecoverable = lineFormData.paymentMethod === 'WPS' && Number(lineFormData.wpsSalary || 0) > 0
-    ? Math.max(Number(lineFormData.wpsSalary || 0) - previewNet, 0)
-    : 0;
+  const previewHasWageBasis = previewHourly ? previewPayableHours > 0 : previewPayableDays > 0;
+  const previewWpsRecoverable =
+    lineFormData.paymentMethod === 'WPS' && Number(lineFormData.wpsSalary || 0) > 0 && previewHasWageBasis
+      ? Math.max(Number(lineFormData.wpsSalary || 0) - previewNet, 0)
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -655,25 +681,57 @@ export const PayrollView: React.FC = () => {
                       <span className="font-semibold text-slate-900">{line.employeeName}</span>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold">
-                      {line.employeeType === 'Staff' ? `${line.daysWorked}d` : `${line.hoursWorked}h`}
+                      {isLineHourly(line) ? `${line.hoursWorked}h` : `${line.daysWorked}d`}
+                      {/* Without this, a full month's gross on 25 worked days looks like an
+                          error rather than 25 worked + 5 approved paid leave. */}
+                      {(line.paidLeaveDays || 0) > 0 && (
+                        <span
+                          className="block text-[9px] font-semibold text-emerald-700"
+                          title={`${line.paidLeaveDays} day(s) of approved paid leave are included in the wage basis.`}
+                        >
+                          +{line.paidLeaveDays}d paid leave
+                        </span>
+                      )}
+                      {(line.unpaidLeaveDays || 0) > 0 && (
+                        <span className="block text-[9px] font-semibold text-slate-400">
+                          {line.unpaidLeaveDays}d unpaid leave
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-slate-600">
                       OMR {formatOMR(line.basicSalaryOrRate)}
+                      {line.rateOverridden && (
+                        <span
+                          className="ml-1 inline-flex px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[9px] font-bold align-middle"
+                          title={`Manually overridden. Employee Master currently holds OMR ${formatOMR(line.masterRate ?? line.basicSalaryOrRate)}. Edit the line to reset it.`}
+                        >
+                          OVERRIDE
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-900">
                       {formatOMR(line.grossSalary)}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-amber-600" title="From Attendance Ledger -- informational only, not part of Net Salary">
-                      {overtimeMap[line.employeeId] ? `${overtimeMap[line.employeeId]}h` : '—'}
+                    <td
+                      className="px-3 py-3 text-right font-mono text-amber-600"
+                      title={
+                        (line.overtimeHours || 0) > 0
+                          ? `${line.overtimeHours}h at OMR ${formatOMR(line.overtimeRate || 0)}/h = OMR ${formatOMR(line.overtimePay || 0)}, included in Additions`
+                          : 'No overtime recorded in the Attendance Ledger'
+                      }
+                    >
+                      {(line.overtimeHours || 0) > 0
+                        ? `${line.overtimeHours}h · ${formatOMR(line.overtimePay || 0)}`
+                        : '—'}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-emerald-600">
-                      {formatOMR(line.bonus)}
+                      {formatOMR(line.bonus + (line.attendanceBonus || 0))}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-emerald-600">
-                      +{formatOMR(line.totalAdditions)}
+                      {line.totalAdditions > 0 ? `+${formatOMR(line.totalAdditions)}` : formatOMR(0)}
                     </td>
                     <td className="px-3 py-3 text-right font-mono text-rose-600">
-                      -{formatOMR(line.totalDeductions)}
+                      {line.totalDeductions > 0 ? `-${formatOMR(line.totalDeductions)}` : formatOMR(0)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold text-blue-700 text-sm">
                       {formatOMR(line.netSalary)}
@@ -716,7 +774,14 @@ export const PayrollView: React.FC = () => {
                   Edit Monthly Payroll Line: {editingLine.employeeId} - {editingLine.employeeName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {editingLine.employeeType} • Worked: {editingLine.employeeType === 'Staff' ? `${editingLine.daysWorked} Days` : `${editingLine.hoursWorked} Hours`}
+                  {editingLine.employeeType} • {isLineHourly(editingLine) ? 'Paid hourly' : 'Paid monthly'} • Worked:{' '}
+                  {isLineHourly(editingLine) ? `${editingLine.hoursWorked} Hours` : `${editingLine.daysWorked} Days`}
+                  {(editingLine.overtimeHours || 0) > 0 && ` + ${editingLine.overtimeHours} OT Hours`}
+                  {(editingLine.paidLeaveDays || 0) > 0 &&
+                    ` + ${editingLine.paidLeaveDays} paid leave day(s) — payable basis ${
+                      isLineHourly(editingLine) ? `${previewPayableHours} hours` : `${previewPayableDays} days`
+                    }`}
+                  {(editingLine.unpaidLeaveDays || 0) > 0 && ` • ${editingLine.unpaidLeaveDays} unpaid leave day(s)`}
                 </p>
               </div>
               <button
@@ -755,7 +820,25 @@ export const PayrollView: React.FC = () => {
                     onChange={(e) => setLineFormData({ ...lineFormData, basicSalaryOrRate: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500"
                   />
-                  <span className="text-[10px] text-slate-400">Changing rate for this month does NOT alter Employee Master</span>
+                  {editingLine.rateOverridden ? (
+                    <div className="mt-1 flex items-start justify-between gap-2">
+                      <span className="text-[10px] text-amber-700 leading-snug">
+                        Overridden for {month}. Employee Master holds OMR {formatOMR(editingLine.masterRate ?? editingLine.basicSalaryOrRate)}, and
+                        recalculating will keep this override.
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleResetRateToMaster}
+                        className="shrink-0 text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                      >
+                        Reset to master
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-slate-400">
+                      Tracking Employee Master. Editing this field overrides the rate for {month} only; recalculating will then keep your value.
+                    </span>
+                  )}
                 </div>
 
                 {/* Payment Method */}
@@ -773,6 +856,50 @@ export const PayrollView: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* Attendance-derived amounts. Read-only here: they come from the Attendance
+                  Ledger and are corrected there, not by retyping them on the payroll line. */}
+              {((editingLine.overtimeHours || 0) > 0 ||
+                (editingLine.attendanceBonus || 0) > 0 ||
+                (editingLine.attendanceDeduction || 0) > 0) && (
+                <div className="p-3.5 bg-amber-50/60 border border-amber-100 rounded-xl space-y-3">
+                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">From the Attendance Ledger</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                        Overtime Rate (OMR / hour)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        value={lineFormData.overtimeRate}
+                        onChange={(e) => setLineFormData({ ...lineFormData, overtimeRate: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="text-[10px] text-slate-400">
+                        Defaults to 125% of the normal hourly wage
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] font-medium text-slate-600 mb-1">Overtime Pay</span>
+                      <p className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono">
+                        {editingLine.overtimeHours || 0}h × {formatOMR(Number(lineFormData.overtimeRate || 0))} ={' '}
+                        <strong>{formatOMR(previewOvertimePay)}</strong>
+                      </p>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] font-medium text-slate-600 mb-1">Site bonus / deduction</span>
+                      <p className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono">
+                        <span className="text-emerald-700">+{formatOMR(previewAttendanceBonus)}</span>
+                        {' / '}
+                        <span className="text-rose-700">-{formatOMR(previewAttendanceDeduction)}</span>
+                      </p>
+                      <span className="text-[10px] text-slate-400">Edit these in the Attendance Ledger</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Additions Breakdown */}
               <div className="p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-3">

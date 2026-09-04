@@ -248,6 +248,9 @@ export const SalaryPaymentsView: React.FC = () => {
           receiptFileData: payForm.receiptFileData,
           receiptFileName: payForm.receiptFileName,
           remarks: payForm.remarks,
+          // The server enforces the duplicate check too, so an explicit confirmation has
+          // to travel with the request -- the advisory pre-check alone is no longer enough.
+          allowDuplicate: duplicateConfirmed,
         }),
       });
 

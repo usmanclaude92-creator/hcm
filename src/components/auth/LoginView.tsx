@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Lock, User as UserIcon, AlertCircle, ArrowRight, ShieldCheck, Database, Rocket } from 'lucide-react';
 import type { UserRole } from '../../types/index';
@@ -27,6 +27,23 @@ export const LoginView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showDemoRoles, setShowDemoRoles] = useState(false);
+  const [storage, setStorage] = useState<{ engine: string; isDurable: boolean; warning: string | null } | null>(null);
+
+  // Public endpoint, safe to call before sign-in: engine and durability only, no counts.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/system/storage')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (!cancelled && data && typeof data.engine === 'string') setStorage(data);
+      })
+      .catch(() => {
+        // Storage state is informational; a failure here must never block sign-in.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,10 +161,24 @@ export const LoginView: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-4 text-center text-[11px] text-slate-500 flex items-center justify-center gap-2">
-            <Database className="w-3.5 h-3.5" />
-            <span>Production-grade PostgreSQL / Persistent Data Store Enabled</span>
-          </div>
+          {/* Reports the live storage engine from /api/system/storage. This used to be a
+              hardcoded "Production-grade PostgreSQL" claim that stayed on screen while the
+              application was in fact writing to a local JSON file. */}
+          {storage && (
+            <div
+              className={`mt-4 text-center text-[11px] flex items-center justify-center gap-2 ${
+                storage.isDurable ? 'text-slate-500' : 'text-amber-400/90'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5 shrink-0" />
+              <span>{storage.isDurable ? `Connected to ${storage.engine}` : `Storage: ${storage.engine}`}</span>
+            </div>
+          )}
+          {storage && !storage.isDurable && storage.warning && (
+            <p className="mt-1.5 text-center text-[10.5px] leading-snug text-amber-400/70 px-2">
+              {storage.warning}
+            </p>
+          )}
 
           {/* Demo Access -- fully isolated from production, see src/demo/ */}
           <div className="mt-6 pt-5 border-t border-slate-800">

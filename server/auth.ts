@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from './db.js';
-import type { UserRole } from '../src/types/index';
+import type { UserRole, EmployeeCompany } from '../src/types/index';
 import { roleHasPermission, type Permission } from '../src/permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -16,10 +16,21 @@ export interface AuthRequest extends Request {
     role: UserRole;
     name: string;
     email: string;
+    // Set when the account signed in with a password that fails the current policy
+    // (the seeded development passwords, for example). Such a session may do nothing
+    // but change its own password -- see requirePasswordChangeCleared below.
+    mustChangePassword?: boolean;
   };
 }
 
-export function generateToken(user: { id: string; username: string; role: UserRole; name: string; email: string }): string {
+export function generateToken(user: {
+  id: string;
+  username: string;
+  role: UserRole;
+  name: string;
+  email: string;
+  mustChangePassword?: boolean;
+}): string {
   return jwt.sign(
     {
       id: user.id,
@@ -27,6 +38,7 @@ export function generateToken(user: { id: string; username: string; role: UserRo
       role: user.role,
       name: user.name,
       email: user.email,
+      ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
     },
     JWT_SECRET,
     { expiresIn: '7d' }
@@ -40,7 +52,28 @@ function decodeToken(token: string) {
     role: UserRole;
     name: string;
     email: string;
+    mustChangePassword?: boolean;
   };
+}
+
+// A session flagged mustChangePassword is confined to changing its own password. The check
+// lives inside verifyAuth rather than in a per-route middleware, so no endpoint can be
+// added that quietly escapes it. Hiding the rest of the UI is not the access check.
+const PASSWORD_CHANGE_ALLOWED_PATHS = new Set([
+  '/api/auth/me',
+  '/api/auth/change-password',
+]);
+
+function passwordChangePending(req: AuthRequest, res: Response): boolean {
+  if (!req.user?.mustChangePassword) return false;
+  const pathOnly = (req.originalUrl || '').split('?')[0];
+  if (PASSWORD_CHANGE_ALLOWED_PATHS.has(pathOnly)) return false;
+  res.status(403).json({
+    error:
+      'Your password does not meet the current security policy. Change it before using the system.',
+    mustChangePassword: true,
+  });
+  return true;
 }
 
 // Header-only. A token in the query string is written into server access logs, proxy and
@@ -56,6 +89,7 @@ export function verifyAuth(req: AuthRequest, res: Response, next: NextFunction) 
 
   try {
     req.user = decodeToken(token);
+    if (passwordChangePending(req, res)) return;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' });
@@ -78,6 +112,7 @@ export function verifyAuthAllowingQueryToken(req: AuthRequest, res: Response, ne
 
   try {
     req.user = decodeToken(token);
+    if (passwordChangePending(req, res)) return;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Session expired or invalid token. Please log in again.' });
@@ -158,6 +193,43 @@ export function requireWritePermission(req: AuthRequest, res: Response, next: Ne
     return res.status(403).json({ error: 'Viewers have read-only access. Write operations are not permitted.' });
   }
   next();
+}
+
+// --- Company isolation ----------------------------------------------------------------
+// Every authenticated user could previously see every company's employees, salaries and
+// bank details. An account may now be scoped to a set of companies; an empty or absent
+// scope means "all companies", which is what an Administrator or a deliberately unscoped
+// account gets. The scope is read from the stored user record on every request rather than
+// from the token, so revoking access takes effect immediately instead of at token expiry.
+export function companyScopeOf(user?: { id: string; role: UserRole }): EmployeeCompany[] | null {
+  if (!user) return [];
+  if (user.role === 'Administrator') return null;
+  const stored = db.users.findById(user.id);
+  const scope = (stored as any)?.companyScope as EmployeeCompany[] | undefined;
+  if (!scope || scope.length === 0) return null;
+  return scope;
+}
+
+// True when `company` is inside the user's scope. An unknown/blank company is treated as
+// visible so records that predate the company field are never silently hidden.
+export function canSeeCompany(scope: EmployeeCompany[] | null, company?: string | null): boolean {
+  if (scope === null) return true;
+  if (!company) return true;
+  return scope.includes(company as EmployeeCompany);
+}
+
+// Guard for write paths: refuses a mutation aimed at a company outside the caller's scope.
+export function assertCompanyWritable(
+  req: AuthRequest,
+  res: Response,
+  company?: string | null
+): boolean {
+  const scope = companyScopeOf(req.user);
+  if (canSeeCompany(scope, company)) return true;
+  res.status(403).json({
+    error: `Your account is limited to ${(scope || []).join(', ')} and cannot act on records belonging to ${company}.`,
+  });
+  return false;
 }
 
 export function requirePermission(permission: Permission) {

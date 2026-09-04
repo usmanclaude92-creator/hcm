@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building,
   Briefcase,
@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { formatDate } from '../../../api/client';
+import { formatDate, apiRequest } from '../../../api/client';
 import type {
   Employee,
   EmployeeCompany,
@@ -84,6 +84,33 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
   setBasicInfoForm,
   onNavigateToPersonal,
 }) => {
+  // Designation is governed master data now. The field stays a text input so an existing
+  // record is never invalidated and a new role can still be typed, but the master list is
+  // offered as suggestions, which is what stops "Site Engineer" and "site engineer"
+  // becoming two roles.
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest<Array<{ title: string }>>('/api/masters/designations')
+      .then(list => {
+        if (!cancelled) setDesignationOptions((list || []).map(d => d.title));
+      })
+      .catch(() => {
+        // A master-data outage must not block employee editing; the field simply loses
+        // its suggestions.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const designationIsNew =
+    !!employmentForm.designation.trim() &&
+    designationOptions.length > 0 &&
+    !designationOptions.some(
+      t => t.trim().toLowerCase() === employmentForm.designation.trim().toLowerCase()
+    );
+
   return (
     <div className="space-y-6">
       {/* Draft Profile Banner for New Employee Registration */}
@@ -170,6 +197,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               type="text"
               required
               disabled={!canWrite}
+              list="designation-master-list"
               placeholder="e.g. Project Engineer, Mason, Heavy Driver"
               value={employmentForm.designation}
               onChange={(e) =>
@@ -180,6 +208,17 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               }
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-slate-900"
             />
+            <datalist id="designation-master-list">
+              {designationOptions.map((title) => (
+                <option key={title} value={title} />
+              ))}
+            </datalist>
+            {designationIsNew && (
+              <p className="text-[10px] text-amber-700 mt-1">
+                Not in the designation master. Saving keeps this title on the employee, but add it
+                under Organisation Master Data so reports group it with the rest.
+              </p>
+            )}
           </div>
 
           {/* Nationality Status */}

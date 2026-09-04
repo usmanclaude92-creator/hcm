@@ -6,10 +6,13 @@ import {
   Users,
   FolderKanban,
   CalendarCheck,
+  CalendarDays,
   Calculator,
   CreditCard,
   RefreshCw,
   Landmark,
+  Scale,
+  Building2,
   FileBarChart,
   History,
   ShieldCheck,
@@ -62,8 +65,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'compliance', label: 'HR Compliance & Docs', icon: ShieldAlert },
         { id: 'documents', label: 'Document Repository', icon: FolderOpen },
         { id: 'projects', label: 'Project Master', icon: FolderKanban },
+        { id: 'master-data', label: 'Organisation Master Data', icon: Building2 },
         { id: 'attendance', label: 'Attendance Ledger', icon: CalendarCheck, permission: 'attendance.view' },
         { id: 'timesheets', label: 'Timesheet Management', icon: Clock, permission: 'timesheet.view' },
+        { id: 'leave', label: 'Leave Management', icon: CalendarDays },
       ],
     },
     {
@@ -74,6 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'payment-planning', label: 'Payment Planning', icon: ClipboardList, permission: 'payment_planning.view' },
         { id: 'wps', label: 'WPS Recovery', icon: RefreshCw },
         { id: 'loans', label: 'Loan Management', icon: Landmark },
+        { id: 'gratuity', label: 'End-of-Service Gratuity', icon: Scale },
         { id: 'cif', label: 'CIF Upload & Processing', icon: UploadCloud, permission: 'cif.view' },
         { id: 'employee-ledger', label: 'Employee Profile & Ledger', icon: IdCard },
       ],
@@ -114,8 +120,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navigation Items */}
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6 custom-scrollbar">
+        {/* Navigation Items. Marked up as a real landmark with an explicit name on every
+            control: assistive technology previously found 18 unlabelled buttons here. */}
+        <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-4 px-3 space-y-6 custom-scrollbar">
           {navigationSections.map((section, idx) => {
             const visibleItems = section.items.filter(item => {
               if (item.adminOnly && !isAdmin) return false;
@@ -139,11 +146,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     return (
                       <button
                         key={item.id}
+                        type="button"
+                        aria-label={item.label}
+                        aria-current={isActive ? 'page' : undefined}
                         onClick={() => {
                           onSelectView(item.id);
                           if (onClose) onClose();
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all group ${
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all group cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
                           isActive
                             ? 'bg-blue-600 text-white shadow-xs font-semibold'
                             : 'text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -167,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             );
           })}
-        </div>
+        </nav>
 
         {/* Footer Info */}
         <div className="p-4 border-t border-slate-800/80 bg-slate-950/40">

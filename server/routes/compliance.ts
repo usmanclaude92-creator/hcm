@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { db, calculateExpiryStatus, checkTradeDiscrepancy, maskSensitiveId, normalizeEmployeeId } from '../db.js';
-import { verifyAuth, AuthRequest, requireWritePermission } from '../auth.js';
+import { verifyAuth, AuthRequest, requireWritePermission, companyScopeOf, canSeeCompany } from '../auth.js';
 import type { DocumentExpiryStatus, DrivingLicenceCategory } from '../../src/types/index.js';
 
 const router = Router();
@@ -18,7 +18,8 @@ function getGeminiClient(): GoogleGenAI | null {
 // GET /api/compliance/summary - Global HR & Document Expiry Dashboard
 router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const employees = db.employees.getAll().filter((e) => e.isActive);
+    const summaryScope = companyScopeOf(req.user);
+    const employees = db.employees.getAll().filter((e) => e.isActive && canSeeCompany(summaryScope, e.employeeCompany));
     const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
     const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);
@@ -296,7 +297,8 @@ router.get('/expiries', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { docType, status, company, nationality, search } = req.query;
 
-    const employees = db.employees.getAll().filter((e) => e.isActive);
+    const expiryScope = companyScopeOf(req.user);
+    const employees = db.employees.getAll().filter((e) => e.isActive && canSeeCompany(expiryScope, e.employeeCompany));
     const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
     const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);
@@ -591,7 +593,8 @@ router.post('/ai-assistant', verifyAuth, async (req: AuthRequest, res: Response)
       return res.status(400).json({ error: 'Query prompt is required.' });
     }
 
-    const employees = db.employees.getAll();
+    const assistantScope = companyScopeOf(req.user);
+    const employees = db.employees.getAll().filter((e) => canSeeCompany(assistantScope, e.employeeCompany));
     const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
     const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);
