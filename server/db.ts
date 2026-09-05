@@ -432,7 +432,66 @@ class DatabaseManager {
 
     // Ensure default admin user and initial demo dataset
     await this.ensureInitialSeed();
+    await this.applyRecoveryPassword();
     this.isInitialized = true;
+  }
+
+  // Break-glass account recovery. When nobody can sign in, an operator sets
+  // ADMIN_RECOVERY_PASSWORD in the hosting environment and redeploys; the named account
+  // (ADMIN_RECOVERY_USERNAME, default "admin") is reset to that password on the next boot.
+  //
+  // This is not a backdoor: the value can only be set by whoever already controls the
+  // deployment environment, which is strictly more privileged than any application account.
+  // The reset is recorded in the audit log, and it is skipped entirely once the stored
+  // password already matches, so a forgotten variable does not rewrite the database on
+  // every cold start.
+  private async applyRecoveryPassword(): Promise<void> {
+    const password = process.env.ADMIN_RECOVERY_PASSWORD;
+    if (!password || !password.trim()) return;
+
+    const username = (process.env.ADMIN_RECOVERY_USERNAME || 'admin').trim().toLowerCase();
+    const index = this.inMemoryData.users.findIndex(
+      (u) => u.username.trim().toLowerCase() === username
+    );
+
+    if (index === -1) {
+      console.error(
+        `[recovery] ADMIN_RECOVERY_PASSWORD is set but no account named "${username}" exists. ` +
+        `Known accounts: ${this.inMemoryData.users.map((u) => u.username).join(', ') || '(none)'}.`
+      );
+      return;
+    }
+
+    const user = this.inMemoryData.users[index];
+    if (user.passwordHash && bcrypt.compareSync(password, user.passwordHash)) {
+      console.warn(
+        `[recovery] "${username}" already matches ADMIN_RECOVERY_PASSWORD. No change made. ` +
+        'Remove the variable from the environment now that you can sign in.'
+      );
+      return;
+    }
+
+    this.inMemoryData.users[index] = {
+      ...user,
+      passwordHash: bcrypt.hashSync(password, 10),
+      isActive: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.audit.log({
+      username: 'system',
+      userRole: 'Administrator',
+      action: 'ADMIN_PASSWORD_RECOVERED',
+      module: 'Authentication',
+      recordId: user.id,
+      description:
+        `Password for "${username}" was reset from ADMIN_RECOVERY_PASSWORD in the deployment environment.`,
+    });
+
+    console.warn(
+      `[recovery] Password for "${username}" has been reset. ` +
+      'Sign in, change it, then DELETE ADMIN_RECOVERY_PASSWORD from the environment.'
+    );
   }
 
   private async initPostgresSchema() {
