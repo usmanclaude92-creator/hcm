@@ -4,12 +4,13 @@
  * that contains only what a user subsequently enters.
  *
  * Removes: employees, projects, attendance, timesheets, payroll and payroll lines,
- * salary payments, payment plans, loans and recoveries, WPS recoveries, CIF batches,
- * and all compliance records (Civil IDs, driving licences, visas, government documents,
- * uploaded document metadata, personal details).
+ * salary payments, payment plans, loans and recoveries (advances), leave requests,
+ * WPS recoveries, CIF batches, and all compliance records (Civil IDs, driving licences,
+ * visas, government documents, uploaded document metadata, personal details).
  *
- * Preserves: user accounts (so you can still sign in) and the driving-licence category
- * list (configuration, not a record).
+ * Preserves: user accounts (so you can still sign in) and configuration that is setup
+ * rather than employee data -- leave types, departments, designations and the
+ * driving-licence category list. Pass --wipe-masters to clear those too.
  *
  * Does NOT touch Demo Access. That dataset lives in src/demo/ and is generated in the
  * browser for a demo session only; it never reaches this store.
@@ -18,6 +19,7 @@
  *
  *   node scripts/clear-business-data.cjs                 # dry run, shows what would go
  *   node scripts/clear-business-data.cjs --confirm       # actually clear
+ *   node scripts/clear-business-data.cjs --confirm --wipe-masters
  *   node scripts/clear-business-data.cjs --confirm --wipe-users --wipe-audit
  */
 
@@ -27,6 +29,7 @@ const path = require('path');
 const args = process.argv.slice(2);
 const CONFIRM = args.includes('--confirm');
 const WIPE_USERS = args.includes('--wipe-users');
+const WIPE_MASTERS = args.includes('--wipe-masters');
 const KEEP_AUDIT = !args.includes('--wipe-audit');
 
 const DB_FILE = path.join(process.cwd(), 'data', 'payroll_database.json');
@@ -42,8 +45,13 @@ const BUSINESS_COLLECTIONS = [
   'salaryPayments', 'paymentPlans', 'paymentPlanLines',
   'wpsRecoveries', 'wpsRecoveryTransactions',
   'loans', 'loanRecoveries',
+  'leaveRequests',
   'civilIds', 'drivingLicences', 'visas', 'governmentDocuments', 'documents',
 ];
+
+// Setup rather than employee data: a leave policy, an org chart and a designation list
+// survive clearing the records that reference them. Cleared only with --wipe-masters.
+const MASTER_COLLECTIONS = ['leaveTypes', 'departments', 'designations', 'drivingLicenceCategories'];
 
 function summarize(data) {
   const rows = [];
@@ -54,6 +62,12 @@ function summarize(data) {
   const pd = data.personalDetails && typeof data.personalDetails === 'object'
     ? Object.keys(data.personalDetails).length : 0;
   if (pd > 0) rows.push(['personalDetails', pd]);
+  if (WIPE_MASTERS) {
+    for (const key of MASTER_COLLECTIONS) {
+      const n = Array.isArray(data[key]) ? data[key].length : 0;
+      if (n > 0) rows.push([key, n]);
+    }
+  }
   if (!KEEP_AUDIT && Array.isArray(data.auditLogs) && data.auditLogs.length) {
     rows.push(['auditLogs', data.auditLogs.length]);
   }
@@ -65,9 +79,14 @@ function summarize(data) {
 
 function clear(data) {
   for (const key of BUSINESS_COLLECTIONS) {
-    if (Array.isArray(data[key])) data[key] = [];
+    // Assign an empty array even when the key is absent, so a store written before a
+    // collection existed still ends up explicitly empty rather than undefined.
+    data[key] = [];
   }
   data.personalDetails = {};
+  if (WIPE_MASTERS) {
+    for (const key of MASTER_COLLECTIONS) data[key] = [];
+  }
   if (!KEEP_AUDIT) data.auditLogs = [];
   if (WIPE_USERS) data.users = [];
   return data;
@@ -89,7 +108,7 @@ function report(target, data) {
   console.log(`    ${String(total).padStart(6)}  TOTAL`);
   console.log(`\n  Preserved: ${WIPE_USERS ? '(users will also be removed)' : `${(data.users || []).length} user account(s)`}` +
     `${KEEP_AUDIT ? `, ${(data.auditLogs || []).length} audit entries` : ''}` +
-    `, driving-licence categories.`);
+    `${WIPE_MASTERS ? '' : ', leave types, departments, designations, driving-licence categories'}.`);
   return true;
 }
 
