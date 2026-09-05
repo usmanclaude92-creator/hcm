@@ -13,3 +13,4 @@ tsc_out.txt
 # Local snapshots written by scripts/clear-business-data.cjs
 data/*.backup.*
 payroll_database.pg-backup.*.json
+ADMIN_PASSWORD_RESET.txt
