@@ -34,11 +34,23 @@ const router = Router();
 // Every route in this file that addresses an employee by business ID inherits company
 // isolation here, so a new :employeeId route cannot be added that quietly skips it.
 router.param('employeeId', (req: AuthRequest, res: Response, next, value: string) => {
-  const emp = db.employees.findByEmployeeId(normalizeEmployeeId(String(value)));
-  if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
-    return res.status(404).json({ error: 'Employee not found.' });
-  }
-  next();
+  // Every /:employeeId/* route (compliance, civil ID, visa, licence, documents, personal
+  // details) resolves the employee against this instance's in-memory copy. On a serverless
+  // host that copy is only as fresh as this instance's last load, so refresh it first --
+  // see syncFromDurableStore() in db.ts. A short freshness window is enough here because
+  // the mutating handlers force their own reload.
+  db.syncFromDurableStore(1500)
+    .catch(() => undefined)
+    .then(() => {
+      const emp = db.employees.findByEmployeeId(normalizeEmployeeId(String(value)));
+      if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
+        console.warn(
+          `[scope] ${req.user?.username || 'unknown user'} was refused ${value} (${emp.employeeCompany}); account scope does not include that company.`
+        );
+        return res.status(404).json({ error: 'Employee not found.' });
+      }
+      next();
+    });
 });
 
 // Helper to validate employee enum types
@@ -965,7 +977,8 @@ router.get('/:id', verifyAuth, async (req: AuthRequest, res: Response) => {
       employee = db.employees.findByEmployeeId(id);
     }
     if (!employee) {
-      return res.status(404).json({ error: 'Employee not found.' });
+      console.error(`[employees] fetch: ${id} absent after durable sync (${db.describeLoadedState()}).`);
+      return res.status(404).json({ error: `Employee ${id} not found in the live store (${db.describeLoadedState()}).` });
     }
     // Out of scope reads as "not found" rather than "forbidden", so a scoped account
     // cannot probe for the existence of another company's employees.
@@ -1170,9 +1183,10 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     // missing when it was created or last edited by a different instance.
     await db.syncFromDurableStore();
     const { id } = req.params;
-    const employee = db.employees.findById(id);
+    const employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
     if (!employee) {
-      return res.status(404).json({ error: 'Employee not found.' });
+      console.error(`[employees] update: ${id} absent after durable sync (${db.describeLoadedState()}).`);
+      return res.status(404).json({ error: `Employee ${id} not found in the live store (${db.describeLoadedState()}).` });
     }
     // Both the employee's current company and the company being written must be in scope,
     // so a scoped account can neither edit another company's record nor move one out.
@@ -1245,7 +1259,9 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (bankBranch !== undefined) updates.bankBranch = String(bankBranch).trim();
     if (accountHolderName !== undefined) updates.accountHolderName = String(accountHolderName).trim();
 
-    const updated = await db.employees.update(id, updates, req.user?.username);
+    // employee.id, not the raw :id -- the lookup above also accepts a business Employee ID,
+    // while the repository addresses records by internal id only.
+    const updated = await db.employees.update(employee.id, updates, req.user?.username);
 
     // Synchronize to personal details store
     const existingPersonal = db.personalDetails.get(employee.employeeId) || {};
@@ -1322,14 +1338,17 @@ router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (re
     // See syncFromDurableStore()'s comment in db.ts.
     await db.syncFromDurableStore();
     const { id } = req.params;
-    const employee = db.employees.findById(id);
-    if (!employee) return res.status(404).json({ error: 'Employee not found.' });
+    const employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    if (!employee) {
+      console.error(`[employees] toggle-active: ${id} absent after durable sync (${db.describeLoadedState()}).`);
+      return res.status(404).json({ error: `Employee ${id} not found in the live store (${db.describeLoadedState()}).` });
+    }
     if (!canSeeCompany(companyScopeOf(req.user), employee.employeeCompany)) {
       return res.status(404).json({ error: 'Employee not found.' });
     }
 
     const newStatus = !employee.isActive;
-    const updated = await db.employees.update(id, {
+    const updated = await db.employees.update(employee.id, {
       isActive: newStatus,
       dateOfLeaving: newStatus ? null : (employee.dateOfLeaving || new Date().toISOString().split('T')[0]),
     }, req.user?.username);
@@ -2642,7 +2661,13 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
     const emp = db.employees.findByEmployeeId(norm);
-    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+    if (!emp) {
+      // Say which store was consulted and what it held. "Employee not found." on its own
+      // cannot distinguish a record that was never saved from an instance that failed to
+      // see one, which is exactly the question an operator needs answered here.
+      console.error(`[employees] personal-details save: ${norm} absent after durable sync (${db.describeLoadedState()}).`);
+      return res.status(404).json({ error: `Employee ${norm} not found in the live store (${db.describeLoadedState()}).` });
+    }
 
     const payload = req.body || {};
 

@@ -342,6 +342,11 @@ class DatabaseManager {
   // ALLOW_FILE_STORE. Surfaced through getStatus() so the UI can say so plainly.
   private fileStoreAcknowledged: boolean = false;
   private stateVersion: number = 1;
+  // Bookkeeping for syncFromDurableStore(): when the last reload finished, and the
+  // reload currently in flight, so several handlers in one request cannot each issue
+  // their own round trip to Postgres for the same state.
+  private lastDurableSyncAt: number = 0;
+  private inFlightDurableSync: Promise<void> | null = null;
 
   constructor() {
     // On a serverless deploy (a Postgres connection string is set) the filesystem is
@@ -754,10 +759,32 @@ class DatabaseManager {
   // that flow sees whatever the durable store actually holds right now. A no-op on the local
   // JSON file path: that path has exactly one process, so there is no cross-instance
   // divergence to correct there.
-  public async syncFromDurableStore(): Promise<void> {
-    if (this.isPostgresConnected) {
-      await this.loadFromPostgres();
-    }
+  // `maxAgeMs` lets a pure READ accept state this instance loaded a moment ago instead of
+  // paying for another round trip (several handlers can run per request). A MUTATION must
+  // pass 0 -- the default -- because the record it is about to find-then-write may have
+  // been created by another instance milliseconds ago, which is the whole point.
+  public async syncFromDurableStore(maxAgeMs: number = 0): Promise<void> {
+    if (!this.isPostgresConnected) return;
+    if (maxAgeMs > 0 && Date.now() - this.lastDurableSyncAt < maxAgeMs) return;
+    if (this.inFlightDurableSync) return this.inFlightDurableSync;
+
+    this.inFlightDurableSync = (async () => {
+      try {
+        await this.loadFromPostgres();
+        this.lastDurableSyncAt = Date.now();
+      } finally {
+        this.inFlightDurableSync = null;
+      }
+    })();
+    return this.inFlightDurableSync;
+  }
+
+  // One line describing where the data this instance is serving actually came from.
+  // Attached to "not found" replies so an operator can tell a genuinely absent record
+  // apart from an instance that failed to see one.
+  public describeLoadedState(): string {
+    const engine = this.isPostgresConnected ? 'PostgreSQL' : 'local JSON store';
+    return `${engine}, ${this.inMemoryData.employees.length} employees loaded, state v${this.stateVersion}`;
   }
 
   // Throws on failure. A write that did not land must never be reported to the caller as
