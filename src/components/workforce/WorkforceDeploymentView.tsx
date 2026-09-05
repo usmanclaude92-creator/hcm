@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { apiRequest } from '../../api/client';
 import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDropdown';
-import { EmployeeDeploymentCard } from './EmployeeDeploymentCard';
+import { EmployeeDeploymentCard, type WorkforceShiftStatus } from './EmployeeDeploymentCard';
 import { Search, RotateCcw, Building } from 'lucide-react';
 
 const HEAD_OFFICE_KEY = 'HEAD_OFFICE';
@@ -88,6 +88,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [shiftStatusByEmployee, setShiftStatusByEmployee] = useState<Record<string, WorkforceShiftStatus>>({});
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [search, setSearch] = useState('');
@@ -116,6 +117,13 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       setError(err.message || 'Failed to fetch workforce deployment data');
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const shiftData = await apiRequest(`/api/workforce/shift-status`);
+      setShiftStatusByEmployee(shiftData?.statuses || {});
+    } catch {
+      setShiftStatusByEmployee({});
     }
   };
 
@@ -330,6 +338,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
                   employeeType={emp.employeeType}
                   overtimeHours={emp.overtimeHours}
                   attendanceStatus={emp.hasAttendanceThisMonth ? 'Present' : 'Absent'}
+                  shiftStatus={shiftStatusByEmployee[emp.employeeId.toUpperCase()]}
                   onClick={() => onSelectEmployee?.(emp.employeeId)}
                 />
               ))}

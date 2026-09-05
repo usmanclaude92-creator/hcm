@@ -47,6 +47,7 @@ npm run build    # vite build + esbuild server bundle
 | `SUPABASE_DOCUMENTS_BUCKET` | Optional | Defaults to `employee-documents`. |
 | `SUPABASE_RECEIPTS_BUCKET` | Optional | Defaults to `salary-payment-receipts`. |
 | `GEMINI_API_KEY` | Optional | Enables the compliance assistant. Without it, a deterministic rule-based responder is used instead. |
+| `WORKFORCE_SHIFT_STATUS_URL` / `WORKFORCE_SHIFT_STATUS_SECRET` | Optional | Populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard's employee cards from the Artify Workforce app's live clock-in/clock-out data. Without these, cards show "Not Tracked" as before. |
 | `DB_CONNECT_TIMEOUT_MS` | Optional | Database connect timeout, default 10000. |
 | `ALLOW_DEMO_SEED` | Optional | Set to `false` to suppress the demonstration dataset outside production. |
 
