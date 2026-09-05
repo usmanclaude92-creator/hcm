@@ -286,10 +286,35 @@ const DB_FILE = path.join(DATA_DIR, 'payroll_database.json');
 
 // Different Postgres marketplace integrations (Vercel Postgres, Supabase, Neon)
 // inject the connection string under different env var names.
-export const POSTGRES_CONNECTION_STRING =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_URL_NON_POOLING;
+function resolvePostgresConnectionString(): string | undefined {
+  let raw =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_URL_NON_POOLING;
+  if (!raw) return undefined;
+  raw = raw.trim();
+  // If raw already has a postgres scheme, return as is
+  if (/^postgres(ql)?:\/\//i.test(raw)) {
+    return raw;
+  }
+  // If raw is just a password or partial string (common when users enter their DB password into the DATABASE_URL setting)
+  // and SUPABASE_URL is available
+  if (process.env.SUPABASE_URL) {
+    try {
+      const url = new URL(process.env.SUPABASE_URL);
+      const host = url.hostname; // e.g. ufjqadpaeayylvxqeipe.supabase.co
+      const dbHost = host.startsWith('db.') ? host : `db.${host}`;
+      const encodedPassword = encodeURIComponent(raw);
+      console.log(`[db] Reconstructing Postgres URL from SUPABASE_URL (${dbHost}) and password.`);
+      return `postgresql://postgres:${encodedPassword}@${dbHost}:5432/postgres`;
+    } catch {
+      // ignore
+    }
+  }
+  return raw;
+}
+
+export const POSTGRES_CONNECTION_STRING = resolvePostgresConnectionString();
 
 class DatabaseManager {
   private inMemoryData: DatabaseSchema = {
@@ -421,9 +446,15 @@ class DatabaseManager {
         console.error('PostgreSQL connection failed:', (err as Error).message);
         this.pgPool = null;
         this.isPostgresConnected = false;
-        throw new Error(
-          `Database connection failed: ${(err as Error).message}. ` +
-          'DATABASE_URL is configured but unreachable; refusing to start on local storage to avoid serving unsaved data.'
+        if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_FILE_STORE) {
+          throw new Error(
+            `Database connection failed: ${(err as Error).message}. ` +
+            'DATABASE_URL is configured but unreachable; refusing to start on local storage to avoid serving unsaved data.'
+          );
+        }
+        console.warn(
+          `[storage] PostgreSQL is unreachable (${(err as Error).message}). ` +
+          'Continuing on local store since NODE_ENV is development or ALLOW_FILE_STORE=true.'
         );
       }
     }

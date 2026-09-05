@@ -48,8 +48,28 @@ function loadEnvFile() {
 }
 loadEnvFile();
 
-const CONNECTION_STRING =
-  process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING;
+function resolvePostgresConnectionString() {
+  let raw =
+    process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING;
+  if (!raw) return undefined;
+  raw = raw.trim();
+  if (/^postgres(ql)?:\/\//i.test(raw)) {
+    return raw;
+  }
+  if (process.env.SUPABASE_URL) {
+    try {
+      const url = new URL(process.env.SUPABASE_URL);
+      const host = url.hostname.startsWith('db.') ? url.hostname : `db.${url.hostname}`;
+      const encodedPassword = encodeURIComponent(raw);
+      return `postgresql://postgres:${encodedPassword}@${host}:5432/postgres`;
+    } catch {
+      // ignore
+    }
+  }
+  return raw;
+}
+
+const CONNECTION_STRING = resolvePostgresConnectionString();
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
