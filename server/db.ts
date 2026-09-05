@@ -742,6 +742,24 @@ class DatabaseManager {
     }
   }
 
+  // On a serverless host, `init()` only runs once per warm instance -- it populates
+  // inMemoryData from the app_state row at that instance's cold start and never again. A
+  // record created or edited by a request served by a DIFFERENT concurrent/later-cold-start
+  // instance is invisible here until this instance happens to reload, which previously only
+  // happened on a version conflict during a WRITE. A plain read-then-mutate on a stale
+  // instance (e.g. "create employee" on one invocation, then "save employment tab" on the
+  // very next one) found nothing and reported a perfectly real record as "not found."
+  //
+  // Call this at the start of a find-then-mutate flow, before consulting inMemoryData, so
+  // that flow sees whatever the durable store actually holds right now. A no-op on the local
+  // JSON file path: that path has exactly one process, so there is no cross-instance
+  // divergence to correct there.
+  public async syncFromDurableStore(): Promise<void> {
+    if (this.isPostgresConnected) {
+      await this.loadFromPostgres();
+    }
+  }
+
   // Throws on failure. A write that did not land must never be reported to the caller as
   // success -- that is how a finalized payroll or a recorded payment silently disappears.
   private saveToDisk() {

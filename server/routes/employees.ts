@@ -952,8 +952,12 @@ router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/employees/:id - Get single employee + designation & salary histories
-router.get('/:id', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/:id', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
+    // A record created or edited by a different serverless instance a moment ago must be
+    // visible here, not just after this instance's next cold start -- see
+    // syncFromDurableStore()'s comment in db.ts.
+    await db.syncFromDurableStore();
     const { id } = req.params;
     let employee = db.employees.findById(id);
     if (!employee) {
@@ -992,6 +996,9 @@ router.get('/:id', verifyAuth, (req: AuthRequest, res: Response) => {
 // POST /api/employees - Create new employee
 router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
+    // See syncFromDurableStore()'s comment in db.ts: without this, a duplicate-ID check
+    // against a stale in-memory instance can miss a record another instance just created.
+    await db.syncFromDurableStore();
     const {
       employeeId,
       employeeName,
@@ -1158,6 +1165,10 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
 // PUT /api/employees/:id - Update employee
 router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
+    // See syncFromDurableStore()'s comment in db.ts: this is the fix for "Employee not
+    // found" on edit -- a stale serverless instance previously reported a real record as
+    // missing when it was created or last edited by a different instance.
+    await db.syncFromDurableStore();
     const { id } = req.params;
     const employee = db.employees.findById(id);
     if (!employee) {
@@ -1308,6 +1319,8 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
 // PATCH /api/employees/:id/toggle-active
 router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
+    // See syncFromDurableStore()'s comment in db.ts.
+    await db.syncFromDurableStore();
     const { id } = req.params;
     const employee = db.employees.findById(id);
     if (!employee) return res.status(404).json({ error: 'Employee not found.' });
@@ -2622,6 +2635,10 @@ router.delete('/:employeeId/government-documents/:docId', verifyAuth, requireWri
 
 const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
   try {
+    // See syncFromDurableStore()'s comment in db.ts: this is the fix for "Employee not
+    // found" when saving the Personal Details tab right after creating a new employee --
+    // the create and this save can land on different serverless instances.
+    await db.syncFromDurableStore();
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
     const emp = db.employees.findByEmployeeId(norm);
