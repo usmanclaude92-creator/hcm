@@ -96,6 +96,8 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [selectedRecordEmp, setSelectedRecordEmp] = useState<Employee | null>(null);
   const [recordInitialTab, setRecordInitialTab] = useState<EmployeeRecordTab>('personal');
+  const [isRecordDirty, setIsRecordDirty] = useState(false);
+  const [showBreadcrumbDiscardModal, setShowBreadcrumbDiscardModal] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [historyData, setHistoryData] = useState<any>(null);
 
@@ -331,15 +333,22 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
 
   // If viewing or creating employee record, render full page inline form (avoiding popups)
   if (isRecordModalOpen) {
+    const handleBreadcrumbBack = () => {
+      if (isRecordDirty) {
+        setShowBreadcrumbDiscardModal(true);
+      } else {
+        setIsRecordModalOpen(false);
+        setSelectedRecordEmp(null);
+        setIsRecordDirty(false);
+      }
+    };
+
     return (
       <div className="space-y-4">
         {/* Breadcrumb Navigation */}
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <button
-            onClick={() => {
-              setIsRecordModalOpen(false);
-              setSelectedRecordEmp(null);
-            }}
+            onClick={handleBreadcrumbBack}
             className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600"
           >
             <ArrowLeft size={13} />
@@ -362,9 +371,59 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
           onClose={() => {
             setIsRecordModalOpen(false);
             setSelectedRecordEmp(null);
+            setIsRecordDirty(false);
           }}
+          onDirtyChange={setIsRecordDirty}
           onUpdated={fetchEmployees}
         />
+
+        {/* Confirmation Modal when clicking breadcrumb back with unsaved edits */}
+        {showBreadcrumbDiscardModal && (
+          <div
+            id="breadcrumb-discard-modal"
+            className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          >
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden p-6 space-y-5">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={24} />
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                    Discard Unsaved Changes?
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    You have unsaved edits in this employee record. If you return to Employee Master now, your unsaved changes will be lost.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  id="btn-breadcrumb-keep-editing"
+                  onClick={() => setShowBreadcrumbDiscardModal(false)}
+                  className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  Keep Editing
+                </button>
+                <button
+                  type="button"
+                  id="btn-breadcrumb-discard-confirm"
+                  onClick={() => {
+                    setShowBreadcrumbDiscardModal(false);
+                    setIsRecordDirty(false);
+                    setIsRecordModalOpen(false);
+                    setSelectedRecordEmp(null);
+                  }}
+                  className="px-3.5 py-2 text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-colors cursor-pointer"
+                >
+                  Discard Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -10,7 +10,6 @@ import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
 import { EmployeeProfileLedgerView } from './components/employees/EmployeeProfileLedgerView';
 import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
-import { TimesheetView } from './components/timesheets/TimesheetView';
 import { CifUploadView } from './components/cif/CifUploadView';
 import { PayrollView } from './components/payroll/PayrollView';
 import { SalaryPaymentsView } from './components/payments/SalaryPaymentsView';
@@ -26,12 +25,22 @@ import { AuditLogsView } from './components/audit/AuditLogsView';
 import { UserManagementView } from './components/users/UserManagementView';
 import { ComplianceDashboardView } from './components/compliance/ComplianceDashboardView';
 import { DocumentRepositoryView } from './components/documents/DocumentRepositoryView';
+import { useIdleTimer, IDLE_TIMEOUT_MS, WARNING_DURATION_MS } from './hooks/useIdleTimer';
+import { IdleTimeoutModal } from './components/common/IdleTimeoutModal';
 
 const MainApp: React.FC = () => {
-  const { isAuthenticated, isLoading, isDemoMode, mustChangePassword } = useAuth();
+  const { isAuthenticated, isLoading, isDemoMode, mustChangePassword, logout } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
   const [viewParams, setViewParams] = useState<Record<string, any>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // 15-minute idle timeout for security compliance with 60-second warning countdown
+  const { isWarningOpen, remainingSeconds, resetTimer } = useIdleTimer({
+    timeoutMs: IDLE_TIMEOUT_MS, // 15 minutes = 900,000 ms
+    warningMs: WARNING_DURATION_MS, // 60 seconds warning modal
+    onTimeout: logout,
+    enabled: isAuthenticated,
+  });
 
   const handleNavigate = (view: string, params?: Record<string, any>) => {
     setViewParams(params || {});
@@ -62,7 +71,7 @@ const MainApp: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <DashboardView onNavigate={handleNavigate} />;
+        return <DashboardView onNavigate={handleNavigate} initialTab={viewParams?.tab} />;
       case 'employees':
         return (
           <EmployeeMasterView
@@ -71,7 +80,12 @@ const MainApp: React.FC = () => {
           />
         );
       case 'compliance':
-        return <ComplianceDashboardView />;
+        return (
+          <ComplianceDashboardView
+            initialTab={viewParams.tab}
+            initialSearch={viewParams.search}
+          />
+        );
       case 'documents':
       case 'document-repository':
         return (
@@ -82,9 +96,7 @@ const MainApp: React.FC = () => {
       case 'projects':
         return <ProjectMasterView />;
       case 'attendance':
-        return <AttendanceView />;
-      case 'timesheets':
-        return <TimesheetView />;
+        return <AttendanceView initialMonth={viewParams.month} />;
       case 'cif':
         return <CifUploadView />;
       case 'employee-ledger':
@@ -95,7 +107,7 @@ const MainApp: React.FC = () => {
           />
         );
       case 'payroll':
-        return <PayrollView />;
+        return <PayrollView initialMonth={viewParams.month} />;
       case 'payments':
         return <SalaryPaymentsView />;
       case 'payment-planning':
@@ -138,11 +150,21 @@ const MainApp: React.FC = () => {
         {isDemoMode && <DemoBanner />}
         <Header
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onNavigate={handleNavigate}
         />
         <main className="flex-1 overflow-y-auto px-[2%] py-6 print:p-0">
           {renderView()}
         </main>
       </div>
+
+      {/* 15-Minute Idle Inactivity Timeout Modal */}
+      <IdleTimeoutModal
+        isOpen={isWarningOpen}
+        remainingSeconds={remainingSeconds}
+        totalWarningSeconds={Math.round(WARNING_DURATION_MS / 1000)}
+        onStayLoggedIn={resetTimer}
+        onLogoutNow={logout}
+      />
     </div>
   );
 };

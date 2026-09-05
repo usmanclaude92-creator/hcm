@@ -116,26 +116,6 @@ export const AssignProjectQuickModal: React.FC<AssignProjectQuickModalProps> = (
         }),
       });
 
-      // Optional activity note, recorded as a timesheet entry. Never fatal to the assignment.
-      if (activityNote && activityNote.trim()) {
-        try {
-          await apiRequest('/api/timesheets', {
-            method: 'POST',
-            body: JSON.stringify({
-              employeeId: employee.employeeId,
-              date: new Date().toISOString().split('T')[0],
-              project: selectedProj?.projectCode || selectedProjectId,
-              taskActivity: activityNote.trim(),
-              normalHours: isHourly ? enteredHours : 0,
-              overtimeHours: 0,
-              remarks: `Project allocation: ${selectedProj?.projectName || ''}`,
-            }),
-          });
-        } catch {
-          // Timesheets are a separate ledger; a failure there must not fail the assignment.
-        }
-      }
-
       onSuccess();
       onClose();
     } catch (err: any) {

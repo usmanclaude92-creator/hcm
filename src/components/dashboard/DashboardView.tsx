@@ -21,6 +21,7 @@ import {
   Wallet,
   UserX,
   MapPin,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -34,6 +35,21 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+
+const JOB_COLORS = [
+  '#2563eb', // blue
+  '#6366f1', // indigo
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#ec4899', // pink
+  '#8b5cf6', // purple
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#14b8a6', // teal
+  '#64748b', // slate
+  '#e11d48', // rose
+  '#84cc16', // lime
+];
 
 function MonthOverMonthBadge({ current, previous }: { current?: number; previous?: number }) {
   if (current === undefined || previous === undefined || !previous) return null;
@@ -58,9 +74,10 @@ function ProgressBar({ percentage, colorClass }: { percentage: number; colorClas
 
 interface DashboardViewProps {
   onNavigate: (view: string, params?: Record<string, any>) => void;
+  initialTab?: DashboardTab;
 }
 
-type DashboardTab = 'payroll-insights' | 'workforce-deployment';
+type DashboardTab = 'payroll-insights' | 'workforce-deployment' | 'document-expiry';
 
 // Default period is the previous calendar month relative to today's real date -- per
 // explicit product requirement, never the current in-progress month.
@@ -85,8 +102,14 @@ function formatTime(d: Date): string {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<DashboardTab>('payroll-insights');
+export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, initialTab }) => {
+  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab || 'payroll-insights');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -102,6 +125,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [selectedMonth, setSelectedMonth] = useState<string>(getDefaultPeriodMonth());
   const [fromMonth, setFromMonth] = useState<string>(getDefaultPeriodMonth());
   const [toMonth, setToMonth] = useState<string>(getDefaultPeriodMonth());
+  const [compositionMode, setCompositionMode] = useState<'job' | 'type'>('job');
 
   // Whether the user has touched the period control yet. Once they have, the initial
   // resolution below must never move the selection under them.
@@ -201,6 +225,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const TABS: { id: DashboardTab; label: string; icon: any }[] = [
     { id: 'payroll-insights', label: 'Payroll Insights', icon: Calculator },
     { id: 'workforce-deployment', label: 'Workforce Deployment', icon: MapPin },
+    { id: 'document-expiry', label: 'Document Expiry Monitoring', icon: ShieldAlert },
   ];
 
   return (
@@ -249,7 +274,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               onToChange={(m) => { setPeriodTouched(true); setToMonth(m); }}
               availableMonths={availableMonths}
             />
-          ) : (
+          ) : activeTab === 'workforce-deployment' ? (
             <div className="flex items-center gap-3 shrink-0">
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg shadow-2xs">
                 <span className="relative flex h-2 w-2">
@@ -270,7 +295,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 Refresh
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -279,6 +304,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           ref={workforceViewRef}
           onStatusChange={(s) => setWorkforceLastUpdated(s.lastUpdated)}
           onSelectEmployee={(empId) => onNavigate('employee-ledger', { employeeId: empId })}
+        />
+      ) : activeTab === 'document-expiry' ? (
+        <DocumentExpiryMonitoringSection
+          onNavigateToEmployees={(filters) => onNavigate('employees', filters)}
+          onNavigateToCompliance={() => onNavigate('compliance')}
+          onNavigateToDocuments={() => onNavigate('documents')}
         />
       ) : (
         <>
@@ -449,49 +480,156 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Workforce Distribution Pie Chart */}
+            {/* Job & Workforce Composition Pie Chart */}
             <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs flex flex-col">
-              <div className="mb-2">
-                <h3 className="font-semibold text-slate-900 text-sm">Workforce Composition</h3>
-                <p className="text-xs text-slate-500">Staff vs. Worker Distribution</p>
-              </div>
-
-              <div className="flex-1 h-80 w-full flex items-center justify-center">
-                {distribution?.employeeTypes && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={distribution.employeeTypes}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={90}
-                        innerRadius={50}
-                        paddingAngle={4}
-                      >
-                        <Cell fill="#3b82f6" />
-                        <Cell fill="#6366f1" />
-                      </Pie>
-                      <Tooltip
-                        formatter={(val: any, name: any) => [`${val} Employees`, name]}
-                        contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              <div className="border-t border-slate-100 pt-3 flex items-center justify-around text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span className="text-slate-600">Staff: {counts?.staff}</span>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div>
+                  <h3 className="font-semibold text-slate-900 text-sm">
+                    {compositionMode === 'job' ? 'Job Composition' : 'Workforce Composition'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {compositionMode === 'job'
+                      ? `Workforce by Job Designation (${(distribution?.jobComposition || []).length} Roles)`
+                      : 'Staff vs. Worker Distribution'}
+                  </p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-indigo-500" />
-                  <span className="text-slate-600">Workers: {counts?.workers}</span>
+                <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setCompositionMode('job')}
+                    className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                      compositionMode === 'job'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    By Job
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompositionMode('type')}
+                    className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                      compositionMode === 'type'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Staff / Worker
+                  </button>
                 </div>
               </div>
+
+              {(() => {
+                const jobData = distribution?.jobComposition || [];
+                const typeData = distribution?.employeeTypes || [];
+                const totalJobEmployees = jobData.reduce((s: number, j: any) => s + Number(j.value || 0), 0) || counts?.activeEmployees || 1;
+                const totalTypeEmployees = typeData.reduce((s: number, t: any) => s + Number(t.value || 0), 0) || counts?.activeEmployees || 1;
+
+                if (compositionMode === 'job') {
+                  return (
+                    <>
+                      <div className="flex-1 h-80 w-full flex items-center justify-center">
+                        {jobData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={jobData}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={90}
+                                innerRadius={50}
+                                paddingAngle={jobData.length > 1 ? 3 : 0}
+                              >
+                                {jobData.map((_: any, idx: number) => (
+                                  <Cell key={`job-cell-${idx}`} fill={JOB_COLORS[idx % JOB_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(val: any, name: any) => [
+                                  `${val} Employees (${Math.round((Number(val) / totalJobEmployees) * 100)}%)`,
+                                  name,
+                                ]}
+                                contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                            No job designations recorded yet.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-3 max-h-24 overflow-y-auto pr-1">
+                        <div className="flex flex-wrap items-center justify-center gap-x-3.5 gap-y-1.5 text-xs">
+                          {jobData.map((job: any, idx: number) => {
+                            const color = JOB_COLORS[idx % JOB_COLORS.length];
+                            const pct = Math.round((Number(job.value || 0) / totalJobEmployees) * 100);
+                            return (
+                              <div key={job.name} className="flex items-center gap-1.5" title={`${job.name}: ${job.value} (${pct}%)`}>
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                <span className="text-slate-600 truncate max-w-[120px]">{job.name}:</span>
+                                <span className="font-bold text-slate-800">{job.value}</span>
+                                <span className="text-[10px] text-slate-400">({pct}%)</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="flex-1 h-80 w-full flex items-center justify-center">
+                      {typeData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={typeData}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={90}
+                              innerRadius={50}
+                              paddingAngle={4}
+                            >
+                              <Cell fill="#2563eb" />
+                              <Cell fill="#6366f1" />
+                            </Pie>
+                            <Tooltip
+                              formatter={(val: any, name: any) => [
+                                `${val} Employees (${Math.round((Number(val) / totalTypeEmployees) * 100)}%)`,
+                                name,
+                              ]}
+                              contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                          No workforce data available.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-3 flex items-center justify-around text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full bg-blue-600" />
+                        <span className="text-slate-600">Staff: <strong className="text-slate-900">{counts?.staff}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-3 h-3 rounded-full bg-indigo-600" />
+                        <span className="text-slate-600">Workers: <strong className="text-slate-900">{counts?.workers}</strong></span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -659,13 +797,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Document Expiry Monitoring Engine Section */}
-          <DocumentExpiryMonitoringSection
-            onNavigateToEmployees={(filters) => onNavigate('employees', filters)}
-            onNavigateToCompliance={() => onNavigate('compliance')}
-            onNavigateToDocuments={() => onNavigate('documents')}
-          />
-
           {/* Quick Action Navigation Panels */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div
@@ -693,7 +824,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   <Briefcase className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-900">Attendance Ledger</h4>
+                  <h4 className="text-sm font-semibold text-slate-900">Attendance Register</h4>
                   <p className="text-xs text-slate-500">Multi-Project Days & Hours</p>
                 </div>
               </div>

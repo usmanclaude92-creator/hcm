@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   User,
   Phone,
@@ -28,9 +28,13 @@ import {
   Copy,
   Check,
   XCircle,
+  Camera,
+  Crop,
+  Maximize2,
 } from 'lucide-react';
 import { FileUploadComponent, type FileUploadResult } from '../../common/FileUploadComponent';
 import { EmployeeSummaryPrintModal } from '../EmployeeSummaryPrintModal';
+import { ImageCropModal } from '../ImageCropModal';
 import type { Employee, EmployeePersonalDetails, NationalityType } from '../../../types/index';
 import {
   validateBankAccountNumber,
@@ -107,6 +111,72 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
 
   const [bankSubmitAttempted, setBankSubmitAttempted] = useState(false);
   const [isIbanFormattedView, setIsIbanFormattedView] = useState(false);
+
+  // Employee Photo State & Controls
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [selectedImageForCrop, setSelectedImageForCrop] = useState<string | null>(null);
+  const [photoFit, setPhotoFit] = useState<'cover' | 'contain'>('cover');
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const currentPhoto = personalForm.photoUrl || employee?.photoUrl || null;
+
+  const processPhotoFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please select a valid image file (JPG, PNG, WEBP, or GIF).');
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setPhotoError('Photo file size should be less than 12MB.');
+      return;
+    }
+    setPhotoError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setSelectedImageForCrop(dataUrl);
+      setIsCropModalOpen(true);
+    };
+    reader.onerror = () => {
+      setPhotoError('Error reading photo file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      processPhotoFile(file);
+    }
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handlePhotoDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingPhoto(false);
+    if (!canWrite) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processPhotoFile(file);
+    }
+  };
+
+  const handleCropComplete = (croppedDataUrl: string) => {
+    setIsCropModalOpen(false);
+    setSelectedImageForCrop(null);
+    setPersonalForm((prev) => ({
+      ...prev,
+      photoUrl: croppedDataUrl,
+    }));
+  };
+
+  const handleRemovePhoto = () => {
+    setPersonalForm((prev) => ({
+      ...prev,
+      photoUrl: '',
+    }));
+  };
 
   // Field-level validations for Bank Account Number & IBAN
   const accountValidation = useMemo(
@@ -403,6 +473,190 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
                 <Sparkles size={12} /> New Employee Record
               </span>
             )}
+          </div>
+        </div>
+
+        {/* Photo Upload & Identity Header Card */}
+        <div className="mb-5 p-4 bg-slate-50/80 rounded-xl border border-slate-200/80">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+            {/* Photo Avatar Preview & Dropzone */}
+            <div className="flex flex-col items-center sm:items-start shrink-0">
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoSelect}
+                className="hidden"
+                id="employee-photo-upload-input"
+                aria-label="Upload Employee Photo"
+              />
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (canWrite) setIsDraggingPhoto(true);
+                }}
+                onDragLeave={() => setIsDraggingPhoto(false)}
+                onDrop={handlePhotoDrop}
+                onClick={() => {
+                  if (canWrite) photoInputRef.current?.click();
+                }}
+                className={`relative group w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 transition-all flex items-center justify-center cursor-pointer select-none shadow-2xs ${
+                  isDraggingPhoto
+                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-100 scale-102'
+                    : currentPhoto
+                    ? 'border-slate-200 bg-slate-100 hover:border-blue-400'
+                    : 'border-dashed border-slate-300 hover:border-blue-500 bg-white hover:bg-blue-50/40'
+                }`}
+                title={canWrite ? 'Click or drag & drop to upload employee photo' : 'Employee Photo'}
+                role="button"
+                tabIndex={canWrite ? 0 : -1}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && canWrite) {
+                    e.preventDefault();
+                    photoInputRef.current?.click();
+                  }
+                }}
+              >
+                {currentPhoto ? (
+                  <img
+                    src={currentPhoto}
+                    alt={basicInfoForm?.employeeName || employee?.employeeName || 'Employee Photo'}
+                    className={`w-full h-full ${
+                      photoFit === 'contain' ? 'object-contain' : 'object-cover'
+                    } transition-transform duration-200 group-hover:scale-105`}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-2 text-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                      {basicInfoForm?.employeeName || employee?.employeeName ? (
+                        <span className="font-bold text-xs tracking-wider uppercase">
+                          {(basicInfoForm?.employeeName || employee?.employeeName || '')
+                            .split(' ')
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((n: string) => n[0])
+                            .join('')}
+                        </span>
+                      ) : (
+                        <Camera size={20} />
+                      )}
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700">Add Photo</span>
+                    <span className="text-[9px] text-slate-400">Click / Drop</span>
+                  </div>
+                )}
+
+                {/* Hover Overlay if photo exists */}
+                {currentPhoto && canWrite && (
+                  <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white p-2">
+                    <Camera size={18} className="drop-shadow-xs" />
+                    <span className="text-[10px] font-semibold drop-shadow-xs">Change Photo</span>
+                  </div>
+                )}
+
+                {/* Corner Camera Badge Indicator */}
+                {currentPhoto && (
+                  <div className="absolute bottom-1.5 right-1.5 bg-white/95 p-1 rounded-full shadow-xs border border-slate-200 text-slate-600 group-hover:opacity-0 transition-opacity pointer-events-none">
+                    <Camera size={11} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Photo Metadata & Actions */}
+            <div className="flex-1 text-center sm:text-left space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center justify-center sm:justify-start gap-1.5">
+                    <Camera size={14} className="text-blue-600" />
+                    <span>Employee Photo (Headshot)</span>
+                    {currentPhoto ? (
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 size={10} /> Photo Attached
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+                        Recommended
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Official employee photograph used across workforce rosters, digital ID badges, gate pass verification, and print dossiers.
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                {canWrite && (
+                  <div className="flex items-center justify-center sm:justify-end gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      className="text-xs font-semibold px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <UploadCloud size={13} />
+                      <span>{currentPhoto ? 'Change Photo' : 'Upload Photo'}</span>
+                    </button>
+
+                    {currentPhoto && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedImageForCrop(currentPhoto);
+                            setIsCropModalOpen(true);
+                          }}
+                          className="text-xs font-semibold px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                          title="Adjust zoom and frame center"
+                        >
+                          <Crop size={12} className="text-blue-600" />
+                          <span>Crop / Adjust</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPhotoFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
+                          className="text-xs font-semibold px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                          title={photoFit === 'cover' ? 'Fit entire photo' : 'Fill box'}
+                        >
+                          <Maximize2 size={12} className="text-slate-500" />
+                          <span>{photoFit === 'cover' ? 'Fit' : 'Fill'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          className="text-xs font-semibold px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <Trash2 size={12} />
+                          <span>Remove</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Photo Error Banner */}
+              {photoError && (
+                <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] font-medium flex items-center gap-1.5">
+                  <AlertCircle size={13} className="shrink-0" />
+                  <span>{photoError}</span>
+                </div>
+              )}
+
+              {/* Specs description */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5 text-[10px] text-slate-500">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 size={10} className="text-emerald-600" /> JPG, PNG, WEBP
+                </span>
+                <span>•</span>
+                <span>Max 12MB</span>
+                <span>•</span>
+                <span>Passport headshot or clean portrait</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1953,6 +2207,18 @@ export const PersonalInformationTab: React.FC<PersonalInformationTabProps> = ({
           </div>
         </div>
       )}
+      {/* Image Crop & Zoom Modal */}
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        imageSrc={selectedImageForCrop}
+        onClose={() => {
+          setIsCropModalOpen(false);
+          setSelectedImageForCrop(null);
+        }}
+        onCropComplete={handleCropComplete}
+        title="Adjust & Center Employee Photo"
+      />
+
       {/* Print Summary Modal */}
       {employee && (
         <EmployeeSummaryPrintModal

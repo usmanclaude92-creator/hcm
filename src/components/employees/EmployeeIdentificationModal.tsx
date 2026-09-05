@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   X,
   User,
@@ -69,6 +69,7 @@ export interface EmployeeIdentificationModalProps {
   backLabel?: string;
   onClose: () => void;
   onUpdated?: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 interface PendingRegistrationCalloutProps {
@@ -123,6 +124,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   backLabel,
   onClose,
   onUpdated,
+  onDirtyChange,
 }) => {
   const { user, hasPermission } = useAuth();
   const canWrite = hasPermission('compliance.edit');
@@ -277,6 +279,145 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // Unsaved Changes Tracking & Discard Confirmation
+  const serializeForms = useCallback(
+    (
+      b: { employeeId?: string; employeeName?: string; nationalityType?: string },
+      p: any,
+      e: {
+        employeeCompany?: string;
+        designation?: string;
+        employeeType?: string;
+        nationalityType?: string;
+        dateOfJoining?: string;
+        dateOfLeaving?: string;
+        isActive?: boolean;
+        promotionReason?: string;
+      },
+      pay: {
+        wageType?: string;
+        monthlySalaryOrRate?: number | string;
+        wpsEmployee?: string;
+        wpsSalary?: number | string;
+        actualSalary?: number | string;
+        salaryPaidBy?: string;
+        recoverFrom?: string;
+        salaryRevisionReason?: string;
+      }
+    ) => {
+      return JSON.stringify({
+        b: {
+          employeeId: (b.employeeId || '').trim().toUpperCase(),
+          employeeName: (b.employeeName || '').trim(),
+          nationalityType: b.nationalityType || 'Expat',
+        },
+        p: {
+          employeeId: (p?.employeeId || '').trim().toUpperCase(),
+          fatherName: (p?.fatherName || '').trim(),
+          dateOfBirth: p?.dateOfBirth || p?.dob || '',
+          gender: p?.gender || 'Male',
+          maritalStatus: p?.maritalStatus || 'Single',
+          bloodGroup: p?.bloodGroup || '',
+          mobileNumber: (p?.mobileNumber || p?.mobile || '').trim(),
+          personalEmail: (p?.personalEmail || p?.email || '').trim(),
+          currentAddress: (p?.currentAddress || '').trim(),
+          permanentAddress: (p?.permanentAddress || '').trim(),
+          bankName: (p?.bankName || '').trim(),
+          bankAccountNumber: (p?.bankAccountNumber || '').trim(),
+          iban: (p?.iban || '').trim(),
+          qualifications: p?.qualifications || [],
+          skills: p?.skills || [],
+          emergencyContacts: (p?.emergencyContacts || []).map((c: any) => ({
+            name: (c.name || '').trim(),
+            relationship: (c.relationship || '').trim(),
+            contactNumber: (c.contactNumber || c.mobileNumber || '').trim(),
+          })),
+          notes: (p?.notes || p?.hrNotes || '').trim(),
+        },
+        e: {
+          employeeCompany: e.employeeCompany || 'DGO',
+          designation: (e.designation || '').trim(),
+          employeeType: e.employeeType || 'Staff',
+          nationalityType: e.nationalityType || 'Expat',
+          dateOfJoining: e.dateOfJoining || '',
+          dateOfLeaving: e.dateOfLeaving || '',
+          isActive: Boolean(e.isActive),
+          promotionReason: (e.promotionReason || '').trim(),
+        },
+        pay: {
+          wageType: pay.wageType || 'Fixed Monthly',
+          monthlySalaryOrRate: Number(pay.monthlySalaryOrRate) || 0,
+          wpsEmployee: pay.wpsEmployee || 'No',
+          wpsSalary: Number(pay.wpsSalary) || 0,
+          actualSalary: Number(pay.actualSalary) || 0,
+          salaryPaidBy: pay.salaryPaidBy || 'DGO',
+          recoverFrom: (pay.recoverFrom || '').trim(),
+          salaryRevisionReason: (pay.salaryRevisionReason || '').trim(),
+        },
+      });
+    },
+    []
+  );
+
+  const [baselineSnapshot, setBaselineSnapshot] = useState<string>('');
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  const currentSnapshot = useMemo(() => {
+    return serializeForms(basicInfoForm, personalForm, employmentForm, payrollForm);
+  }, [basicInfoForm, personalForm, employmentForm, payrollForm, serializeForms]);
+
+  const isDirty = useMemo(() => {
+    if (!baselineSnapshot) return false;
+    return baselineSnapshot !== currentSnapshot;
+  }, [baselineSnapshot, currentSnapshot]);
+
+  const dirtySections = useMemo(() => {
+    if (!baselineSnapshot || baselineSnapshot === currentSnapshot) return [];
+    const sections: string[] = [];
+    try {
+      const base = JSON.parse(baselineSnapshot);
+      const curr = JSON.parse(currentSnapshot);
+      if (
+        JSON.stringify(base.b) !== JSON.stringify(curr.b) ||
+        JSON.stringify(base.p) !== JSON.stringify(curr.p)
+      ) {
+        sections.push('Personal Information');
+      }
+      if (JSON.stringify(base.e) !== JSON.stringify(curr.e)) {
+        sections.push('Employment & Placement');
+      }
+      if (JSON.stringify(base.pay) !== JSON.stringify(curr.pay)) {
+        sections.push('Compensation & WPS');
+      }
+    } catch {
+      sections.push('Employee Record');
+    }
+    return sections;
+  }, [baselineSnapshot, currentSnapshot]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  const handleSafeClose = () => {
+    if (isDirty) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
   // Fetch full employee compliance data
   const fetchCompliance = async () => {
     if (!currentEmployee) return;
@@ -286,10 +427,14 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       setComplianceData(res);
 
       if (res.personalDetails) {
-        setPersonalForm(res.personalDetails);
+        setPersonalForm({
+          ...res.personalDetails,
+          photoUrl: res.personalDetails.photoUrl || currentEmployee.photoUrl || undefined,
+        });
       } else {
         setPersonalForm({
           employeeId: currentEmployee.employeeId,
+          photoUrl: currentEmployee.photoUrl || undefined,
           gender: 'Male',
           maritalStatus: 'Single',
           qualifications: [],
@@ -372,6 +517,42 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       } catch {
         // non-fatal
       }
+
+      // Establish baseline snapshot for unsaved change tracking
+      const loadedPersonal = res.personalDetails || {
+        employeeId: currentEmployee.employeeId,
+        gender: 'Male',
+        maritalStatus: 'Single',
+        qualifications: [],
+        skills: [],
+        emergencyContacts: [],
+      };
+      const loadedEmployment = {
+        employeeCompany: currentEmployee.employeeCompany,
+        designation: currentEmployee.designation,
+        employeeType: currentEmployee.employeeType,
+        nationalityType: currentEmployee.nationalityType,
+        dateOfJoining: currentEmployee.dateOfJoining,
+        dateOfLeaving: currentEmployee.dateOfLeaving || '',
+        isActive: currentEmployee.isActive,
+        promotionReason: '',
+      };
+      const loadedPayroll = {
+        wageType: currentEmployee.wageType,
+        monthlySalaryOrRate: currentEmployee.monthlySalaryOrRate,
+        wpsEmployee: currentEmployee.wpsEmployee,
+        wpsSalary: currentEmployee.wpsSalary || 0,
+        actualSalary: currentEmployee.actualSalary || currentEmployee.monthlySalaryOrRate,
+        salaryPaidBy: currentEmployee.salaryPaidBy,
+        recoverFrom: currentEmployee.recoverFrom || '',
+        salaryRevisionReason: '',
+      };
+      const loadedBasic = {
+        employeeId: currentEmployee.employeeId,
+        employeeName: currentEmployee.employeeName,
+        nationalityType: currentEmployee.nationalityType,
+      };
+      setBaselineSnapshot(serializeForms(loadedBasic, loadedPersonal, loadedEmployment, loadedPayroll));
     } catch (err: any) {
       setFeedback({
         type: 'error',
@@ -392,41 +573,47 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       });
     } else {
       // Reset all forms cleanly for new employee onboarding
-      setBasicInfoForm({
+      const newBasic = {
         employeeId: '',
         employeeName: '',
-        nationalityType: 'Expat',
-      });
-      setEmploymentForm({
-        employeeCompany: 'DGO',
+        nationalityType: 'Expat' as NationalityType,
+      };
+      const newEmployment = {
+        employeeCompany: 'DGO' as EmployeeCompany,
         designation: '',
-        employeeType: 'Staff',
-        nationalityType: 'Expat',
+        employeeType: 'Staff' as EmployeeType,
+        nationalityType: 'Expat' as NationalityType,
         dateOfJoining: new Date().toISOString().split('T')[0],
         dateOfLeaving: '',
         isActive: true,
         promotionReason: '',
-      });
-      setPayrollForm({
-        wageType: 'Fixed Monthly',
+      };
+      const newPayroll = {
+        wageType: 'Fixed Monthly' as WageType,
         monthlySalaryOrRate: 0,
-        wpsEmployee: 'No',
+        wpsEmployee: 'No' as WPSStatus,
         wpsSalary: 0,
         actualSalary: 0,
-        salaryPaidBy: 'DGO',
+        salaryPaidBy: 'DGO' as SalaryPaidBy,
         recoverFrom: '',
         salaryRevisionReason: '',
-      });
-      setPersonalForm({
+      };
+      const newPersonal = {
         employeeId: '',
         gender: 'Male',
         maritalStatus: 'Single',
         qualifications: [],
         skills: [],
         emergencyContacts: [],
-      });
+      };
+
+      setBasicInfoForm(newBasic);
+      setEmploymentForm(newEmployment);
+      setPayrollForm(newPayroll);
+      setPersonalForm(newPersonal);
       setComplianceData(null);
       setDocCount(0);
+      setBaselineSnapshot(serializeForms(newBasic, newPersonal, newEmployment, newPayroll));
     }
     setActiveTab(initialTab);
   }, [employee, initialTab, isOpen]);
@@ -475,6 +662,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         employeeId: normalizedId,
         employeeName: normName,
         nationalityType: effectiveNat,
+        photoUrl: personalForm.photoUrl || undefined,
         employeeType: employmentForm.employeeType || 'Staff',
         wageType: payrollForm.wageType || 'Fixed Monthly',
         dateOfJoining: employmentForm.dateOfJoining || new Date().toISOString().split('T')[0],
@@ -498,6 +686,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           employeeId: normalizedId,
           employeeName: normName,
           nationalityType: effectiveNat,
+          photoUrl: personalForm.photoUrl || undefined,
         },
       };
 
@@ -555,10 +744,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         }),
       });
 
-      // Synchronize currentEmployee state with updated Name / Nationality
+      // Synchronize currentEmployee state with updated Name / Nationality / Photo
       if (
         basicInfoForm.employeeName !== currentEmployee.employeeName ||
-        basicInfoForm.nationalityType !== currentEmployee.nationalityType
+        basicInfoForm.nationalityType !== currentEmployee.nationalityType ||
+        personalForm.photoUrl !== currentEmployee.photoUrl
       ) {
         setCurrentEmployee((prev: any) =>
           prev
@@ -566,6 +756,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 ...prev,
                 employeeName: basicInfoForm.employeeName,
                 nationalityType: basicInfoForm.nationalityType,
+                photoUrl: personalForm.photoUrl,
               }
             : prev
         );
@@ -799,16 +990,34 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         <div className="flex items-center gap-3">
           {backLabel && (
             <button
-              onClick={onClose}
+              onClick={handleSafeClose}
               className="mr-2 text-slate-400 hover:text-white flex items-center gap-1 text-xs font-semibold cursor-pointer"
             >
               <ArrowLeft size={16} />
               <span>{backLabel}</span>
             </button>
           )}
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white">
-            <User size={18} />
-          </div>
+          {currentEmployee?.photoUrl || personalForm?.photoUrl ? (
+            <img
+              src={currentEmployee?.photoUrl || personalForm?.photoUrl}
+              alt={currentEmployee?.employeeName || basicInfoForm?.employeeName || 'Profile'}
+              className="w-9 h-9 rounded-xl object-cover border border-slate-700 shadow-xs"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+              {currentEmployee?.employeeName || basicInfoForm?.employeeName ? (
+                (currentEmployee?.employeeName || basicInfoForm?.employeeName || '')
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((n: string) => n[0])
+                  .join('')
+                  .toUpperCase()
+              ) : (
+                <User size={18} />
+              )}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold tracking-tight">
@@ -841,7 +1050,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           )}
           {isModalMode && (
             <button
-              onClick={onClose}
+              onClick={handleSafeClose}
               className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X size={20} />
@@ -1213,7 +1422,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleSafeClose}
             className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             Close Dossier
@@ -1226,7 +1435,14 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   return (
     <>
       {isModalMode ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleSafeClose();
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+        >
           {renderContent()}
         </div>
       ) : (
@@ -1902,6 +2118,93 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           personalDetails={personalForm}
           complianceData={complianceData}
         />
+      )}
+
+      {/* DISCARD CHANGES CONFIRMATION DIALOG */}
+      {showDiscardConfirm && (
+        <div
+          id="discard-changes-modal"
+          className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden p-6 space-y-5">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="space-y-1.5 flex-1">
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                  Discard Unsaved Changes?
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  You have unsaved edits in this employee record. If you navigate away now, any modifications made will be lost.
+                </p>
+                {dirtySections.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400 font-medium">Modified:</span>
+                    {dirtySections.map((sec) => (
+                      <span
+                        key={sec}
+                        className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold border border-amber-200/70"
+                      >
+                        {sec}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                id="btn-keep-editing"
+                onClick={() => setShowDiscardConfirm(false)}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                id="btn-discard-confirm"
+                onClick={() => {
+                  setShowDiscardConfirm(false);
+                  onClose();
+                }}
+                className="px-3.5 py-2 text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-colors cursor-pointer"
+              >
+                Discard Changes
+              </button>
+              <button
+                type="button"
+                id="btn-save-exit"
+                disabled={saving}
+                onClick={async () => {
+                  try {
+                    if (!currentEmployee) {
+                      await handleRegisterNewEmployee();
+                    } else if (activeTab === 'personal') {
+                      await handleSavePersonal();
+                    } else if (activeTab === 'employment') {
+                      await handleSaveEmployment();
+                    } else if (activeTab === 'payroll') {
+                      await handleSavePayroll();
+                    } else {
+                      await handleSavePersonal();
+                    }
+                    setShowDiscardConfirm(false);
+                    onClose();
+                  } catch {
+                    // keep dialog open on error
+                  }
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Save size={13} />
+                <span>Save &amp; Exit</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

@@ -7,7 +7,6 @@ import authRouter from './routes/auth.js';
 import employeesRouter from './routes/employees.js';
 import projectsRouter from './routes/projects.js';
 import attendanceRouter from './routes/attendance.js';
-import timesheetsRouter from './routes/timesheets.js';
 import cifRouter from './routes/cif.js';
 import payrollRouter from './routes/payroll.js';
 import paymentsRouter from './routes/payments.js';
@@ -23,6 +22,7 @@ import storageRouter from './routes/storage.js';
 import leaveRouter from './routes/leave.js';
 import gratuityRouter from './routes/gratuity.js';
 import mastersRouter from './routes/masters.js';
+import notificationsRouter from './routes/notifications.js';
 
 // Builds the Express app and ensures the database is initialized. Shared by the
 // traditional long-running entrypoint (server.ts) and the Vercel serverless
@@ -43,7 +43,6 @@ export async function createApp(): Promise<Express> {
   app.use('/api/employees', employeesRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/attendance', attendanceRouter);
-  app.use('/api/timesheets', timesheetsRouter);
   app.use('/api/cif', cifRouter);
   app.use('/api/payroll', payrollRouter);
   app.use('/api/payments', paymentsRouter);
@@ -59,6 +58,7 @@ export async function createApp(): Promise<Express> {
   app.use('/api/leave', leaveRouter);
   app.use('/api/gratuity', gratuityRouter);
   app.use('/api/masters', mastersRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   // Public, pre-authentication. The sign-in screen used to assert "Production-grade
   // PostgreSQL / Persistent Data Store Enabled" as static text regardless of the truth;

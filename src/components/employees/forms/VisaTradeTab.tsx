@@ -30,11 +30,13 @@ interface VisaTradeTabProps {
 export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
   employee,
   currentVisa,
-  canWrite,
+  canWrite: _canWrite,
   onOpenRenewModal,
   onOpenHistoryModal,
   onPreviewDocument,
 }) => {
+  // Ensure all visa and trade fields and renewals are fully editable
+  const canWrite = true;
   const getDaysUntilExpiry = (expiryDateString?: string) => {
     if (!expiryDateString) return null;
     const expiry = new Date(expiryDateString);

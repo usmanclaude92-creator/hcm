@@ -1013,6 +1013,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       iban,
       bankBranch,
       accountHolderName,
+      photoUrl,
       personalDetails,
     } = req.body;
 
@@ -1094,10 +1095,13 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       }
     }
 
+    const effectivePhoto = photoUrl || personalDetails?.photoUrl || undefined;
+
     const newEmployee: Employee = {
       id: crypto.randomUUID(),
       employeeId: normalizedId,
       employeeName: employeeName.trim(),
+      photoUrl: effectivePhoto,
       employeeType,
       nationalityType,
       wageType,
@@ -1126,6 +1130,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     const mergedPersonal = {
       ...(personalDetails && typeof personalDetails === 'object' ? personalDetails : {}),
       employeeId: normalizedId,
+      photoUrl: effectivePhoto,
       bankName: finalBankName,
       bankAccountNumber: finalBankAccountNumber,
       iban: finalIban,
@@ -1186,11 +1191,13 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       iban,
       bankBranch,
       accountHolderName,
+      photoUrl,
       personalDetails,
       salaryRevisionReason,
     } = req.body;
 
     const updates: Partial<Employee> = {};
+    if (photoUrl !== undefined) updates.photoUrl = photoUrl;
     if (employeeName) updates.employeeName = employeeName.trim();
     if (employeeType && isValidEmployeeType(employeeType)) updates.employeeType = employeeType;
     if (nationalityType && isValidNationalityType(nationalityType)) updates.nationalityType = nationalityType;
@@ -1239,6 +1246,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       ...(iban !== undefined ? { iban: String(iban).trim().toUpperCase() } : {}),
       ...(bankBranch !== undefined ? { bankBranch: String(bankBranch).trim() } : {}),
       ...(accountHolderName !== undefined ? { accountHolderName: String(accountHolderName).trim() } : {}),
+      ...(photoUrl !== undefined ? { photoUrl } : {}),
       employeeId: employee.employeeId,
     };
     await db.personalDetails.save(employee.employeeId, mergedPersonal);
@@ -2636,6 +2644,14 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
     }
 
     const saved = await db.personalDetails.save(norm, payload);
+
+    // Synchronize photoUrl back to employee record if provided
+    if (payload.photoUrl !== undefined || payload.avatarUrl !== undefined) {
+      const photoToSync = payload.photoUrl !== undefined ? payload.photoUrl : payload.avatarUrl;
+      await db.employees.update(emp.id, {
+        photoUrl: photoToSync,
+      });
+    }
 
     // Synchronize employeeName and nationalityType if updated from personal info tab
     if (payload.employeeName || payload.nationalityType) {

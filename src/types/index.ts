@@ -298,6 +298,8 @@ export interface EmployeeDocument {
 
 export interface EmployeePersonalDetails {
   employeeId?: string;
+  photoUrl?: string;
+  avatarUrl?: string;
   fatherName?: string;
   dob?: string;
   dateOfBirth?: string;
@@ -413,6 +415,8 @@ export interface Employee {
   id: string;
   employeeId: string;
   employeeName: string;
+  photoUrl?: string;
+  avatarUrl?: string;
   employeeType: EmployeeType;
   nationalityType: NationalityType;
   wageType: WageType;
@@ -886,4 +890,30 @@ export interface AuditLog {
   newValue?: any;
   ipAddress?: string;
   timestamp: string;
+}
+
+export interface SystemNotification {
+  id: string;
+  category: 'visa' | 'payroll' | 'attendance';
+  type: 'visa_expiring' | 'visa_expired' | 'payroll_draft' | 'payroll_revision' | 'attendance_approval';
+  severity: 'urgent' | 'warning' | 'info';
+  title: string;
+  message: string;
+  timestamp: string;
+  date: string;
+  daysRemaining?: number;
+  status: string;
+  metadata: Record<string, any>;
+  action: {
+    view: string;
+    params?: Record<string, any>;
+    label: string;
+  };
+}
+
+export interface NotificationSummary {
+  total: number;
+  visaAlertsCount: number;
+  payrollApprovalsCount: number;
+  urgentCount: number;
 }

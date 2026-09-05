@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -19,14 +19,28 @@ import {
   DollarSign,
   ShieldAlert,
   Search,
+  Filter,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import type { MonthlyPayroll, PayrollLine, PayrollRevision, PaymentMethod } from '../../types/index';
 
 type ReceiptStatus = 'Attached' | 'Attachment Pending' | 'No Payments';
 
-export const PayrollView: React.FC = () => {
+export interface PayrollViewProps {
+  initialMonth?: string;
+}
+
+export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
   const { canWrite, isManager } = useAuth();
-  const [month, setMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [month, setMonth] = useState<string>(() => initialMonth || new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    if (initialMonth && initialMonth !== month) {
+      setMonth(initialMonth);
+    }
+  }, [initialMonth]);
   const [payroll, setPayroll] = useState<MonthlyPayroll | null>(null);
   const [lines, setLines] = useState<PayrollLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +56,8 @@ export const PayrollView: React.FC = () => {
   const [wpsFilter, setWpsFilter] = useState('ALL'); // ALL | WPS | Non-WPS (line.paymentMethod)
   const [wageTypeFilter, setWageTypeFilter] = useState('ALL');
   const [receiptStatusFilter, setReceiptStatusFilter] = useState('ALL');
+  const [projectFilter, setProjectFilter] = useState('ALL');
+  const [jobFilter, setJobFilter] = useState('ALL');
   // Side data joined in purely for filtering -- Employee Master's live isActive flag,
   // and Salary Payments' per-employee receipt status for this month. Read-only lookups;
   // failure to load either just leaves those filters inert rather than breaking the page.
@@ -51,6 +67,225 @@ export const PayrollView: React.FC = () => {
   // older lines written before wageType was authoritative.
   const isLineHourly = (line: PayrollLine) =>
     line.wageType === 'Per Hour' || (line.wageType !== 'Fixed Monthly' && line.employeeType === 'Worker');
+
+  // Column sorting state
+  type PayrollSortColumn =
+    | 'default'
+    | 'srNo'
+    | 'company'
+    | 'payBy'
+    | 'wps'
+    | 'project'
+    | 'type'
+    | 'nationality'
+    | 'employee'
+    | 'worked'
+    | 'rate'
+    | 'gross'
+    | 'overtime'
+    | 'bonus'
+    | 'additions'
+    | 'deductions'
+    | 'netSalary'
+    | 'method'
+    | 'wpsRecoverable';
+
+  const [sortColumn, setSortColumn] = useState<PayrollSortColumn>('default');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Resizable columns configuration & state
+  const DEFAULT_PAYROLL_COLUMN_WIDTHS: Record<string, number> = {
+    srNo: 55,
+    company: 110,
+    payBy: 110,
+    wps: 85,
+    project: 150,
+    type: 80,
+    nationality: 105,
+    employee: 210,
+    worked: 95,
+    rate: 95,
+    gross: 115,
+    overtime: 90,
+    bonus: 90,
+    additions: 100,
+    deductions: 100,
+    netSalary: 125,
+    method: 95,
+    wpsRecoverable: 110,
+    action: 70,
+  };
+
+  const MIN_PAYROLL_COLUMN_WIDTHS: Record<string, number> = {
+    srNo: 40,
+    company: 75,
+    payBy: 75,
+    wps: 60,
+    project: 90,
+    type: 60,
+    nationality: 70,
+    employee: 130,
+    worked: 65,
+    rate: 70,
+    gross: 75,
+    overtime: 65,
+    bonus: 65,
+    additions: 70,
+    deductions: 70,
+    netSalary: 85,
+    method: 65,
+    wpsRecoverable: 75,
+    action: 55,
+  };
+
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('payroll_col_widths_v1');
+      if (saved) {
+        return { ...DEFAULT_PAYROLL_COLUMN_WIDTHS, ...JSON.parse(saved) };
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_PAYROLL_COLUMN_WIDTHS;
+  });
+
+  const resizingRef = useRef<{
+    colKey: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+
+  const handleStartResize = (e: React.MouseEvent, colKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startWidth = columnWidths[colKey] || DEFAULT_PAYROLL_COLUMN_WIDTHS[colKey] || 100;
+    resizingRef.current = {
+      colKey,
+      startX: e.clientX,
+      startWidth,
+    };
+    setResizingCol(colKey);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const { colKey, startX, startWidth } = resizingRef.current;
+      const deltaX = e.clientX - startX;
+      const minW = MIN_PAYROLL_COLUMN_WIDTHS[colKey] || 50;
+      const newWidth = Math.max(minW, startWidth + deltaX);
+      setColumnWidths(prev => ({
+        ...prev,
+        [colKey]: newWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      if (resizingRef.current) {
+        resizingRef.current = null;
+        setResizingCol(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        setColumnWidths(current => {
+          try {
+            localStorage.setItem('payroll_col_widths_v1', JSON.stringify(current));
+          } catch {
+            // ignore
+          }
+          return current;
+        });
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleResetColumnWidth = (colKey: string) => {
+    setColumnWidths(prev => {
+      const next = { ...prev, [colKey]: DEFAULT_PAYROLL_COLUMN_WIDTHS[colKey] };
+      try {
+        localStorage.setItem('payroll_col_widths_v1', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const handleResetAllColumns = () => {
+    setColumnWidths(DEFAULT_PAYROLL_COLUMN_WIDTHS);
+    try {
+      localStorage.removeItem('payroll_col_widths_v1');
+    } catch {
+      // ignore
+    }
+  };
+
+  const isColumnsResized = Object.keys(DEFAULT_PAYROLL_COLUMN_WIDTHS).some(
+    k => columnWidths[k] !== DEFAULT_PAYROLL_COLUMN_WIDTHS[k]
+  );
+
+  const canEditLines = canWrite && payroll?.status !== 'Finalized';
+  const totalTableWidth = (Object.entries(columnWidths) as [string, number][])
+    .filter(([key]) => key !== 'action' || canEditLines)
+    .reduce((sum, [, w]) => sum + (Number(w) || 0), 0);
+
+  const handleSort = (column: PayrollSortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortColumn('default');
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (column: PayrollSortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="w-3 h-3 text-indigo-600 ml-1 shrink-0 font-bold" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-indigo-600 ml-1 shrink-0 font-bold" />
+    );
+  };
+
+  const renderResizer = (colKey: string, colTitle: string) => (
+    <div
+      role="separator"
+      aria-label={`Resize column ${colTitle}`}
+      onMouseDown={(e) => handleStartResize(e, colKey)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        handleResetColumnWidth(colKey);
+      }}
+      className={`absolute right-0 top-0 bottom-0 w-3 cursor-col-resize select-none touch-none flex items-center justify-center z-20 group/resizer ${
+        resizingCol === colKey ? 'bg-indigo-400/20' : 'hover:bg-slate-300/40'
+      }`}
+      title="Drag to resize • Double-click to reset width"
+    >
+      <div
+        className={`w-[2px] h-4 rounded-full transition-colors ${
+          resizingCol === colKey ? 'bg-indigo-600' : 'bg-slate-300 group-hover/resizer:bg-indigo-500'
+        }`}
+      />
+    </div>
+  );
 
   // Line Editing Modal
   const [editingLine, setEditingLine] = useState<PayrollLine | null>(null);
@@ -140,8 +375,45 @@ export const PayrollView: React.FC = () => {
   // Overtime hours now live on the payroll line itself (and are paid), so the sheet no
   // longer needs a second fetch of the attendance ledger to display them.
 
+  const availableProjects = useMemo(() => {
+    return Array.from(new Set(lines.map(l => l.projectsSummary).filter(Boolean))).sort();
+  }, [lines]);
+
+  const availableJobs = useMemo(() => {
+    return Array.from(new Set(lines.map(l => (l.designation || '').trim()).filter(Boolean))).sort();
+  }, [lines]);
+
+  const runDefaultSort = (a: PayrollLine, b: PayrollLine) => {
+    const companyRank = (c: string) => (c === 'DGO' ? 0 : 1);
+    const companyRankCmp = companyRank(a.employeeCompany) - companyRank(b.employeeCompany);
+    if (companyRankCmp !== 0) return companyRankCmp;
+    const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
+    if (companyCmp !== 0) return companyCmp;
+
+    const paidByCmp = (a.salaryPaidBy || '').localeCompare(b.salaryPaidBy || '');
+    if (paidByCmp !== 0) return paidByCmp;
+
+    const wpsLabel = (l: typeof a) => (l.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS');
+    const wpsCmp = wpsLabel(a).localeCompare(wpsLabel(b));
+    if (wpsCmp !== 0) return wpsCmp;
+
+    const typeCmp = (a.employeeType || '').localeCompare(b.employeeType || '');
+    if (typeCmp !== 0) return typeCmp;
+
+    const nationalityRank = (n?: string) => (n === 'Omani' ? 0 : 1);
+    const natRankCmp = nationalityRank(a?.nationalityType) - nationalityRank(b?.nationalityType);
+    if (natRankCmp !== 0) return natRankCmp;
+    const natCmp = (a?.nationalityType || '').localeCompare(b?.nationalityType || '');
+    if (natCmp !== 0) return natCmp;
+
+    const projectCmp = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');
+    if (projectCmp !== 0) return projectCmp;
+
+    return (a.employeeName || '').localeCompare(b.employeeName || '');
+  };
+
   const filteredLines = useMemo(() => {
-    return lines.filter((line) => {
+    const filtered = lines.filter((line) => {
       if (search) {
         const q = search.trim().toLowerCase();
         if (!line.employeeId.toLowerCase().includes(q) && !line.employeeName.toLowerCase().includes(q)) return false;
@@ -152,43 +424,105 @@ export const PayrollView: React.FC = () => {
       if (paidByFilter !== 'ALL' && line.salaryPaidBy !== paidByFilter) return false;
       if (wpsFilter !== 'ALL' && line.paymentMethod !== wpsFilter) return false;
       if (wageTypeFilter !== 'ALL' && line.wageType !== wageTypeFilter) return false;
+      if (projectFilter !== 'ALL' && line.projectsSummary !== projectFilter) return false;
+      if (jobFilter !== 'ALL' && (line.designation || '').trim() !== jobFilter) return false;
       if (receiptStatusFilter !== 'ALL') {
         const rs = receiptStatusMap[line.employeeId] || 'No Payments';
         if (rs !== receiptStatusFilter) return false;
       }
       return true;
-    }).sort((a, b) => {
-      // Display priority: Company (DGO ranked first, then A-Z) -> Pay By A-Z ->
-      // WPS A-Z (Non-WPS before WPS) -> Type A-Z -> Nationality (Omani first, then
-      // others A-Z) -> Project A-Z -> Employee Name A-Z (final tie-breaker).
-      const companyRank = (c: string) => (c === 'DGO' ? 0 : 1);
-      const companyRankCmp = companyRank(a.employeeCompany) - companyRank(b.employeeCompany);
-      if (companyRankCmp !== 0) return companyRankCmp;
-      const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
-      if (companyCmp !== 0) return companyCmp;
-
-      const paidByCmp = (a.salaryPaidBy || '').localeCompare(b.salaryPaidBy || '');
-      if (paidByCmp !== 0) return paidByCmp;
-
-      const wpsLabel = (l: typeof a) => (l.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS');
-      const wpsCmp = wpsLabel(a).localeCompare(wpsLabel(b));
-      if (wpsCmp !== 0) return wpsCmp;
-
-      const typeCmp = (a.employeeType || '').localeCompare(b.employeeType || '');
-      if (typeCmp !== 0) return typeCmp;
-
-      const nationalityRank = (n?: string) => (n === 'Omani' ? 0 : 1);
-      const natRankCmp = nationalityRank(a?.nationalityType) - nationalityRank(b?.nationalityType);
-      if (natRankCmp !== 0) return natRankCmp;
-      const natCmp = (a?.nationalityType || '').localeCompare(b?.nationalityType || '');
-      if (natCmp !== 0) return natCmp;
-
-      const projectCmp = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');
-      if (projectCmp !== 0) return projectCmp;
-
-      return (a.employeeName || '').localeCompare(b.employeeName || '');
     });
-  }, [lines, search, statusFilter, companyFilter, paidByFilter, wpsFilter, wageTypeFilter, receiptStatusFilter, employeeActiveMap, receiptStatusMap]);
+
+    if (sortColumn === 'default') {
+      return [...filtered].sort(runDefaultSort);
+    }
+
+    return [...filtered].sort((a, b) => {
+      let diff = 0;
+      switch (sortColumn) {
+        case 'srNo':
+          diff = 0;
+          break;
+        case 'company':
+          diff = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
+          break;
+        case 'payBy':
+          diff = (a.salaryPaidBy || '').localeCompare(b.salaryPaidBy || '');
+          break;
+        case 'wps':
+          diff = (a.wpsEmployee || '').localeCompare(b.wpsEmployee || '');
+          break;
+        case 'project':
+          diff = (a.projectsSummary || '').localeCompare(b.projectsSummary || '');
+          break;
+        case 'type':
+          diff = (a.employeeType || '').localeCompare(b.employeeType || '');
+          break;
+        case 'nationality':
+          diff = (a.nationalityType || '').localeCompare(b.nationalityType || '');
+          break;
+        case 'employee':
+          diff = (a.employeeName || '').localeCompare(b.employeeName || '');
+          break;
+        case 'worked': {
+          const aWork = a.employeeType === 'Staff' ? a.daysWorked : a.hoursWorked;
+          const bWork = b.employeeType === 'Staff' ? b.daysWorked : b.hoursWorked;
+          diff = aWork - bWork;
+          break;
+        }
+        case 'rate':
+          diff = (Number(a.basicSalaryOrRate) || 0) - (Number(b.basicSalaryOrRate) || 0);
+          break;
+        case 'gross':
+          diff = (Number(a.grossSalary) || 0) - (Number(b.grossSalary) || 0);
+          break;
+        case 'overtime':
+          // Overtime now lives on the payroll line itself (and is paid), so it sorts from
+          // the line rather than from a separate attendance lookup.
+          diff = (Number(a.overtimeHours) || 0) - (Number(b.overtimeHours) || 0);
+          break;
+        case 'bonus':
+          diff = (Number(a.bonus) || 0) - (Number(b.bonus) || 0);
+          break;
+        case 'additions':
+          diff = (Number(a.totalAdditions) || 0) - (Number(b.totalAdditions) || 0);
+          break;
+        case 'deductions':
+          diff = (Number(a.totalDeductions) || 0) - (Number(b.totalDeductions) || 0);
+          break;
+        case 'netSalary':
+          diff = (Number(a.netSalary) || 0) - (Number(b.netSalary) || 0);
+          break;
+        case 'method':
+          diff = (a.paymentMethod || '').localeCompare(b.paymentMethod || '');
+          break;
+        case 'wpsRecoverable':
+          diff = (Number(a.recoverableSalary) || 0) - (Number(b.recoverableSalary) || 0);
+          break;
+        default:
+          return runDefaultSort(a, b);
+      }
+      if (diff !== 0) {
+        return sortDirection === 'asc' ? diff : -diff;
+      }
+      return runDefaultSort(a, b);
+    });
+  }, [
+    lines,
+    search,
+    statusFilter,
+    companyFilter,
+    paidByFilter,
+    wpsFilter,
+    wageTypeFilter,
+    projectFilter,
+    jobFilter,
+    receiptStatusFilter,
+    employeeActiveMap,
+    receiptStatusMap,
+    sortColumn,
+    sortDirection,
+  ]);
 
   const filteredSummary = useMemo(() => ({
     totalEmployees: filteredLines.length,
@@ -201,7 +535,8 @@ export const PayrollView: React.FC = () => {
 
   const isFiltering = Boolean(
     search || statusFilter !== 'ALL' || companyFilter !== 'ALL' || paidByFilter !== 'ALL' ||
-    wpsFilter !== 'ALL' || wageTypeFilter !== 'ALL' || receiptStatusFilter !== 'ALL'
+    wpsFilter !== 'ALL' || wageTypeFilter !== 'ALL' || receiptStatusFilter !== 'ALL' ||
+    projectFilter !== 'ALL' || jobFilter !== 'ALL'
   );
 
   const handleResetFilters = () => {
@@ -212,6 +547,8 @@ export const PayrollView: React.FC = () => {
     setWpsFilter('ALL');
     setWageTypeFilter('ALL');
     setReceiptStatusFilter('ALL');
+    setProjectFilter('ALL');
+    setJobFilter('ALL');
   };
 
   const handleRunCalculation = async () => {
@@ -536,7 +873,7 @@ export const PayrollView: React.FC = () => {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 flex-1 min-w-0">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 flex-1 min-w-0">
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">All Statuses</option>
                 <option value="active">Active</option>
@@ -567,6 +904,18 @@ export const PayrollView: React.FC = () => {
                 <option value="Per Hour">Per Hour</option>
                 <option value="Fixed Monthly">Fixed Monthly</option>
               </select>
+              <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 truncate">
+                <option value="ALL">All Projects</option>
+                {availableProjects.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              <select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 truncate">
+                <option value="ALL">All Designations</option>
+                {availableJobs.map((j) => (
+                  <option key={j} value={j}>{j}</option>
+                ))}
+              </select>
               <select value={receiptStatusFilter} onChange={(e) => setReceiptStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">All Receipts</option>
                 <option value="Attached">Attached</option>
@@ -584,54 +933,287 @@ export const PayrollView: React.FC = () => {
               Reset Filters
             </button>
           </div>
-          {isFiltering && (
-            <p className="text-[11px] text-slate-500">
-              Showing {filteredLines.length} of {lines.length} employee{lines.length === 1 ? '' : 's'} matching current filters.
-            </p>
-          )}
+          <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 gap-2">
+            <span>
+              Showing <strong className="text-slate-700 font-semibold">{filteredLines.length}</strong> of {lines.length} employee{lines.length === 1 ? '' : 's'}
+              {isFiltering && ' (filtered)'}
+            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-slate-400">
+                Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Company > Pay By > WPS > Name' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+              </span>
+              {sortColumn !== 'default' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortColumn('default');
+                    setSortDirection('asc');
+                  }}
+                  className="text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                >
+                  Reset Sort
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
       {/* Main Payroll Sheet Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* Table Resizing & Controls Toolbar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-slate-700">Payroll Register</span>
+            <span className="text-slate-300">•</span>
+            <span className="text-slate-500 text-[11px]">
+              Drag column edges to resize • Double-click edge to reset width
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isColumnsResized && (
+              <button
+                type="button"
+                onClick={handleResetAllColumns}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded shadow-2xs transition-colors cursor-pointer"
+                title="Reset all column widths to default"
+              >
+                <RotateCcw className="w-3 h-3 text-slate-500" />
+                Reset Columns
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+          <table
+            className="w-full text-left text-xs table-fixed border-collapse"
+            style={{ minWidth: `${totalTableWidth}px` }}
+          >
+            <colgroup>
+              <col style={{ width: `${columnWidths.srNo || DEFAULT_PAYROLL_COLUMN_WIDTHS.srNo}px` }} />
+              <col style={{ width: `${columnWidths.company || DEFAULT_PAYROLL_COLUMN_WIDTHS.company}px` }} />
+              <col style={{ width: `${columnWidths.payBy || DEFAULT_PAYROLL_COLUMN_WIDTHS.payBy}px` }} />
+              <col style={{ width: `${columnWidths.wps || DEFAULT_PAYROLL_COLUMN_WIDTHS.wps}px` }} />
+              <col style={{ width: `${columnWidths.project || DEFAULT_PAYROLL_COLUMN_WIDTHS.project}px` }} />
+              <col style={{ width: `${columnWidths.type || DEFAULT_PAYROLL_COLUMN_WIDTHS.type}px` }} />
+              <col style={{ width: `${columnWidths.nationality || DEFAULT_PAYROLL_COLUMN_WIDTHS.nationality}px` }} />
+              <col style={{ width: `${columnWidths.employee || DEFAULT_PAYROLL_COLUMN_WIDTHS.employee}px` }} />
+              <col style={{ width: `${columnWidths.worked || DEFAULT_PAYROLL_COLUMN_WIDTHS.worked}px` }} />
+              <col style={{ width: `${columnWidths.rate || DEFAULT_PAYROLL_COLUMN_WIDTHS.rate}px` }} />
+              <col style={{ width: `${columnWidths.gross || DEFAULT_PAYROLL_COLUMN_WIDTHS.gross}px` }} />
+              <col style={{ width: `${columnWidths.overtime || DEFAULT_PAYROLL_COLUMN_WIDTHS.overtime}px` }} />
+              <col style={{ width: `${columnWidths.bonus || DEFAULT_PAYROLL_COLUMN_WIDTHS.bonus}px` }} />
+              <col style={{ width: `${columnWidths.additions || DEFAULT_PAYROLL_COLUMN_WIDTHS.additions}px` }} />
+              <col style={{ width: `${columnWidths.deductions || DEFAULT_PAYROLL_COLUMN_WIDTHS.deductions}px` }} />
+              <col style={{ width: `${columnWidths.netSalary || DEFAULT_PAYROLL_COLUMN_WIDTHS.netSalary}px` }} />
+              <col style={{ width: `${columnWidths.method || DEFAULT_PAYROLL_COLUMN_WIDTHS.method}px` }} />
+              <col style={{ width: `${columnWidths.wpsRecoverable || DEFAULT_PAYROLL_COLUMN_WIDTHS.wpsRecoverable}px` }} />
+              {canEditLines && (
+                <col style={{ width: `${columnWidths.action || DEFAULT_PAYROLL_COLUMN_WIDTHS.action}px` }} />
+              )}
+            </colgroup>
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider select-none">
               <tr>
-                <th className="px-3 py-3">Sr#</th>
-                <th className="px-3 py-3">Company</th>
-                <th className="px-3 py-3">Pay By</th>
-                <th className="px-3 py-3 text-center">WPS</th>
-                <th className="px-3 py-3">Project</th>
-                <th className="px-3 py-3">Type</th>
-                <th className="px-3 py-3">Nationality</th>
-                <th className="px-4 py-3">Employee</th>
-                <th className="px-3 py-3 text-right">Worked</th>
-                <th className="px-3 py-3 text-right">Rate</th>
-                <th className="px-3 py-3 text-right">Gross (OMR)</th>
-                <th className="px-3 py-3 text-right">Overtime</th>
-                <th className="px-3 py-3 text-right">Bonus</th>
-                <th className="px-3 py-3 text-right">Additions</th>
-                <th className="px-3 py-3 text-right">Deductions</th>
-                <th className="px-4 py-3 text-right font-bold text-blue-900">Net / Total</th>
-                <th className="px-3 py-3 text-center">Method</th>
-                <th className="px-3 py-3 text-right">WPS Recov.</th>
-                {canWrite && payroll?.status !== 'Finalized' && (
-                  <th className="px-3 py-3 text-right">Edit</th>
+                <th
+                  onClick={() => handleSort('srNo')}
+                  className="px-3 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Sr#</span>
+                    {renderSortIcon('srNo')}
+                  </div>
+                  {renderResizer('srNo', 'Sr#')}
+                </th>
+                <th
+                  onClick={() => handleSort('company')}
+                  className="px-3 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Company</span>
+                    {renderSortIcon('company')}
+                  </div>
+                  {renderResizer('company', 'Company')}
+                </th>
+                <th
+                  onClick={() => handleSort('payBy')}
+                  className="px-3 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Pay By</span>
+                    {renderSortIcon('payBy')}
+                  </div>
+                  {renderResizer('payBy', 'Pay By')}
+                </th>
+                <th
+                  onClick={() => handleSort('wps')}
+                  className="px-3 py-3 text-center relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-center">
+                    <span className="truncate">WPS</span>
+                    {renderSortIcon('wps')}
+                  </div>
+                  {renderResizer('wps', 'WPS')}
+                </th>
+                <th
+                  onClick={() => handleSort('project')}
+                  className="px-3 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Project</span>
+                    {renderSortIcon('project')}
+                  </div>
+                  {renderResizer('project', 'Project')}
+                </th>
+                <th
+                  onClick={() => handleSort('type')}
+                  className="px-3 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Type</span>
+                    {renderSortIcon('type')}
+                  </div>
+                  {renderResizer('type', 'Type')}
+                </th>
+                <th
+                  onClick={() => handleSort('nationality')}
+                  className="px-3 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Nationality</span>
+                    {renderSortIcon('nationality')}
+                  </div>
+                  {renderResizer('nationality', 'Nationality')}
+                </th>
+                <th
+                  onClick={() => handleSort('employee')}
+                  className="px-4 py-3 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="truncate">Employee</span>
+                    {renderSortIcon('employee')}
+                  </div>
+                  {renderResizer('employee', 'Employee')}
+                </th>
+                <th
+                  onClick={() => handleSort('worked')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Worked</span>
+                    {renderSortIcon('worked')}
+                  </div>
+                  {renderResizer('worked', 'Worked')}
+                </th>
+                <th
+                  onClick={() => handleSort('rate')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Rate</span>
+                    {renderSortIcon('rate')}
+                  </div>
+                  {renderResizer('rate', 'Rate')}
+                </th>
+                <th
+                  onClick={() => handleSort('gross')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Gross (OMR)</span>
+                    {renderSortIcon('gross')}
+                  </div>
+                  {renderResizer('gross', 'Gross')}
+                </th>
+                <th
+                  onClick={() => handleSort('overtime')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Overtime</span>
+                    {renderSortIcon('overtime')}
+                  </div>
+                  {renderResizer('overtime', 'Overtime')}
+                </th>
+                <th
+                  onClick={() => handleSort('bonus')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Bonus</span>
+                    {renderSortIcon('bonus')}
+                  </div>
+                  {renderResizer('bonus', 'Bonus')}
+                </th>
+                <th
+                  onClick={() => handleSort('additions')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Additions</span>
+                    {renderSortIcon('additions')}
+                  </div>
+                  {renderResizer('additions', 'Additions')}
+                </th>
+                <th
+                  onClick={() => handleSort('deductions')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Deductions</span>
+                    {renderSortIcon('deductions')}
+                  </div>
+                  {renderResizer('deductions', 'Deductions')}
+                </th>
+                <th
+                  onClick={() => handleSort('netSalary')}
+                  className="px-4 py-3 text-right font-bold text-blue-900 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">Net / Total</span>
+                    {renderSortIcon('netSalary')}
+                  </div>
+                  {renderResizer('netSalary', 'Net / Total')}
+                </th>
+                <th
+                  onClick={() => handleSort('method')}
+                  className="px-3 py-3 text-center relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-center">
+                    <span className="truncate">Method</span>
+                    {renderSortIcon('method')}
+                  </div>
+                  {renderResizer('method', 'Method')}
+                </th>
+                <th
+                  onClick={() => handleSort('wpsRecoverable')}
+                  className="px-3 py-3 text-right relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                >
+                  <div className="flex items-center justify-end">
+                    <span className="truncate">WPS Recov.</span>
+                    {renderSortIcon('wpsRecoverable')}
+                  </div>
+                  {renderResizer('wpsRecoverable', 'WPS Recov.')}
+                </th>
+                {canEditLines && (
+                  <th className="px-3 py-3 text-right relative">
+                    <span className="truncate">Edit</span>
+                    {renderResizer('action', 'Edit')}
+                  </th>
                 )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {lines.length === 0 ? (
                 <tr>
-                  <td colSpan={18} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={canEditLines ? 19 : 18} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold">No payroll calculated yet for {month}.</p>
                     <p className="text-xs mt-1">Ensure attendance is recorded, then click "Calculate / Re-Run Payroll".</p>
                   </td>
                 </tr>
               ) : filteredLines.length === 0 ? (
                 <tr>
-                  <td colSpan={18} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={canEditLines ? 19 : 18} className="px-6 py-12 text-center text-slate-400">
                     <p className="text-sm font-semibold">No employees match the current filters.</p>
                     <button
                       type="button"
@@ -717,7 +1299,7 @@ export const PayrollView: React.FC = () => {
                       title={
                         (line.overtimeHours || 0) > 0
                           ? `${line.overtimeHours}h at OMR ${formatOMR(line.overtimeRate || 0)}/h = OMR ${formatOMR(line.overtimePay || 0)}, included in Additions`
-                          : 'No overtime recorded in the Attendance Ledger'
+                          : 'No overtime recorded in the Attendance Register'
                       }
                     >
                       {(line.overtimeHours || 0) > 0

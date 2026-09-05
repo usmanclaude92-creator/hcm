@@ -5,16 +5,18 @@ import {
   User,
   ShieldCheck,
   Building2,
-  Bell,
   CheckCircle2,
   Menu,
+  Timer,
 } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
+  onNavigate?: (view: string, params?: Record<string, any>) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onNavigate }) => {
   const { user, logout, isAdmin, isDemoMode } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -44,6 +46,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Notification Bell */}
+        <NotificationBell onNavigate={onNavigate} />
+
         {/* User Role Badge */}
         <div className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${getRoleBadgeColor(user?.role)}`}>
           <ShieldCheck className="w-3.5 h-3.5" />
@@ -85,6 +90,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   <span className="font-semibold text-emerald-600 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Online
                   </span>
+                </div>
+                <div className="px-3 py-1.5 text-xs text-slate-600 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Timer className="w-3 h-3 text-slate-400" />
+                    Idle Timeout:
+                  </span>
+                  <span className="font-semibold text-slate-900">15 min</span>
                 </div>
               </div>
 

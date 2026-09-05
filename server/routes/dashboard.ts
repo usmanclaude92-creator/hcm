@@ -62,6 +62,16 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     const omani = activeEmployees.filter(e => e.nationalityType === 'Omani');
     const expat = activeEmployees.filter(e => e.nationalityType === 'Expat');
 
+    // Job / Designation distribution for active workforce
+    const jobMap: Record<string, number> = {};
+    activeEmployees.forEach(e => {
+      const job = (e.designation || 'General Worker').trim();
+      jobMap[job] = (jobMap[job] || 0) + 1;
+    });
+    const jobComposition = Object.entries(jobMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
     const payrolls = db.payroll.getAll().sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth));
     const allMonthsAsc = [...payrolls].map(p => p.payrollMonth).sort((a, b) => a.localeCompare(b));
     const latestPayroll = payrolls[0] || null;
@@ -293,6 +303,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
           { name: 'Staff', value: staff.length },
           { name: 'Workers', value: workers.length },
         ],
+        jobComposition,
         nationalities: [
           { name: 'Omani', value: omani.length },
           { name: 'Expat', value: expat.length },
