@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { apiRequest } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDropdown';
 import { EmployeeDeploymentCard, type WorkforceShiftStatus } from './EmployeeDeploymentCard';
-import { Search, RotateCcw, Building } from 'lucide-react';
+import { Search, RotateCcw, Building, RefreshCw } from 'lucide-react';
 
 const HEAD_OFFICE_KEY = 'HEAD_OFFICE';
 const POLL_INTERVAL_MS = 60000;
@@ -83,13 +84,36 @@ interface WorkforceDeploymentViewProps {
 }
 
 export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle, WorkforceDeploymentViewProps>(({ onStatusChange, onSelectEmployee }, ref) => {
+  const { isAdmin } = useAuth();
   const [grouped, setGrouped] = useState<AttendanceGroupRow[]>([]);
   const [allProjects, setAllProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [shiftStatusByEmployee, setShiftStatusByEmployee] = useState<Record<string, WorkforceShiftStatus>>({});
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Pushes active employees (by Civil ID) into the Artify Workforce app's eligibility
+  // list so they can register there. Administrator only -- see server/routes/workforce.ts.
+  const handleSyncEligibility = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const data = await apiRequest('/api/workforce/sync-eligibility', { method: 'POST' });
+      const s = data?.summary;
+      setSyncMessage(
+        s
+          ? `Synced ${data.synced} employee(s): ${s.lookupUpserted} eligibility record(s) upserted, ${s.employeesRefreshed} already-registered profile(s) refreshed${s.projectsCreated ? `, ${s.projectsCreated} new site(s) created (set their real coordinates in Workforce)` : ''}.`
+          : 'Sync completed.'
+      );
+    } catch (err: any) {
+      setSyncMessage(err.message || 'Sync with Workforce failed.');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string[]>(COMPANY_OPTIONS.map(o => o.value));
@@ -277,6 +301,9 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">{error}</div>
       )}
+      {syncMessage && (
+        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-700 text-xs">{syncMessage}</div>
+      )}
 
       {/* Filter Bar */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
@@ -307,6 +334,18 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
             <RotateCcw className="w-3.5 h-3.5" />
             Reset Filters
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={handleSyncEligibility}
+              disabled={syncing}
+              title="Push active employees' Civil ID, name, phone, company and site to the Artify Workforce app so they can register there."
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing…' : 'Sync with Workforce App'}
+            </button>
+          )}
         </div>
       </div>
 

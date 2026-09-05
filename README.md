@@ -47,7 +47,7 @@ npm run build    # vite build + esbuild server bundle
 | `SUPABASE_DOCUMENTS_BUCKET` | Optional | Defaults to `employee-documents`. |
 | `SUPABASE_RECEIPTS_BUCKET` | Optional | Defaults to `salary-payment-receipts`. |
 | `GEMINI_API_KEY` | Optional | Enables the compliance assistant. Without it, a deterministic rule-based responder is used instead. |
-| `WORKFORCE_SHIFT_STATUS_URL` / `WORKFORCE_SHIFT_STATUS_SECRET` | Optional | Populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard's employee cards from the Artify Workforce app's live clock-in/clock-out data. Without these, cards show "Not Tracked" as before. |
+| `WORKFORCE_FUNCTIONS_URL` / `WORKFORCE_INTEGRATION_SECRET` | Optional | Links to the Artify Workforce app by Civil ID (see "Workforce app integration" below): populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard, and lets Administrators sync eligible employees over so they can register there. Without these, cards show "Not Tracked" as before and the sync endpoint is disabled. |
 | `DB_CONNECT_TIMEOUT_MS` | Optional | Database connect timeout, default 10000. |
 | `ALLOW_DEMO_SEED` | Optional | Set to `false` to suppress the demonstration dataset outside production. |
 
@@ -137,6 +137,34 @@ gratuity, reports and document storage. This used to be a total gap ("every auth
 user can see every company's data"); it no longer is, but treat any **new** endpoint that
 reads employee-linked data as scoped-by-default and add the same check rather than assuming
 it inherits isolation automatically.
+
+### Workforce app integration
+
+Artify Workforce (a separate Android app + Supabase project, repo `staff`) tracks selfie-
+verified clock-in/out. The two systems are linked by **Civil ID**, since that is the only
+identifier that reliably exists in both -- not HCMS Employee ID, and not Workforce's own
+internal UUID.
+
+- Workforce's `civil_id_lookup` table is an eligibility whitelist: a worker can only
+  register in the app with a Civil ID that appears there. `POST /api/workforce/sync-eligibility`
+  (Administrator only) populates it from this app's active employees, keyed by
+  `db.civilIds.getCurrent(employeeId)`. An employee with no current Civil ID on file is
+  skipped -- add one first.
+- `GET /api/workforce/shift-status` (used by the Workforce Deployment dashboard) looks up
+  today's clock-in/out for those same Civil IDs and re-keys the result onto HCMS Employee ID
+  for the frontend.
+- Both calls go to Workforce's own HCM-integration Edge Functions (`shift-status`,
+  `sync-eligibility`), authenticated with a shared secret (`WORKFORCE_INTEGRATION_SECRET`)
+  that Workforce verifies against a hash in its own `integration_secrets` table -- the
+  plaintext secret is never stored there.
+- A site (Workforce "project") HCM references but that doesn't exist yet on the Workforce
+  side is created with **placeholder Oman coordinates and a 1000m geofence radius**; a
+  later sync will not overwrite an existing site's coordinates, so correct them for real
+  once known (Workforce's `projects` table) or clock-ins there will be geofence-checked
+  against the wrong location.
+- Employees are synced as Workforce role `WORKER` by default -- there's no HCM field for
+  Workforce-specific supervisor authority today, so promoting someone to `SUPERVISOR` is a
+  manual edit in Workforce's own `employees` table.
 
 ---
 
