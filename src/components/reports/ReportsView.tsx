@@ -2,20 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest, formatOMR, formatDate, downloadAuthenticatedFile } from '../../api/client';
 import {
   FileBarChart,
-  Download,
   Calendar,
-  Filter,
-  Building2,
-  Users,
-  CreditCard,
   RefreshCw,
   FolderKanban,
   Printer,
   FileSpreadsheet,
   AlertCircle,
 } from 'lucide-react';
+import { PayrollReportTab } from './PayrollReportTab';
+import { PaymentsReportTab } from './PaymentsReportTab';
+import { PlanningReportTab } from './PlanningReportTab';
 
-type ReportTab = 'payroll' | 'payments' | 'wps' | 'projects' | 'loans';
+type ReportTab = 'payroll' | 'payments' | 'planning' | 'wps' | 'projects' | 'loans';
 
 export const ReportsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ReportTab>('payroll');
@@ -25,6 +23,11 @@ export const ReportsView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchReport = async () => {
+    if (activeTab === 'planning') {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -49,7 +52,7 @@ export const ReportsView: React.FC = () => {
   }, [activeTab, month]);
 
   const handleExportExcel = async () => {
-    if (activeTab === 'projects') return;
+    if (activeTab === 'projects' || activeTab === 'planning') return;
 
     let url = '';
     let fallbackFilename = 'Report.xlsx';
@@ -112,7 +115,7 @@ export const ReportsView: React.FC = () => {
             Print Report
           </button>
 
-          {activeTab !== 'projects' && (
+          {activeTab !== 'projects' && activeTab !== 'planning' && (
             <button
               onClick={handleExportExcel}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs transition-colors cursor-pointer"
@@ -144,7 +147,17 @@ export const ReportsView: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
-          2. Salary Disbursal Reconciliation
+          2. Salary Payments (Disbursals)
+        </button>
+        <button
+          onClick={() => setActiveTab('planning')}
+          className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+            activeTab === 'planning'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          3. Payment Planning Report
         </button>
         <button
           onClick={() => setActiveTab('wps')}
@@ -154,7 +167,7 @@ export const ReportsView: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
-          3. WPS Recovery Ledger
+          4. WPS Recovery Ledger
         </button>
         <button
           onClick={() => setActiveTab('projects')}
@@ -164,7 +177,7 @@ export const ReportsView: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
-          4. Project Labor & Costing
+          5. Project Labor & Costing
         </button>
         <button
           onClick={() => setActiveTab('loans')}
@@ -174,9 +187,16 @@ export const ReportsView: React.FC = () => {
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
-          5. Employee Loan Balances
+          6. Employee Loan Balances
         </button>
       </div>
+
+      {loading && activeTab !== 'planning' && (
+        <div className="bg-white rounded-xl border border-slate-200 p-8 flex items-center justify-center gap-3">
+          <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+          <span className="text-sm font-medium text-slate-600">Generating report data...</span>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
@@ -186,137 +206,18 @@ export const ReportsView: React.FC = () => {
       )}
 
       {/* Tab 1: Payroll Summary */}
-      {activeTab === 'payroll' && reportData && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Gross Salary</span>
-              <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
-                OMR {formatOMR(reportData.totalGrossSalary)}
-              </strong>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Total Additions</span>
-              <strong className="block text-xl font-bold text-emerald-600 mt-1 font-mono">
-                +OMR {formatOMR(reportData.totalAdditions)}
-              </strong>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Total Deductions</span>
-              <strong className="block text-xl font-bold text-rose-600 mt-1 font-mono">
-                -OMR {formatOMR(reportData.totalDeductions)}
-              </strong>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-blue-200 bg-blue-50/40 shadow-xs">
-              <span className="text-xs text-blue-700 font-semibold">Net Salary (Owed)</span>
-              <strong className="block text-xl font-bold text-blue-900 mt-1 font-mono">
-                OMR {formatOMR(reportData.totalNetSalary)}
-              </strong>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <h3 className="font-bold text-slate-900 text-sm">Monthly Payroll Summary Sheet — {month}</h3>
-              <span className="text-xs text-slate-500">Status: <strong>{reportData.status || 'Draft'}</strong></span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Employee ID</th>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-3 py-3">Type</th>
-                    <th className="px-3 py-3 text-right">Worked</th>
-                    <th className="px-3 py-3 text-right">Gross (OMR)</th>
-                    <th className="px-3 py-3 text-right">Additions</th>
-                    <th className="px-3 py-3 text-right">Deductions</th>
-                    <th className="px-4 py-3 text-right font-bold text-blue-900">Net Salary</th>
-                    <th className="px-3 py-3 text-center">Method</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {reportData.lines?.map((l: any) => (
-                    <tr key={l.id}>
-                      <td className="px-4 py-2.5 font-mono font-bold text-blue-600">{l.employeeId}</td>
-                      <td className="px-4 py-2.5 font-semibold text-slate-900">{l.employeeName}</td>
-                      <td className="px-3 py-2.5">{l.employeeType}</td>
-                      <td className="px-3 py-2.5 text-right font-mono">{l.employeeType === 'Staff' ? `${l.daysWorked}d` : `${l.hoursWorked}h`}</td>
-                      <td className="px-3 py-2.5 text-right font-mono">{formatOMR(l.grossSalary)}</td>
-                      <td className="px-3 py-2.5 text-right font-mono text-emerald-600">+{formatOMR(l.totalAdditions)}</td>
-                      <td className="px-3 py-2.5 text-right font-mono text-rose-600">-{formatOMR(l.totalDeductions)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-blue-700">OMR {formatOMR(l.netSalary)}</td>
-                      <td className="px-3 py-2.5 text-center">{l.paymentMethod}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+      {!loading && activeTab === 'payroll' && reportData && (
+        <PayrollReportTab reportData={reportData} month={month} />
       )}
 
       {/* Tab 2: Salary Disbursal Reconciliation */}
-      {activeTab === 'payments' && reportData && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <span className="text-xs text-slate-500 font-medium">Total Net Salary Owed</span>
-              <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
-                OMR {formatOMR(reportData.summary?.totalNetSalaryOwed)}
-              </strong>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
-              <span className="text-xs text-emerald-700 font-semibold">Total Disbursed (Paid)</span>
-              <strong className="block text-xl font-bold text-emerald-800 mt-1 font-mono">
-                OMR {formatOMR(reportData.summary?.totalActuallyPaid)}
-              </strong>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs">
-              <span className="text-xs text-rose-700 font-semibold">Outstanding Balance</span>
-              <strong className="block text-xl font-bold text-rose-800 mt-1 font-mono">
-                OMR {formatOMR(reportData.summary?.totalRemainingBalance)}
-              </strong>
-            </div>
-          </div>
+      {!loading && activeTab === 'payments' && reportData && (
+        <PaymentsReportTab reportData={reportData} month={month} />
+      )}
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Employee ID</th>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-3 py-3">Company</th>
-                    <th className="px-4 py-3 text-right">Net Owed (OMR)</th>
-                    <th className="px-4 py-3 text-right">Disbursed (OMR)</th>
-                    <th className="px-4 py-3 text-right">Balance (OMR)</th>
-                    <th className="px-3 py-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {reportData.ledger?.map((r: any) => (
-                    <tr key={r.employeeId}>
-                      <td className="px-4 py-2.5 font-mono font-bold text-blue-600">{r.employeeId}</td>
-                      <td className="px-4 py-2.5 font-semibold text-slate-900">{r.employeeName}</td>
-                      <td className="px-3 py-2.5">{r.employeeCompany}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold">OMR {formatOMR(r.netSalary)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-700">OMR {formatOMR(r.totalPaid)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold text-rose-600">OMR {formatOMR(r.outstanding)}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          r.paymentStatus === 'Fully Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {r.paymentStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+      {/* Tab 3: Payment Planning Report */}
+      {activeTab === 'planning' && (
+        <PlanningReportTab initialMonth={month} />
       )}
 
       {/* Tab 3: WPS Recovery Ledger */}

@@ -15,6 +15,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Filter,
   X,
 } from 'lucide-react';
 
@@ -60,6 +61,8 @@ interface PlanRow {
   salaryPaidBy: string;
   wpsEmployee: string;
   wageType: string;
+  employeeType?: string;
+  designation?: string;
   netSalary: number;
   totalPaid: number;
   outstanding: number;
@@ -81,6 +84,8 @@ export const PaymentPlanningView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [jobFilter, setJobFilter] = useState('ALL');
   // Empty array = "Select All" for these -- each starts pre-populated with every fixed
   // option, matching the old default of no restriction. Month's options load
   // asynchronously with the data, so it starts empty and is filled in below once known.
@@ -89,6 +94,10 @@ export const PaymentPlanningView: React.FC = () => {
   const [paidByFilter, setPaidByFilter] = useState<string[]>(PAID_BY_OPTIONS.map(o => o.value));
   const [wpsFilter, setWpsFilter] = useState<string[]>(WPS_OPTIONS.map(o => o.value));
   const [statusFilter, setStatusFilter] = useState<string[]>(STATUS_OPTIONS.map(o => o.value));
+
+  const availableJobs = useMemo(() => {
+    return Array.from(new Set(rows.map(r => (r.designation || '').trim()).filter(Boolean))).sort();
+  }, [rows]);
 
   const canEdit = hasPermission('payment_planning.edit');
   const canExport = hasPermission('payment_planning.export');
@@ -133,6 +142,8 @@ export const PaymentPlanningView: React.FC = () => {
 
   const filteredRows = useMemo(() => {
     return rows.filter(r => {
+      if (typeFilter !== 'ALL' && r.employeeType !== typeFilter) return false;
+      if (jobFilter !== 'ALL' && (r.designation || '').trim() !== jobFilter) return false;
       if (!monthFilter.includes(r.payrollMonth)) return false;
       if (!companyFilter.includes(r.employeeCompany)) return false;
       if (!paidByFilter.includes(r.salaryPaidBy)) return false;
@@ -144,7 +155,7 @@ export const PaymentPlanningView: React.FC = () => {
       }
       return true;
     });
-  }, [rows, monthFilter, companyFilter, paidByFilter, wpsFilter, statusFilter, search]);
+  }, [rows, typeFilter, jobFilter, monthFilter, companyFilter, paidByFilter, wpsFilter, statusFilter, search]);
 
   // Live, client-side only -- all four tiles recompute on every edit and every filter
   // change, no round-trip. Total of Last Unpaid Months is a fixed, factual figure (does
@@ -165,7 +176,10 @@ export const PaymentPlanningView: React.FC = () => {
 
   type PlanningSortColumn =
     | 'default'
+    | 'employeeId'
     | 'employee'
+    | 'type'
+    | 'job'
     | 'month'
     | 'netSalary'
     | 'lastPaid'
@@ -353,6 +367,8 @@ export const PaymentPlanningView: React.FC = () => {
 
   const isFiltering = Boolean(
     search ||
+    typeFilter !== 'ALL' ||
+    jobFilter !== 'ALL' ||
     (availableMonths.length > 0 && monthFilter.length < availableMonths.length) ||
     companyFilter.length < COMPANY_OPTIONS.length ||
     paidByFilter.length < PAID_BY_OPTIONS.length ||
@@ -362,6 +378,8 @@ export const PaymentPlanningView: React.FC = () => {
 
   const handleResetFilters = () => {
     setSearch('');
+    setTypeFilter('ALL');
+    setJobFilter('ALL');
     setMonthFilter(availableMonths);
     setCompanyFilter(COMPANY_OPTIONS.map(o => o.value));
     setPaidByFilter(PAID_BY_OPTIONS.map(o => o.value));
@@ -369,15 +387,43 @@ export const PaymentPlanningView: React.FC = () => {
     setStatusFilter(STATUS_OPTIONS.map(o => o.value));
   };
 
+  const runDefaultSort = (a: PlanRow, b: PlanRow) => {
+    // Standard Attendance Register Default Sort:
+    // 1. Type (Staff first, then Worker)
+    const tRankA = a.employeeType === 'Staff' ? 0 : 1;
+    const tRankB = b.employeeType === 'Staff' ? 0 : 1;
+    if (tRankA !== tRankB) return tRankA - tRankB;
+
+    // 2. Company (sort ascending)
+    const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
+    if (companyCmp !== 0) return companyCmp;
+
+    // 3. Employee Code (numeric ascending)
+    const idCmp = (a.employeeId || '').localeCompare(b.employeeId || '', undefined, { numeric: true });
+    if (idCmp !== 0) return idCmp;
+
+    // 4. Month (descending)
+    return (b.payrollMonth || '').localeCompare(a.payrollMonth || '');
+  };
+
   const sortedRows = useMemo(() => {
     if (sortColumn === 'default') {
-      return filteredRows;
+      return [...filteredRows].sort(runDefaultSort);
     }
     return [...filteredRows].sort((a, b) => {
       let diff = 0;
       switch (sortColumn) {
+        case 'employeeId':
+          diff = (a.employeeId || '').localeCompare(b.employeeId || '', undefined, { numeric: true });
+          break;
         case 'employee':
           diff = (a.employeeName || '').localeCompare(b.employeeName || '');
+          break;
+        case 'type':
+          diff = (a.employeeType || '').localeCompare(b.employeeType || '');
+          break;
+        case 'job':
+          diff = (a.designation || '').localeCompare(b.designation || '');
           break;
         case 'month':
           diff = (a.payrollMonth || '').localeCompare(b.payrollMonth || '');
@@ -409,9 +455,7 @@ export const PaymentPlanningView: React.FC = () => {
       if (diff !== 0) {
         return sortDirection === 'asc' ? diff : -diff;
       }
-      const empCmp = (a.employeeName || '').localeCompare(b.employeeName || '');
-      if (empCmp !== 0) return empCmp;
-      return (b.payrollMonth || '').localeCompare(a.payrollMonth || '');
+      return runDefaultSort(a, b);
     });
   }, [filteredRows, sortColumn, sortDirection]);
 
@@ -649,25 +693,108 @@ export const PaymentPlanningView: React.FC = () => {
 
       {/* Filter Toolbar */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search employee by ID or name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
-            />
-            {search && (
+        <div className="relative w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search employee by ID or name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-indigo-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Planning Filters</span>
+            <span className="text-xs text-slate-500 font-medium">
+              (Showing {displayRows.length} records)
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+              Outstanding: OMR {formatOMR(totalOutstandingSalaries)}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700">
+              Should Pay: OMR {formatOMR(totalShouldPay)}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
+              Sort: <span className="font-semibold text-indigo-600">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+            </span>
+            {isFiltering && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
+                Reset Filters
               </button>
             )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 flex-1 min-w-0">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 font-medium"
+            >
+              <option value="ALL">All Types (Staff & Worker)</option>
+              <option value="Staff">Staff</option>
+              <option value="Worker">Worker</option>
+            </select>
+            <select
+              value={jobFilter}
+              onChange={(e) => setJobFilter(e.target.value)}
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 truncate font-medium"
+            >
+              <option value="ALL">All Designations</option>
+              {availableJobs.map((j) => (
+                <option key={j} value={j}>{j}</option>
+              ))}
+            </select>
+            <MultiSelectDropdown
+              allLabel="All Months"
+              options={monthOptions}
+              selected={monthFilter}
+              onChange={setMonthFilter}
+            />
+            <MultiSelectDropdown
+              allLabel="All Companies"
+              options={COMPANY_OPTIONS}
+              selected={companyFilter}
+              onChange={setCompanyFilter}
+            />
+            <MultiSelectDropdown
+              allLabel="All Paid By"
+              options={PAID_BY_OPTIONS}
+              selected={paidByFilter}
+              onChange={setPaidByFilter}
+            />
+            <MultiSelectDropdown
+              allLabel="WPS: All"
+              options={WPS_OPTIONS}
+              selected={wpsFilter}
+              onChange={setWpsFilter}
+            />
+            <MultiSelectDropdown
+              allLabel="All Statuses"
+              options={STATUS_OPTIONS}
+              selected={statusFilter}
+              onChange={setStatusFilter}
+            />
           </div>
           <button
             type="button"
@@ -679,38 +806,6 @@ export const PaymentPlanningView: React.FC = () => {
             Reset Filters
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          <MultiSelectDropdown
-            allLabel="All Months"
-            options={monthOptions}
-            selected={monthFilter}
-            onChange={setMonthFilter}
-          />
-          <MultiSelectDropdown
-            allLabel="All Companies"
-            options={COMPANY_OPTIONS}
-            selected={companyFilter}
-            onChange={setCompanyFilter}
-          />
-          <MultiSelectDropdown
-            allLabel="All Paid By"
-            options={PAID_BY_OPTIONS}
-            selected={paidByFilter}
-            onChange={setPaidByFilter}
-          />
-          <MultiSelectDropdown
-            allLabel="WPS: All"
-            options={WPS_OPTIONS}
-            selected={wpsFilter}
-            onChange={setWpsFilter}
-          />
-          <MultiSelectDropdown
-            allLabel="All Statuses"
-            options={STATUS_OPTIONS}
-            selected={statusFilter}
-            onChange={setStatusFilter}
-          />
-        </div>
         <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 gap-2">
           <span>
             Showing <strong className="text-slate-700 font-semibold">{displayRows.length}</strong> record{displayRows.length === 1 ? '' : 's'}
@@ -718,7 +813,7 @@ export const PaymentPlanningView: React.FC = () => {
           </span>
           <div className="flex items-center gap-3">
             <span className="text-slate-400">
-              Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Default Grouping' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+              Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
             </span>
             {sortColumn !== 'default' && (
               <button

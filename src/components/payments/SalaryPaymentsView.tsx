@@ -71,6 +71,8 @@ export const SalaryPaymentsView: React.FC = () => {
 
   // Filters
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [jobFilter, setJobFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [companyFilter, setCompanyFilter] = useState('ALL');
   const [paidByFilter, setPaidByFilter] = useState('ALL');
@@ -78,13 +80,20 @@ export const SalaryPaymentsView: React.FC = () => {
   const [wageTypeFilter, setWageTypeFilter] = useState('ALL');
   const [receiptStatusFilter, setReceiptStatusFilter] = useState('ALL');
 
+  const availableJobs = useMemo(() => {
+    return Array.from(new Set(rows.map((r) => (r.designation || '').trim()).filter(Boolean))).sort();
+  }, [rows]);
+
   // Sorting state
   type SalaryPaymentSortColumn =
     | 'default'
+    | 'employeeId'
     | 'company'
     | 'payBy'
     | 'wps'
     | 'employee'
+    | 'type'
+    | 'job'
     | 'month'
     | 'netSalary'
     | 'disbursed'
@@ -280,11 +289,14 @@ export const SalaryPaymentsView: React.FC = () => {
 
   const isFiltering = Boolean(
     search || statusFilter !== 'ALL' || companyFilter !== 'ALL' || paidByFilter !== 'ALL' ||
-    wpsFilter !== 'ALL' || wageTypeFilter !== 'ALL' || receiptStatusFilter !== 'ALL'
+    wpsFilter !== 'ALL' || wageTypeFilter !== 'ALL' || receiptStatusFilter !== 'ALL' ||
+    typeFilter !== 'ALL' || jobFilter !== 'ALL'
   );
 
   const handleResetFilters = () => {
     setSearch('');
+    setTypeFilter('ALL');
+    setJobFilter('ALL');
     setStatusFilter('ALL');
     setCompanyFilter('ALL');
     setPaidByFilter('ALL');
@@ -293,13 +305,35 @@ export const SalaryPaymentsView: React.FC = () => {
     setReceiptStatusFilter('ALL');
   };
 
+  const runDefaultSort = (a: FlatPaymentRow, b: FlatPaymentRow) => {
+    // Standard Attendance Register Default Sort:
+    // 1. Type (Staff first, then Worker)
+    const tRankA = a.employeeType === 'Staff' ? 0 : 1;
+    const tRankB = b.employeeType === 'Staff' ? 0 : 1;
+    if (tRankA !== tRankB) return tRankA - tRankB;
+
+    // 2. Company (sort ascending)
+    const companyCmp = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
+    if (companyCmp !== 0) return companyCmp;
+
+    // 3. Employee Code (numeric ascending)
+    const idCmp = (a.employeeId || '').localeCompare(b.employeeId || '', undefined, { numeric: true });
+    if (idCmp !== 0) return idCmp;
+
+    // 4. Month (descending)
+    return (b.payrollMonth || '').localeCompare(a.payrollMonth || '');
+  };
+
   const sortedRows = useMemo(() => {
     if (sortColumn === 'default') {
-      return rows;
+      return [...rows].sort(runDefaultSort);
     }
     return [...rows].sort((a, b) => {
       let diff = 0;
       switch (sortColumn) {
+        case 'employeeId':
+          diff = (a.employeeId || '').localeCompare(b.employeeId || '', undefined, { numeric: true });
+          break;
         case 'company':
           diff = (a.employeeCompany || '').localeCompare(b.employeeCompany || '');
           break;
@@ -311,6 +345,12 @@ export const SalaryPaymentsView: React.FC = () => {
           break;
         case 'employee':
           diff = (a.employeeName || '').localeCompare(b.employeeName || '');
+          break;
+        case 'type':
+          diff = (a.employeeType || '').localeCompare(b.employeeType || '');
+          break;
+        case 'job':
+          diff = (a.designation || '').localeCompare(b.designation || '');
           break;
         case 'month':
           diff = (a.payrollMonth || '').localeCompare(b.payrollMonth || '');
@@ -345,9 +385,7 @@ export const SalaryPaymentsView: React.FC = () => {
       if (diff !== 0) {
         return sortDirection === 'asc' ? diff : -diff;
       }
-      const empCmp = (a.employeeName || '').localeCompare(b.employeeName || '');
-      if (empCmp !== 0) return empCmp;
-      return (b.payrollMonth || '').localeCompare(a.payrollMonth || '');
+      return runDefaultSort(a, b);
     });
   }, [rows, sortColumn, sortDirection]);
 
@@ -426,6 +464,8 @@ export const SalaryPaymentsView: React.FC = () => {
     if (wpsFilter !== 'ALL') params.set('wps', wpsFilter);
     if (wageTypeFilter !== 'ALL') params.set('wageType', wageTypeFilter);
     if (receiptStatusFilter !== 'ALL') params.set('receiptStatus', receiptStatusFilter);
+    if (typeFilter !== 'ALL') params.set('type', typeFilter);
+    if (jobFilter !== 'ALL') params.set('job', jobFilter);
     return params.toString();
   };
 
@@ -478,7 +518,7 @@ export const SalaryPaymentsView: React.FC = () => {
   useEffect(() => {
     fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, showAllMonths, search, statusFilter, companyFilter, paidByFilter, wpsFilter, wageTypeFilter, receiptStatusFilter]);
+  }, [month, showAllMonths, search, statusFilter, companyFilter, paidByFilter, wpsFilter, wageTypeFilter, receiptStatusFilter, typeFilter, jobFilter]);
 
   const handleOpenPay = (row: FlatPaymentRow) => {
     setSelectedRow(row);
@@ -834,25 +874,113 @@ export const SalaryPaymentsView: React.FC = () => {
 
       {/* Filter & Search Bar */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search employee by ID or name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500"
-            />
-            {search && (
+        <div className="relative w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search employee by ID or name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Payment Filters</span>
+            <span className="text-xs text-slate-500 font-medium">
+              (Showing {displayRows.length} records)
+            </span>
+            {summary && (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+                  Net: OMR {formatOMR(summary.totalNetSalary)}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-700">
+                  Paid: OMR {formatOMR(summary.totalPaid)}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+                  Balance: OMR {formatOMR(summary.totalOutstanding)}
+                </span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
+              Sort: <span className="font-semibold text-emerald-600">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+            </span>
+            {isFiltering && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
+                Reset Filters
               </button>
             )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 flex-1 min-w-0">
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">All Types (Staff & Worker)</option>
+              <option value="Staff">Staff</option>
+              <option value="Worker">Worker</option>
+            </select>
+            <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">All Companies</option>
+              <option value="DGO">DGO</option>
+              <option value="SMI">SMI</option>
+              <option value="NC">NC</option>
+              <option value="Supplier">Supplier</option>
+              <option value="Azad">Azad</option>
+            </select>
+            <select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 truncate font-medium">
+              <option value="ALL">All Designations</option>
+              {availableJobs.map((j) => (
+                <option key={j} value={j}>{j}</option>
+              ))}
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">All Statuses</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Partially Paid">Partially Paid</option>
+              <option value="Fully Paid">Fully Paid</option>
+            </select>
+            <select value={paidByFilter} onChange={(e) => setPaidByFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">All Paid By</option>
+              <option value="DGO">DGO</option>
+              <option value="SMI">SMI</option>
+              <option value="NC">NC</option>
+              <option value="Supplier">Supplier</option>
+            </select>
+            <select value={wpsFilter} onChange={(e) => setWpsFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">WPS: All</option>
+              <option value="Yes">WPS Employees</option>
+              <option value="No">Non-WPS</option>
+            </select>
+            <select value={wageTypeFilter} onChange={(e) => setWageTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">All Wage Types</option>
+              <option value="Per Hour">Per Hour</option>
+              <option value="Fixed Monthly">Fixed Monthly</option>
+            </select>
+            <select value={receiptStatusFilter} onChange={(e) => setReceiptStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500 font-medium">
+              <option value="ALL">All Receipts</option>
+              <option value="Attached">Attached</option>
+              <option value="Attachment Pending">Attachment Pending</option>
+            </select>
           </div>
           <button
             type="button"
@@ -864,44 +992,6 @@ export const SalaryPaymentsView: React.FC = () => {
             Reset Filters
           </button>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
-            <option value="ALL">All Statuses</option>
-            <option value="Unpaid">Unpaid</option>
-            <option value="Partially Paid">Partially Paid</option>
-            <option value="Fully Paid">Fully Paid</option>
-          </select>
-          <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
-            <option value="ALL">All Companies</option>
-            <option value="DGO">DGO</option>
-            <option value="SMI">SMI</option>
-            <option value="NC">NC</option>
-            <option value="Supplier">Supplier</option>
-            <option value="Azad">Azad</option>
-          </select>
-          <select value={paidByFilter} onChange={(e) => setPaidByFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
-            <option value="ALL">All Paid By</option>
-            <option value="DGO">DGO</option>
-            <option value="SMI">SMI</option>
-            <option value="NC">NC</option>
-            <option value="Supplier">Supplier</option>
-          </select>
-          <select value={wpsFilter} onChange={(e) => setWpsFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
-            <option value="ALL">WPS: All</option>
-            <option value="Yes">WPS Employees</option>
-            <option value="No">Non-WPS</option>
-          </select>
-          <select value={wageTypeFilter} onChange={(e) => setWageTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
-            <option value="ALL">All Wage Types</option>
-            <option value="Per Hour">Per Hour</option>
-            <option value="Fixed Monthly">Fixed Monthly</option>
-          </select>
-          <select value={receiptStatusFilter} onChange={(e) => setReceiptStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500">
-            <option value="ALL">All Receipts</option>
-            <option value="Attached">Attached</option>
-            <option value="Attachment Pending">Attachment Pending</option>
-          </select>
-        </div>
         <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 gap-2">
           <span>
             Showing <strong className="text-slate-700 font-semibold">{displayRows.length}</strong> record{displayRows.length === 1 ? '' : 's'}
@@ -909,7 +999,7 @@ export const SalaryPaymentsView: React.FC = () => {
           </span>
           <div className="flex items-center gap-3">
             <span className="text-slate-400">
-              Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Default Grouping' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+              Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
             </span>
             {sortColumn !== 'default' && (
               <button

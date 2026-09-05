@@ -61,6 +61,7 @@ function computePlanningRows(scope: EmployeeCompany[] | null = null): any[] {
         wpsEmployee: line.wpsEmployee,
         wageType: line.wageType,
         employeeType: line.employeeType,
+        designation: line.designation || '',
         netSalary: line.netSalary,
         totalPaid,
         outstanding,

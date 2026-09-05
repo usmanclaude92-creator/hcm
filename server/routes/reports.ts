@@ -151,7 +151,7 @@ router.get('/payroll', verifyAuth, (req: AuthRequest, res: Response) => {
 // GET /api/reports/payments - Salary payments report
 router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
-    const { month, status, company, paidBy, receiptStatus, exportFormat } = req.query;
+    const { month, status, company, paidBy, receiptStatus, employeeType, job, exportFormat } = req.query;
 
     const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized');
     const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed);
@@ -168,6 +168,8 @@ router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
         if (!lineInScope(req, line)) continue;
         if (company && company !== 'ALL' && line.employeeCompany !== company) continue;
         if (paidBy && paidBy !== 'ALL' && line.salaryPaidBy !== paidBy) continue;
+        if (employeeType && employeeType !== 'ALL' && line.employeeType !== employeeType) continue;
+        if (job && job !== 'ALL' && line.designation !== job) continue;
 
         const normId = normalizeEmployeeId(line.employeeId);
         const linePayments = allPayments.filter(
@@ -197,6 +199,8 @@ router.get('/payments', verifyAuth, (req: AuthRequest, res: Response) => {
           sr: sr++,
           employeeId: line.employeeId,
           employeeName: line.employeeName,
+          employeeType: line.employeeType,
+          designation: line.designation || '',
           payrollMonth: p.payrollMonth,
           company: line.employeeCompany,
           salaryPaidBy: line.salaryPaidBy,

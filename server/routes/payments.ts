@@ -31,6 +31,8 @@ function getGroupedPaymentSummaries(filters: {
   wps?: string;
   wageType?: string;
   receiptStatus?: string;
+  type?: string;
+  job?: string;
   // Companies the caller may see; null means all. Applied inside the loop so no caller
   // can bypass it by omitting the company filter.
   scope?: EmployeeCompany[] | null;
@@ -64,6 +66,14 @@ function getGroupedPaymentSummaries(filters: {
         if (!normId.toLowerCase().includes(q) && !line.employeeName.toLowerCase().includes(q)) {
           continue;
         }
+      }
+      if (filters.type && filters.type !== 'ALL') {
+        const rowType = line.employeeType || emp?.employeeType;
+        if (rowType !== filters.type) continue;
+      }
+      if (filters.job && filters.job !== 'ALL') {
+        const rowJob = (line.designation || emp?.designation || '').trim();
+        if (rowJob !== filters.job.trim()) continue;
       }
       if (filters.company && filters.company !== 'ALL' && line.employeeCompany !== filters.company) {
         continue;
@@ -159,7 +169,7 @@ function getGroupedPaymentSummaries(filters: {
 // GET /api/payments/summary - Overall stats for dashboard and payments overview
 router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
   try {
-    const { month, company, paidBy, status, search, wps, wageType, receiptStatus } = req.query;
+    const { month, company, paidBy, status, search, wps, wageType, receiptStatus, type, job } = req.query;
     const summaries = getGroupedPaymentSummaries({
       month: month as string,
       company: company as string,
@@ -169,6 +179,8 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
       wps: wps as string,
       wageType: wageType as string,
       receiptStatus: receiptStatus as string,
+      type: type as string,
+      job: job as string,
       scope: companyScopeOf(req.user),
     });
 
@@ -219,7 +231,7 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
 // GET /api/payments/grouped - Grouped table view for Salary Payments
 router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
   try {
-    const { month, status, company, paidBy, search, wps, wageType, receiptStatus } = req.query;
+    const { month, status, company, paidBy, search, wps, wageType, receiptStatus, type, job } = req.query;
     const grouped = getGroupedPaymentSummaries({
       month: month as string,
       status: status as string,
@@ -229,6 +241,8 @@ router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (re
       wps: wps as string,
       wageType: wageType as string,
       receiptStatus: receiptStatus as string,
+      type: type as string,
+      job: job as string,
       scope: companyScopeOf(req.user),
     });
 
