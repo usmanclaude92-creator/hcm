@@ -1,18 +1,15 @@
 import { Router, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import { db } from '../db.js';
 import {
   generateToken,
   verifyAuth,
-  requireRoles,
   AuthRequest,
   isLoginThrottled,
   recordFailedLogin,
   clearLoginAttempts,
   validatePasswordStrength,
 } from '../auth.js';
-import type { User, UserRole } from '../../src/types/index';
 
 const router = Router();
 
@@ -122,186 +119,13 @@ router.get('/me', verifyAuth, (req: AuthRequest, res: Response) => {
   });
 });
 
-// GET /api/auth/users (Admin only)
-router.get('/users', verifyAuth, requireRoles(['Administrator']), (req: AuthRequest, res: Response) => {
-  const users = db.users.getAll().map(u => ({
-    id: u.id,
-    username: u.username,
-    name: u.name,
-    email: u.email,
-    role: u.role,
-    isActive: u.isActive,
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
-  }));
-  res.json(users);
-});
-
-// POST /api/auth/users (Admin only)
-router.post('/users', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
-  try {
-    const { username, name, email, role, password } = req.body;
-    if (!username || !name || !email || !role || !password) {
-      return res.status(400).json({ error: 'All fields (username, name, email, role, password) are required.' });
-    }
-
-    const existing = db.users.findByUsername(username);
-    if (existing) {
-      return res.status(400).json({ error: `Username '${username}' is already taken.` });
-    }
-
-    const policyError = validatePasswordStrength(password);
-    if (policyError) {
-      return res.status(400).json({ error: policyError });
-    }
-
-    const timestamp = new Date().toISOString();
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      username: username.trim().toLowerCase(),
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      role: role as UserRole,
-      passwordHash: bcrypt.hashSync(password, 10),
-      isActive: true,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-
-    await db.users.create(newUser);
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'Admin',
-      userRole: req.user?.role || 'Administrator',
-      action: 'USER_CREATED',
-      module: 'Users',
-      recordId: newUser.id,
-      description: `Created new user ${newUser.username} with role ${newUser.role}.`,
-    });
-
-    res.status(201).json({
-      id: newUser.id,
-      username: newUser.username,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      isActive: newUser.isActive,
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to create user.' });
-  }
-});
-
-// PUT /api/auth/users/:id (Admin only)
-router.put('/users/:id', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { name, email, role, isActive, password } = req.body;
-
-    const updates: Partial<User> = {};
-    if (name) updates.name = name.trim();
-    if (email) updates.email = email.trim().toLowerCase();
-    if (role) updates.role = role as UserRole;
-    if (isActive !== undefined) updates.isActive = Boolean(isActive);
-    if (password) updates.passwordHash = bcrypt.hashSync(password, 10);
-
-    const updated = await db.users.update(id, updates);
-    if (!updated) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'Admin',
-      userRole: req.user?.role || 'Administrator',
-      action: 'USER_UPDATED',
-      module: 'Users',
-      recordId: id,
-      description: `Updated user account ${updated.username}.`,
-    });
-
-    res.json({
-      id: updated.id,
-      username: updated.username,
-      name: updated.name,
-      email: updated.email,
-      role: updated.role,
-      isActive: updated.isActive,
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update user.' });
-  }
-});
-
-// PATCH /api/auth/users/:id/toggle-active (Admin only)
-router.patch('/users/:id/toggle-active', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const targetUser = db.users.findById(id);
-    if (!targetUser) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    if (id === req.user?.id) {
-      return res.status(400).json({ error: 'You cannot deactivate your own account.' });
-    }
-
-    const updated = await db.users.update(id, { isActive: !targetUser.isActive });
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'Admin',
-      userRole: req.user?.role || 'Administrator',
-      action: 'USER_STATUS_TOGGLED',
-      module: 'Users',
-      recordId: id,
-      description: `Toggled user ${targetUser.username} active status to ${updated?.isActive}.`,
-    });
-
-    res.json({
-      id: updated?.id,
-      username: updated?.username,
-      name: updated?.name,
-      email: updated?.email,
-      role: updated?.role,
-      isActive: updated?.isActive,
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to toggle user status.' });
-  }
-});
-
-// DELETE /api/auth/users/:id (Admin only)
-router.delete('/users/:id', verifyAuth, requireRoles(['Administrator']), async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const targetUser = db.users.findById(id);
-    if (!targetUser) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-
-    if (id === req.user?.id) {
-      return res.status(400).json({ error: 'You cannot delete your own account.' });
-    }
-
-    await db.users.delete(id);
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'Admin',
-      userRole: req.user?.role || 'Administrator',
-      action: 'USER_DELETED',
-      module: 'Users',
-      recordId: id,
-      description: `Deleted user account ${targetUser.username}.`,
-    });
-
-    res.json({ message: 'User deleted successfully.' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to delete user.' });
-  }
-});
+// User administration (create/list/update/delete/toggle-active) lives exclusively in
+// server/routes/users.ts (mounted at /api/users), which additionally validates and
+// persists per-user companyScope. This file used to carry a second, independent copy of
+// the same CRUD routes under /api/auth/users; it never learned about companyScope, so a
+// user created or edited through it silently ended up unscoped -- i.e. with access to
+// every company's data, the opposite of the intended default. The frontend never called
+// this copy (only /api/users), so removing it changes no behaviour the UI relies on.
 
 // POST /api/auth/change-password
 router.post('/change-password', verifyAuth, async (req: AuthRequest, res: Response) => {

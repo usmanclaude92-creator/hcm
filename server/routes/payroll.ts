@@ -624,7 +624,15 @@ router.get('/:month/export', verifyAuth, (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: `No payroll records found for ${month}` });
     }
 
-    const data = payroll.lines.map((l, idx) => ({
+    // Company isolation: matches the scoping already applied to GET /:month so a
+    // restricted account cannot recover other companies' salaries via the Excel export.
+    const scope = companyScopeOf(req.user);
+    const scopedLines = payroll.lines.filter(l => canSeeCompany(scope, l.employeeCompany));
+    if (scopedLines.length === 0) {
+      return res.status(404).json({ error: `No payroll records found for ${month}` });
+    }
+
+    const data = scopedLines.map((l, idx) => ({
       'Sr#': idx + 1,
       'Employee ID': l.employeeId,
       'Employee Name': l.employeeName,

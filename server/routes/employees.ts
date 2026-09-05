@@ -863,7 +863,11 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
 router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const isCsv = String(req.query.format || '').toLowerCase() === 'csv';
-    const employees = db.employees.getAll();
+    // Company isolation: an account scoped to specific companies must not be able to
+    // export bank/IBAN/salary details for employees outside its scope by hitting this
+    // endpoint directly, even though it cannot see them in the list view.
+    const scope = companyScopeOf(req.user);
+    const employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
 
     // Column names/order match the comprehensive import template exactly, so an exported file can be
     // re-imported unmodified.

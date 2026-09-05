@@ -92,11 +92,13 @@ append-only financial records — is the highest-value structural work outstandi
 | Attendance | Multi-project day/hour allocation, four-stage workflow, Excel import |
 | Timesheets | Per-entry labour capture for project costing. Does **not** feed payroll. |
 | Payroll | Monthly calculation, per-line overrides, finalisation lock, reasoned revision |
+| Leave | Request/approve/reject/cancel workflow; approved paid leave feeds payable days in payroll |
 | Salary Payments | Partial payments against a finalized entitlement, receipts, soft reversal |
 | Payment Planning | Intended "should pay" figures. Never creates a payment. |
 | WPS Recovery | Tracks recovery of the excess between declared WPS salary and net pay |
 | Loans | Advances with payroll-driven and direct recovery |
 | CIF | Bank file upload and reconciliation against payroll totals |
+| Gratuity / End-of-Service | Oman Labour Law RD 53/2023 Art. 61 gratuity computation, non-Omani employees |
 | Reports | Salary & payroll, payments, WPS, loans, project costing, employee ledger |
 | Audit Trail | Action log across modules, retained to 5000 entries |
 
@@ -120,12 +122,21 @@ a recorded reason, which is written to the audit trail.
 
 These are absent by design at present and should not be assumed to work:
 
-- **Leave management** — no leave entity of any kind
-- **Overtime pay** — overtime hours are captured but never paid
-- **Pro-rata** — no automatic calculation for mid-month joiners or leavers
 - **Accounting** — no journals, ledger or posting; payroll cost must be journalised manually
-- **End-of-service** — no gratuity or final settlement calculation
-- **Company isolation** — every authenticated user can see every company's data
+
+Leave management, overtime pay, pro-rata for mid-month joiners/leavers, and end-of-service
+gratuity are all implemented (see Modules above) — this list previously claimed they were
+missing, which was stale.
+
+### Company isolation
+
+An account can be restricted to a set of companies (`companyScope`, managed in **Users**).
+`companyScopeOf()` / `canSeeCompany()` (`server/auth.ts`) enforce this on list, single-record
+and export endpoints across employees, attendance, payroll, payments, loans, WPS, leave,
+gratuity, reports and document storage. This used to be a total gap ("every authenticated
+user can see every company's data"); it no longer is, but treat any **new** endpoint that
+reads employee-linked data as scoped-by-default and add the same check rather than assuming
+it inherits isolation automatically.
 
 ---
 

@@ -595,6 +595,13 @@ router.get('/receipts/:transactionId/signed-url', verifyAuth, requirePermission(
     if (!tx) {
       return res.status(404).json({ error: 'Payment transaction not found.' });
     }
+    // Company isolation: a coarse salary_payment.view permission is not enough here --
+    // Viewer also holds it, and a receipt for another company must not be reachable just
+    // by knowing (or guessing) a transaction ID.
+    const emp = db.employees.findByEmployeeId(normalizeEmployeeId(tx.employeeId));
+    if (!canSeeCompany(companyScopeOf(req.user), emp?.employeeCompany)) {
+      return res.status(404).json({ error: 'Payment transaction not found.' });
+    }
     if (!tx.receiptStoragePath) {
       return res.status(404).json({ error: 'No receipt is attached to this payment.' });
     }

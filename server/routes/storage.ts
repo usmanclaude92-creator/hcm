@@ -31,6 +31,30 @@ const requireHrPermission = (req: AuthRequest, res: Response, next: () => void) 
   next();
 };
 
+// Company isolation for object storage. Documents and receipts are stored under a path
+// that always carries the owning employee's ID (`employees/<empId>/...` or
+// `receipts/<month>/<empId>/...`), so a request that names a storage path or a document
+// record can be checked against the caller's company scope even though the storage layer
+// itself has no notion of companies. Returns null for a path/record with no resolvable
+// employee (general/org-wide uploads), which canSeeCompany() treats as visible to everyone
+// -- matching the existing behaviour for records that predate the company field.
+function employeeCompanyForStoragePath(storagePath: string): string | null {
+  const parts = storagePath.split('/').filter(Boolean);
+  let empId: string | undefined;
+  if (parts[0] === 'employees') empId = parts[1];
+  else if (parts[0] === 'receipts') empId = parts[2];
+  if (!empId || empId.toUpperCase() === 'GENERAL') return null;
+  const emp = db.employees.findByEmployeeId(normalizeEmployeeId(empId));
+  return emp ? emp.employeeCompany : null;
+}
+
+function assertStoragePathReadable(req: AuthRequest, res: Response, storagePath: string): boolean {
+  const company = employeeCompanyForStoragePath(storagePath);
+  if (canSeeCompany(companyScopeOf(req.user), company)) return true;
+  res.status(404).json({ error: 'File not found in storage.' });
+  return false;
+}
+
 /**
  * GET /api/storage/status - Get storage engine status
  */
@@ -182,6 +206,7 @@ router.get('/file/:encodedPath', verifyAuthAllowingQueryToken, async (req: AuthR
     if (rawPath.includes('..')) {
       return res.status(400).json({ error: 'Invalid storage path.' });
     }
+    if (!assertStoragePathReadable(req, res, rawPath)) return;
 
     const { buffer, mimeType, fileName } = await getDocumentBuffer(rawPath);
 
@@ -543,6 +568,14 @@ router.get('/employees/:employeeId/documents', verifyAuth, (req: AuthRequest, re
     const category = req.query.category as string;
     const normId = normalizeEmployeeId(employeeId);
 
+    const emp = db.employees.findByEmployeeId(normId);
+    // Out of scope reads as "not found" rather than "forbidden", matching the pattern used
+    // for the employee record itself, so a scoped account cannot probe for the existence
+    // of another company's employees via their documents.
+    if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
+
     const docs = db.documents.getByEmployeeId(normId, category);
     res.json({ documents: docs });
   } catch (err: any) {
@@ -558,6 +591,10 @@ router.get('/documents/:id', verifyAuth, (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const doc = db.documents.getById(id);
     if (!doc) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+    const emp = db.employees.findByEmployeeId(normalizeEmployeeId(doc.employeeId));
+    if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
       return res.status(404).json({ error: 'Document not found.' });
     }
     res.json({ document: doc });
