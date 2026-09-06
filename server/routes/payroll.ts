@@ -509,6 +509,51 @@ router.put('/:month/lines/:lineId', verifyAuth, requireWritePermission, async (r
     payroll.totalOvertimePay = roundOMR(lines.reduce((s, l) => s + (l.overtimePay || 0), 0));
 
     const saved = await db.payroll.saveDraft(payroll, lines);
+
+    // Editing a line by hand changes what an employee is paid, so it is recorded with the
+    // same before/after detail as a salary revision on the employee master. This endpoint
+    // previously wrote nothing at all: the most sensitive mutation in the application was
+    // the one mutation that left no trace of who changed which figure.
+    const trackedFields: Array<keyof typeof currentLine> = [
+      'basicSalaryOrRate', 'rateOverridden', 'overtimeRate', 'overtimePay', 'grossSalary',
+      'houseAllowance', 'transportAllowance', 'bonus', 'otherAllowance', 'totalAdditions',
+      'loanRecovery', 'otherDeductions', 'totalDeductions', 'netSalary', 'paymentMethod',
+      'wpsSalary', 'recoverableSalary', 'recoverFrom',
+    ];
+    const previousValue: Record<string, any> = {};
+    const newValue: Record<string, any> = {};
+    for (const field of trackedFields) {
+      if (lines[lineIndex][field] !== currentLine[field]) {
+        previousValue[field] = currentLine[field];
+        newValue[field] = lines[lineIndex][field];
+      }
+    }
+
+    if (Object.keys(newValue).length > 0) {
+      const reason = req.body?.editReason ? String(req.body.editReason).trim() : '';
+      if (reason) newValue.editReason = reason;
+      const netChanged = newValue.netSalary !== undefined;
+      await db.audit.log({
+        userId: req.user?.id,
+        username: req.user?.username || 'User',
+        userRole: req.user?.role || 'Payroll User',
+        action: netChanged ? 'PAYROLL_LINE_NET_CHANGED' : 'PAYROLL_LINE_EDITED',
+        module: 'Payroll',
+        recordId: lineId,
+        description: netChanged
+          ? `Payroll line for ${currentLine.employeeId} (${currentLine.employeeName}) in ${month} edited by hand: ` +
+            `net salary changed from OMR ${roundOMR(Number(previousValue.netSalary) || 0).toFixed(3)} to OMR ` +
+            `${roundOMR(Number(newValue.netSalary) || 0).toFixed(3)}.` +
+            (reason ? ` Reason: ${reason}` : ' No reason recorded.')
+          : `Payroll line for ${currentLine.employeeId} (${currentLine.employeeName}) in ${month} edited by hand: ` +
+            `${Object.keys(newValue).filter(k => k !== 'editReason').join(', ')} changed.` +
+            (reason ? ` Reason: ${reason}` : ''),
+        previousValue,
+        newValue,
+        ipAddress: req.ip,
+      });
+    }
+
     res.json(saved);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update payroll line' });

@@ -40,6 +40,25 @@ export async function createApp(): Promise<Express> {
   app.use(express.json({ limit: '25mb' }));
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+  // Reads were served from whatever this instance happened to load at its own cold start.
+  // Only a handful of employee endpoints ever refreshed (see syncFromDurableStore in db.ts),
+  // so a record written through one serverless instance stayed invisible on every other one
+  // for the life of that instance: two browser refreshes could land on different instances
+  // and show different data, and modules disagreed with each other about the same record.
+  // Every /api request now reaches the durable store first -- mutations unconditionally,
+  // reads within a short freshness window so the parallel requests one screen fires pay for
+  // at most one round trip between them. A failed refresh fails a mutation rather than
+  // letting it write against state it could not confirm; a read degrades to what is already
+  // loaded instead of erroring.
+  const READ_FRESHNESS_MS = 1500;
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/system/storage') return next();
+    const isMutation = req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS';
+    db.syncFromDurableStore(isMutation ? 0 : READ_FRESHNESS_MS)
+      .then(() => next())
+      .catch((err) => (isMutation ? next(err) : next()));
+  });
+
   app.use('/api/auth', authRouter);
   app.use('/api/employees', employeesRouter);
   app.use('/api/projects', projectsRouter);

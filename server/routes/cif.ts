@@ -257,6 +257,23 @@ router.post('/:id/preview', verifyAuth, requirePermission('cif.upload'), async (
     const variance = roundOMR(cifTotal - payrollTotal);
 
     const updated = await db.cif.updateBatch(batch.id, { status: 'Previewed', payrollTotal, cifTotal, variance });
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'CIF_BATCH_PREVIEWED',
+      module: 'CIF',
+      recordId: batch.id,
+      description:
+        `Previewed CIF batch for ${batch.company} ${batch.payrollMonth}: bank file total OMR ` +
+        `${cifTotal.toFixed(3)} against payroll total OMR ${payrollTotal.toFixed(3)} ` +
+        `(variance OMR ${variance.toFixed(3)}).`,
+      previousValue: { status: batch.status, payrollTotal: batch.payrollTotal, cifTotal: batch.cifTotal, variance: batch.variance },
+      newValue: { status: 'Previewed', payrollTotal, cifTotal, variance },
+      ipAddress: req.ip,
+    });
+
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to preview CIF batch' });
@@ -276,6 +293,23 @@ router.post('/:id/reconcile', verifyAuth, requirePermission('cif.view'), async (
     const variance = roundOMR(cifTotal - payrollTotal);
 
     const updated = await db.cif.updateBatch(batch.id, { status: 'Reconciled', payrollTotal, cifTotal, variance });
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'CIF_BATCH_RECONCILED',
+      module: 'CIF',
+      recordId: batch.id,
+      description:
+        `Reconciled CIF batch for ${batch.company} ${batch.payrollMonth}: bank file total OMR ` +
+        `${cifTotal.toFixed(3)} against payroll total OMR ${payrollTotal.toFixed(3)} ` +
+        `(variance OMR ${variance.toFixed(3)}).`,
+      previousValue: { status: batch.status, payrollTotal: batch.payrollTotal, cifTotal: batch.cifTotal, variance: batch.variance },
+      newValue: { status: 'Reconciled', payrollTotal, cifTotal, variance },
+      ipAddress: req.ip,
+    });
+
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to reconcile CIF batch' });

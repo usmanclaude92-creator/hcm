@@ -1115,6 +1115,27 @@ class DatabaseManager {
     };
   }
 
+  // Attendance rows carried no link to the month record whose approval status governs them:
+  // the four-stage workflow lived on attendanceMonths while the rows it governed pointed at
+  // nothing, so there was no way to tell from a row which approval it was covered by. Both
+  // attendance write paths now stamp the month's id, creating the month row in the same
+  // in-memory mutation when it does not exist yet, so the row and its workflow parent are
+  // written by a single persist rather than two that could half-succeed.
+  private ensureAttendanceMonthInMemory(month: string): string {
+    const existing = this.inMemoryData.attendanceMonths.find(m => m.payrollMonth === month);
+    if (existing) return existing.id;
+    const timestamp = new Date().toISOString();
+    const created: AttendanceMonth = {
+      id: crypto.randomUUID(),
+      payrollMonth: month,
+      status: 'Draft',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.inMemoryData.attendanceMonths.push(created);
+    return created.id;
+  }
+
   public get attendance() {
     return {
       getByMonth: (month: string) => this.inMemoryData.attendance.filter(a => a.payrollMonth === month),
@@ -1126,8 +1147,9 @@ class DatabaseManager {
       // submits every employee. Any partial write must use mergeMonthRecords instead.
       saveMonthRecords: async (month: string, records: AttendanceRecord[]) => {
         return this.withOptimisticRetry(() => {
+          const monthId = this.ensureAttendanceMonthInMemory(month);
           this.inMemoryData.attendance = this.inMemoryData.attendance.filter(a => a.payrollMonth !== month);
-          this.inMemoryData.attendance.push(...records);
+          this.inMemoryData.attendance.push(...records.map(r => ({ ...r, attendanceMonthId: monthId })));
           return { changed: true, value: this.inMemoryData.attendance.filter(a => a.payrollMonth === month) };
         });
       },
@@ -1137,11 +1159,12 @@ class DatabaseManager {
       // month-wide replace above silently erased everyone absent from the payload.
       mergeMonthRecords: async (month: string, records: AttendanceRecord[]) => {
         return this.withOptimisticRetry(() => {
+          const monthId = this.ensureAttendanceMonthInMemory(month);
           const affected = new Set(records.map(r => normalizeEmployeeId(r.employeeId)));
           this.inMemoryData.attendance = this.inMemoryData.attendance.filter(
             a => a.payrollMonth !== month || !affected.has(normalizeEmployeeId(a.employeeId))
           );
-          this.inMemoryData.attendance.push(...records);
+          this.inMemoryData.attendance.push(...records.map(r => ({ ...r, attendanceMonthId: monthId })));
           return {
             changed: true,
             value: this.inMemoryData.attendance.filter(

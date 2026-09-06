@@ -71,6 +71,11 @@ Consequences to be aware of before building on this:
 - Write cost scales with total dataset size, not with the size of the change.
 - Concurrent writes are serialised by a version counter and retried; a conflict that
   survives the retries surfaces as an error to the caller.
+- Each serverless instance holds the whole dataset in memory. `server/app.ts` refreshes it
+  from the durable store on every `/api` request — unconditionally before a mutation, and
+  within a 1.5s freshness window for reads — because without that, a record written through
+  one instance stayed invisible on every other one for the life of that instance, and two
+  browser refreshes could show different data.
 
 Write failures **throw**. A request that returns success means the data was committed. If a
 configured database is unreachable the server refuses to start rather than fall back to
