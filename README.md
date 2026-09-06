@@ -162,6 +162,12 @@ internal UUID.
   later sync will not overwrite an existing site's coordinates, so correct them for real
   once known (Workforce's `projects` table) or clock-ins there will be geofence-checked
   against the wrong location.
+- The site sent over is each employee's **Assigned Project / Site** in Employment Details
+  (Employee Master Data) -- a dropdown linked to this app's own Project Master Data
+  (`Employee.assignedProjectCode` -> `Project.projectCode`), not free text. An employee
+  with nothing selected there is synced without a project (older records that only have
+  the legacy free-text `assignedProject` personal-details field are still read as a
+  fallback until re-saved through Employment Details).
 - Employees are synced as Workforce role `WORKER` by default -- there's no HCM field for
   Workforce-specific supervisor authority today, so promoting someone to `SUPERVISOR` is a
   manual edit in Workforce's own `employees` table.

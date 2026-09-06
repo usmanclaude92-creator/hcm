@@ -424,6 +424,10 @@ export interface Employee {
   dateOfLeaving?: string | null;
   designation: string;
   employeeCompany: EmployeeCompany;
+  // Employment Details' link to Project Master Data (Project.projectCode). Optional --
+  // an employee need not be tied to a single site. Distinct from the per-month project
+  // cost allocation recorded in AttendanceRecord; this is the master-data "home site".
+  assignedProjectCode?: string | null;
   salaryPaidBy: SalaryPaidBy;
   monthlySalaryOrRate: number;
   wpsEmployee: WPSStatus;

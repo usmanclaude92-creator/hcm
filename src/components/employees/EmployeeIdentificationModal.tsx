@@ -178,6 +178,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     dateOfLeaving: '',
     isActive: true,
     promotionReason: '',
+    assignedProjectCode: '' as string | undefined,
   });
 
   // Form State: Tab 3 (Payroll & WPS)
@@ -452,6 +453,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         dateOfLeaving: currentEmployee.dateOfLeaving || '',
         isActive: currentEmployee.isActive,
         promotionReason: '',
+        assignedProjectCode: currentEmployee.assignedProjectCode || '',
       });
 
       setPayrollForm({
@@ -536,6 +538,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         dateOfLeaving: currentEmployee.dateOfLeaving || '',
         isActive: currentEmployee.isActive,
         promotionReason: '',
+        assignedProjectCode: currentEmployee.assignedProjectCode || '',
       };
       const loadedPayroll = {
         wageType: currentEmployee.wageType,
@@ -587,6 +590,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         dateOfLeaving: '',
         isActive: true,
         promotionReason: '',
+        assignedProjectCode: '',
       };
       const newPayroll = {
         wageType: 'Fixed Monthly' as WageType,
@@ -669,6 +673,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         dateOfLeaving: employmentForm.dateOfLeaving || null,
         designation: (employmentForm.designation || 'Staff').trim(),
         employeeCompany: employmentForm.employeeCompany || 'DGO',
+        assignedProjectCode: employmentForm.assignedProjectCode || undefined,
         salaryPaidBy: payrollForm.salaryPaidBy || employmentForm.employeeCompany || 'DGO',
         monthlySalaryOrRate: Number(payrollForm.monthlySalaryOrRate) || 0,
         wpsEmployee: payrollForm.wpsEmployee === 'Yes' ? 'Yes' : 'No',

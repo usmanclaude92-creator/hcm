@@ -393,7 +393,7 @@ route('GET', '/api/employees/:id/personal-details', ({ params }) => {
 route('POST', '/api/employees', ({ body, role }) => {
   assertWrite(role);
   const store = getDemoStore();
-  const { employeeId, employeeName, employeeType, nationalityType, wageType, dateOfJoining, dateOfLeaving, designation, employeeCompany, salaryPaidBy, monthlySalaryOrRate, wpsEmployee, wpsSalary, actualSalary, recoverFrom } = body;
+  const { employeeId, employeeName, employeeType, nationalityType, wageType, dateOfJoining, dateOfLeaving, designation, employeeCompany, salaryPaidBy, monthlySalaryOrRate, wpsEmployee, wpsSalary, actualSalary, recoverFrom, assignedProjectCode } = body;
   if (!employeeId || !employeeName || !employeeType || !nationalityType || !wageType || !designation || !employeeCompany || !salaryPaidBy) {
     throw new Error('Please fill in all mandatory employee fields.');
   }
@@ -408,7 +408,7 @@ route('POST', '/api/employees', ({ body, role }) => {
   const newEmployee: Employee = {
     id: crypto.randomUUID(), employeeId: normalizedId, employeeName: String(employeeName).trim(), employeeType, nationalityType, wageType,
     dateOfJoining: dateOfJoining || timestamp.split('T')[0], dateOfLeaving: dateOfLeaving || null, designation: String(designation).trim(),
-    employeeCompany, salaryPaidBy, monthlySalaryOrRate: roundOMR(numericSalary), wpsEmployee: wpsEmployee === 'Yes' ? 'Yes' : 'No',
+    employeeCompany, assignedProjectCode: assignedProjectCode || null, salaryPaidBy, monthlySalaryOrRate: roundOMR(numericSalary), wpsEmployee: wpsEmployee === 'Yes' ? 'Yes' : 'No',
     wpsSalary: roundOMR(Number(wpsSalary) || 0), actualSalary: roundOMR(Number(actualSalary) || numericSalary),
     recoverFrom: recoverFrom ? String(recoverFrom).trim() : (wpsEmployee === 'Yes' ? employeeCompany : ''),
     isActive: true, createdAt: timestamp, updatedAt: timestamp,

@@ -896,7 +896,7 @@ router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
         'Date of Joining': e.dateOfJoining,
         'Date of Leaving': e.dateOfLeaving || '',
         'Employment Status': e.isActive ? 'Active' : 'Inactive',
-        'Assigned Project': personal.assignedProject || '',
+        'Assigned Project': (e.assignedProjectCode && db.projects.findByCode(e.assignedProjectCode)?.projectName) || personal.assignedProject || '',
         'Wage Type': e.wageType,
         'Monthly Salary / Wage Rate': roundOMR(e.monthlySalaryOrRate).toFixed(3),
         'WPS Employee': e.wpsEmployee,
@@ -1039,6 +1039,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       accountHolderName,
       photoUrl,
       personalDetails,
+      assignedProjectCode,
     } = req.body;
 
     if (!employeeId || !employeeName) {
@@ -1070,6 +1071,20 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     }
     if (!isValidSalaryPaidBy(salaryPaidBy)) {
       return res.status(400).json({ error: 'Salary Paid By must be DGO, SMI, NC, or Supplier.' });
+    }
+
+    // Employment Details' Assigned Project is a real link to Project Master Data, not free
+    // text -- resolve and validate it here so a typo or stale code can never be saved.
+    let resolvedProjectCode: string | null = null;
+    if (assignedProjectCode) {
+      const proj = db.projects.findByCode(String(assignedProjectCode));
+      if (!proj) {
+        return res.status(400).json({ error: `Assigned Project '${assignedProjectCode}' was not found in Project Master Data.` });
+      }
+      if (proj.allowedCompanies && proj.allowedCompanies.length > 0 && !proj.allowedCompanies.includes(employeeCompany)) {
+        return res.status(400).json({ error: `Employee company '${employeeCompany}' is not permitted on project ${proj.projectCode} (allowed: ${proj.allowedCompanies.join(', ')}).` });
+      }
+      resolvedProjectCode = proj.projectCode;
     }
 
     const numericSalary = Number(monthlySalaryOrRate);
@@ -1133,6 +1148,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       dateOfLeaving: dateOfLeaving || null,
       designation: (designation || 'Staff').trim(),
       employeeCompany,
+      assignedProjectCode: resolvedProjectCode,
       salaryPaidBy,
       monthlySalaryOrRate: roundOMR(numericSalary),
       wpsEmployee: wpsEmployee === 'Yes' ? 'Yes' : 'No',
@@ -1223,6 +1239,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       photoUrl,
       personalDetails,
       salaryRevisionReason,
+      assignedProjectCode,
     } = req.body;
 
     const updates: Partial<Employee> = {};
@@ -1235,6 +1252,25 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (dateOfLeaving !== undefined) updates.dateOfLeaving = dateOfLeaving || null;
     if (designation) updates.designation = designation.trim();
     if (employeeCompany && isValidEmployeeCompany(employeeCompany)) updates.employeeCompany = employeeCompany;
+
+    // Employment Details' Assigned Project is a real link to Project Master Data, not free
+    // text -- resolve and validate it against the (possibly just-updated) company. Sending
+    // an empty string/null clears the assignment; omitting the field leaves it untouched.
+    if (assignedProjectCode !== undefined) {
+      if (!assignedProjectCode) {
+        updates.assignedProjectCode = null;
+      } else {
+        const proj = db.projects.findByCode(String(assignedProjectCode));
+        if (!proj) {
+          return res.status(400).json({ error: `Assigned Project '${assignedProjectCode}' was not found in Project Master Data.` });
+        }
+        const effectiveCompany = updates.employeeCompany || employee.employeeCompany;
+        if (proj.allowedCompanies && proj.allowedCompanies.length > 0 && !proj.allowedCompanies.includes(effectiveCompany)) {
+          return res.status(400).json({ error: `Employee company '${effectiveCompany}' is not permitted on project ${proj.projectCode} (allowed: ${proj.allowedCompanies.join(', ')}).` });
+        }
+        updates.assignedProjectCode = proj.projectCode;
+      }
+    }
     if (salaryPaidBy && isValidSalaryPaidBy(salaryPaidBy)) updates.salaryPaidBy = salaryPaidBy;
     if (monthlySalaryOrRate !== undefined) updates.monthlySalaryOrRate = roundOMR(Number(monthlySalaryOrRate));
     if (wpsEmployee !== undefined) updates.wpsEmployee = wpsEmployee === 'Yes' ? 'Yes' : 'No';
@@ -1287,7 +1323,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     // figures involved or the stated reason for the revision.
     const trackedFields: Array<keyof Employee> = [
       'employeeName', 'employeeType', 'nationalityType', 'wageType', 'designation',
-      'employeeCompany', 'salaryPaidBy', 'monthlySalaryOrRate', 'wpsEmployee', 'wpsSalary',
+      'employeeCompany', 'assignedProjectCode', 'salaryPaidBy', 'monthlySalaryOrRate', 'wpsEmployee', 'wpsSalary',
       'actualSalary', 'recoverFrom', 'isActive', 'dateOfJoining', 'dateOfLeaving',
       'bankName', 'bankAccountNumber', 'iban', 'bankBranch', 'accountHolderName',
     ];

@@ -14,3 +14,5 @@ tsc_out.txt
 data/*.backup.*
 payroll_database.pg-backup.*.json
 ADMIN_PASSWORD_RESET.txt
+
+.vercel

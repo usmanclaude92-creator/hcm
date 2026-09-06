@@ -9,6 +9,7 @@ import {
   History,
   ShieldCheck,
   ArrowRight,
+  MapPin,
 } from 'lucide-react';
 import { formatDate, apiRequest } from '../../../api/client';
 import type {
@@ -16,6 +17,7 @@ import type {
   EmployeeCompany,
   EmployeeType,
   NationalityType,
+  Project,
 } from '../../../types/index';
 
 interface EmploymentPlacementTabProps {
@@ -29,6 +31,7 @@ interface EmploymentPlacementTabProps {
     dateOfLeaving?: string;
     isActive: boolean;
     promotionReason?: string;
+    assignedProjectCode?: string;
   };
   setEmploymentForm: React.Dispatch<
     React.SetStateAction<{
@@ -40,6 +43,7 @@ interface EmploymentPlacementTabProps {
       dateOfLeaving?: string;
       isActive: boolean;
       promotionReason?: string;
+      assignedProjectCode?: string;
     }>
   >;
   canWrite: boolean;
@@ -103,6 +107,32 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
       cancelled = true;
     };
   }, []);
+
+  // Assigned Project is a real link to Project Master Data (Project.projectCode) -- a
+  // dropdown sourced from there, not free text, so it can never drift from the master list.
+  const [projectOptions, setProjectOptions] = useState<Project[]>([]);
+  const [projectsError, setProjectsError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    apiRequest<Project[]>('/api/projects')
+      .then(list => {
+        if (!cancelled) setProjectOptions(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setProjectsError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedProject = projectOptions.find(
+    p => p.projectCode.trim().toUpperCase() === (employmentForm.assignedProjectCode || '').trim().toUpperCase()
+  );
+  const isProjectCompanyAllowed =
+    !selectedProject?.allowedCompanies ||
+    selectedProject.allowedCompanies.length === 0 ||
+    selectedProject.allowedCompanies.includes(employmentForm.employeeCompany);
 
   const designationIsNew =
     !!employmentForm.designation.trim() &&
@@ -265,6 +295,53 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               <option value="Staff">Staff (Days-Worked Attendance Basis)</option>
               <option value="Worker">Worker (Hours-Worked Timesheet Basis)</option>
             </select>
+          </div>
+
+          {/* Assigned Project / Site -- linked to Project Master Data */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Assigned Project / Site
+            </label>
+            {projectsError ? (
+              <p className="text-[10px] text-amber-700 py-2">
+                Could not load Project Master Data. Assigned Project cannot be changed right now.
+              </p>
+            ) : (
+              <select
+                disabled={!canWrite}
+                value={employmentForm.assignedProjectCode || ''}
+                onChange={(e) =>
+                  setEmploymentForm({
+                    ...employmentForm,
+                    assignedProjectCode: e.target.value || undefined,
+                  })
+                }
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+              >
+                <option value="">— Not Assigned —</option>
+                {projectOptions.map((p) => {
+                  const allowed =
+                    !p.allowedCompanies ||
+                    p.allowedCompanies.length === 0 ||
+                    p.allowedCompanies.includes(employmentForm.employeeCompany);
+                  return (
+                    <option key={p.id} value={p.projectCode}>
+                      {p.projectCode} — {p.projectName}
+                      {p.status !== 'Active' ? ' (Inactive)' : ''}
+                      {!allowed ? ' ⚠️ Company Restricted' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+            {selectedProject && !isProjectCompanyAllowed && (
+              <p className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
+                <MapPin size={11} className="shrink-0" />
+                Company <strong>{employmentForm.employeeCompany}</strong> is restricted on{' '}
+                {selectedProject.projectCode} (allowed: {selectedProject.allowedCompanies?.join(', ')}). Saving
+                will be rejected until this is resolved.
+              </p>
+            )}
           </div>
 
           {/* Date of Joining */}

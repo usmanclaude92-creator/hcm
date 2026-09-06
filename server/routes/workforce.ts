@@ -61,7 +61,10 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
       if (!civilId) continue;
 
       const personal = db.personalDetails.get(e.employeeId);
-      const projectCode = personal?.assignedProject || null;
+      // Employment Details' linked Assigned Project (Project Master Data) is the
+      // authoritative source; the free-text personalDetails.assignedProject is a legacy
+      // fallback for records imported before that link existed.
+      const projectCode = e.assignedProjectCode || personal?.assignedProject || null;
       const project = projectCode ? db.projects.findByCode(projectCode) : undefined;
 
       records.push({
