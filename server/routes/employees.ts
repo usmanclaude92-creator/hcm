@@ -31,27 +31,64 @@ import { validateBankAccountNumber, validateIban, validateBankDetails } from '..
 
 const router = Router();
 
+// All employee routes require authentication. Applying verifyAuth at the router level
+// ensures req.user is guaranteed to be populated before any router.param handlers execute.
+router.use(verifyAuth);
+
 // Every route in this file that addresses an employee by business ID inherits company
 // isolation here, so a new :employeeId route cannot be added that quietly skips it.
 router.param('employeeId', (req: AuthRequest, res: Response, next, value: string) => {
   // Every /:employeeId/* route (compliance, civil ID, visa, licence, documents, personal
   // details) resolves the employee against this instance's in-memory copy. On a serverless
   // host that copy is only as fresh as this instance's last load, so refresh it first --
-  // see syncFromDurableStore() in db.ts. A short freshness window is enough here because
-  // the mutating handlers force their own reload.
-  db.syncFromDurableStore(1500)
-    .catch(() => undefined)
-    .then(() => {
-      const emp = db.employees.findByEmployeeId(normalizeEmployeeId(String(value)));
-      if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
-        console.warn(
-          `[scope] ${req.user?.username || 'unknown user'} was refused ${value} (${emp.employeeCompany}); account scope does not include that company.`
-        );
-        return res.status(404).json({ error: 'Employee not found.' });
-      }
-      next();
-    });
+  // see syncFromDurableStore() in db.ts.
+  const proceed = () => {
+    const isFresh =
+      req.query?.fresh === '1' ||
+      req.query?.fresh === 'true' ||
+      req.headers['cache-control']?.includes('no-cache');
+    db.syncFromDurableStore(isFresh ? 0 : 1500)
+      .catch(() => undefined)
+      .then(async () => {
+        const norm = normalizeEmployeeId(String(value));
+        let emp = db.employees.findByEmployeeId(norm) || db.employees.findById(String(value));
+
+        // If not found, a mutation may have occurred on another serverless container
+        // or within the READ_FRESHNESS_MS window. Fallback to an immediate fresh sync.
+        if (!emp) {
+          await db.syncFromDurableStore(0).catch(() => undefined);
+          emp = db.employees.findByEmployeeId(norm) || db.employees.findById(String(value));
+        }
+
+        if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
+          console.warn(
+            `[scope] ${req.user?.username || 'unknown user'} was refused ${value} (${emp.employeeCompany}); account scope does not include that company.`
+          );
+          return res.status(404).json({ error: 'Employee not found.' });
+        }
+        next();
+      })
+      .catch(next);
+  };
+
+  if (!req.user) {
+    verifyAuth(req, res, proceed);
+  } else {
+    proceed();
+  }
 });
+
+// Helper to resolve an employee by business code or internal UUID,
+// with immediate fallback to a fresh sync (maxAgeMs: 0) to eliminate any READ_FRESHNESS_MS window delay.
+async function resolveEmployee(idOrCode: string): Promise<Employee | null> {
+  const norm = normalizeEmployeeId(idOrCode);
+  let emp = db.employees.findByEmployeeId(norm) || db.employees.findById(idOrCode);
+  if (!emp) {
+    await db.syncFromDurableStore(0).catch(() => undefined);
+    emp = db.employees.findByEmployeeId(norm) || db.employees.findById(idOrCode);
+  }
+  return emp;
+}
 
 // Helper to validate employee enum types
 function isValidEmployeeType(val: any): val is EmployeeType {
@@ -973,12 +1010,17 @@ router.get('/:id', verifyAuth, async (req: AuthRequest, res: Response) => {
     // A record created or edited by a different serverless instance a moment ago must be
     // visible here, not just after this instance's next cold start -- see
     // syncFromDurableStore()'s comment in db.ts.
-    await db.syncFromDurableStore();
+    const isFresh =
+      req.query?.fresh === '1' ||
+      req.query?.fresh === 'true' ||
+      req.headers['cache-control']?.includes('no-cache');
+    await db.syncFromDurableStore(isFresh ? 0 : 1500);
     const { id } = req.params;
-    let employee = db.employees.findById(id);
+    let employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
     if (!employee) {
-      // Try by business employeeId
-      employee = db.employees.findByEmployeeId(id);
+      // Fallback: immediate fresh sync (maxAgeMs: 0) to eliminate any READ_FRESHNESS_MS delay
+      await db.syncFromDurableStore(0).catch(() => undefined);
+      employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
     }
     if (!employee) {
       console.error(`[employees] fetch: ${id} absent after durable sync (${db.describeLoadedState()}).`);
@@ -1189,6 +1231,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       description: `Created employee ${newEmployee.employeeId} (${newEmployee.employeeName}, ${newEmployee.designation}) at ${newEmployee.employeeCompany}.`,
     });
 
+    db.invalidateDurableCache();
     res.status(201).json(newEmployee);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create employee' });
@@ -1201,9 +1244,13 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     // See syncFromDurableStore()'s comment in db.ts: this is the fix for "Employee not
     // found" on edit -- a stale serverless instance previously reported a real record as
     // missing when it was created or last edited by a different instance.
-    await db.syncFromDurableStore();
+    await db.syncFromDurableStore(0);
     const { id } = req.params;
-    const employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    let employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    if (!employee) {
+      await db.syncFromDurableStore(0).catch(() => undefined);
+      employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    }
     if (!employee) {
       console.error(`[employees] update: ${id} absent after durable sync (${db.describeLoadedState()}).`);
       return res.status(404).json({ error: `Employee ${id} not found in the live store (${db.describeLoadedState()}).` });
@@ -1366,6 +1413,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       newValue: Object.keys(newValue).length > 0 ? newValue : undefined,
     });
 
+    db.invalidateDurableCache();
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update employee' });
@@ -1376,9 +1424,13 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
 router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     // See syncFromDurableStore()'s comment in db.ts.
-    await db.syncFromDurableStore();
+    await db.syncFromDurableStore(0);
     const { id } = req.params;
-    const employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    let employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    if (!employee) {
+      await db.syncFromDurableStore(0).catch(() => undefined);
+      employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    }
     if (!employee) {
       console.error(`[employees] toggle-active: ${id} absent after durable sync (${db.describeLoadedState()}).`);
       return res.status(404).json({ error: `Employee ${id} not found in the live store (${db.describeLoadedState()}).` });
@@ -1403,6 +1455,7 @@ router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (re
       description: `${newStatus ? 'Activated' : 'Deactivated'} employee ${employee.employeeId} (${employee.employeeName}).`,
     });
 
+    db.invalidateDurableCache();
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to toggle employee status' });
@@ -1938,6 +1991,8 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
       description: `Excel Import completed: ${importedCount} new employees created, ${updatedCount} updated, ${skippedCount} skipped.`,
     });
 
+    db.invalidateDurableCache();
+
     res.json({
       success: true,
       message: `Import successful: ${importedCount} created, ${updatedCount} updated, ${skippedCount} skipped.`,
@@ -1956,14 +2011,18 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
 // ==========================================
 
 // GET /api/employees/:employeeId/compliance - Full compliance 360 overview
-router.get('/:employeeId/compliance', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/:employeeId/compliance', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.params;
-    const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    let emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId)) || db.employees.findById(employeeId);
+    if (!emp) {
+      await db.syncFromDurableStore(0).catch(() => undefined);
+      emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId)) || db.employees.findById(employeeId);
+    }
     if (!emp) {
       return res.status(404).json({ error: `Employee ${employeeId} not found.` });
     }
+    const norm = normalizeEmployeeId(emp.employeeId);
 
     const currentCivilId = db.civilIds.getCurrent(norm);
     const civilIdHistory = db.civilIds.getByEmployeeId(norm);
@@ -2038,7 +2097,7 @@ router.post('/:employeeId/civil-id', verifyAuth, requireWritePermission, async (
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2089,6 +2148,8 @@ router.post('/:employeeId/civil-id', verifyAuth, requireWritePermission, async (
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: saved });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to save Civil ID.' });
@@ -2100,7 +2161,7 @@ router.post('/:employeeId/civil-id/renew', verifyAuth, requireWritePermission, a
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2152,6 +2213,8 @@ router.post('/:employeeId/civil-id/renew', verifyAuth, requireWritePermission, a
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: renewed });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to renew Civil ID.' });
@@ -2176,7 +2239,7 @@ router.post('/:employeeId/driving-licence', verifyAuth, requireWritePermission, 
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2235,6 +2298,8 @@ router.post('/:employeeId/driving-licence', verifyAuth, requireWritePermission, 
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: saved });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to save driving licence.' });
@@ -2246,7 +2311,7 @@ router.post('/:employeeId/driving-licence/renew', verifyAuth, requireWritePermis
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2313,6 +2378,8 @@ router.post('/:employeeId/driving-licence/renew', verifyAuth, requireWritePermis
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: renewed });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to renew driving licence.' });
@@ -2337,7 +2404,7 @@ router.post('/:employeeId/visa', verifyAuth, requireWritePermission, async (req:
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2400,6 +2467,8 @@ router.post('/:employeeId/visa', verifyAuth, requireWritePermission, async (req:
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: saved });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to save visa record.' });
@@ -2411,7 +2480,7 @@ router.post('/:employeeId/visa/renew', verifyAuth, requireWritePermission, async
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2480,6 +2549,8 @@ router.post('/:employeeId/visa/renew', verifyAuth, requireWritePermission, async
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: renewed });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to renew visa.' });
@@ -2504,7 +2575,7 @@ router.post('/:employeeId/government-documents', verifyAuth, requireWritePermiss
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2557,6 +2628,8 @@ router.post('/:employeeId/government-documents', verifyAuth, requireWritePermiss
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: saved });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to save document.' });
@@ -2568,7 +2641,7 @@ router.post('/:employeeId/government-documents/renew', verifyAuth, requireWriteP
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const {
@@ -2629,6 +2702,8 @@ router.post('/:employeeId/government-documents/renew', verifyAuth, requireWriteP
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ record: saved });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to renew government document.' });
@@ -2636,11 +2711,11 @@ router.post('/:employeeId/government-documents/renew', verifyAuth, requireWriteP
 });
 
 // GET /api/employees/:employeeId/document-history - Comprehensive multi-document version history & lifecycle
-router.get('/:employeeId/document-history', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/:employeeId/document-history', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    const emp = await resolveEmployee(employeeId);
     if (!emp) return res.status(404).json({ error: 'Employee not found.' });
 
     const civilIdHistory = db.civilIds.getByEmployeeId(norm);
@@ -2684,6 +2759,8 @@ router.delete('/:employeeId/government-documents/:docId', verifyAuth, requireWri
       ipAddress: req.ip,
     });
 
+    db.invalidateDurableCache();
+
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -2697,10 +2774,14 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
     // See syncFromDurableStore()'s comment in db.ts: this is the fix for "Employee not
     // found" when saving the Personal Details tab right after creating a new employee --
     // the create and this save can land on different serverless instances.
-    await db.syncFromDurableStore();
+    await db.syncFromDurableStore(0);
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(norm);
+    let emp = db.employees.findByEmployeeId(norm) || db.employees.findById(employeeId);
+    if (!emp) {
+      await db.syncFromDurableStore(0).catch(() => undefined);
+      emp = db.employees.findByEmployeeId(norm) || db.employees.findById(employeeId);
+    }
     if (!emp) {
       // Say which store was consulted and what it held. "Employee not found." on its own
       // cannot distinguish a record that was never saved from an instance that failed to
@@ -2922,6 +3003,8 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
       description: `Updated personal details & critical document attachments for ${emp.employeeName} (${norm}).`,
       ipAddress: req.ip,
     });
+
+    db.invalidateDurableCache();
 
     res.json({ details: saved });
   } catch (err: any) {

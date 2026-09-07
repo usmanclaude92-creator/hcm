@@ -6,9 +6,9 @@
       "name": "System Administrator",
       "email": "admin@company.com",
       "role": "Administrator",
-      "passwordHash": "$2b$10$gMm6n.tyJqQDiL8ZH9f3KeigMrz7NAZdzHfyvdeBf.OSM/JpbKXzu",
+      "passwordHash": "$2b$10$b27nmXmUm.Gk0zCkEVOfNuc1jSi/hJMDDgm8JcemqZSDbwNrCyGYC",
       "createdAt": "2026-08-26T21:41:34.060Z",
-      "updatedAt": "2026-08-26T21:41:34.060Z",
+      "updatedAt": "2026-09-07T18:21:05.067Z",
       "isActive": true
     },
     {
@@ -56,13 +56,47 @@
       "isActive": true
     }
   ],
-  "employees": [],
+  "employees": [
+    {
+      "id": "08a6887d-d359-43fe-980f-65f823aeb9f2",
+      "employeeId": "SFI0001",
+      "employeeName": "Usman",
+      "employeeType": "Staff",
+      "nationalityType": "Expat",
+      "wageType": "Fixed Monthly",
+      "dateOfJoining": "2026-09-05",
+      "dateOfLeaving": null,
+      "designation": "Staff",
+      "employeeCompany": "DGO",
+      "salaryPaidBy": "DGO",
+      "monthlySalaryOrRate": 500,
+      "wpsEmployee": "No",
+      "wpsSalary": 0,
+      "actualSalary": 500,
+      "recoverFrom": "",
+      "isActive": true,
+      "bankName": "",
+      "bankAccountNumber": "",
+      "iban": "",
+      "bankBranch": "",
+      "accountHolderName": "Usman",
+      "createdAt": "2026-09-05T19:45:07.104Z",
+      "updatedAt": "2026-09-05T19:45:14.328Z"
+    }
+  ],
   "designationHistory": [],
   "salaryHistory": [],
   "projects": [],
   "attendance": [],
-  "attendanceMonths": [],
-  "timesheets": [],
+  "attendanceMonths": [
+    {
+      "id": "c23f1cb1-b4f8-414e-880d-7cf52992fa98",
+      "payrollMonth": "2026-09",
+      "status": "Draft",
+      "createdAt": "2026-09-05T19:33:32.421Z",
+      "updatedAt": "2026-09-05T19:33:32.421Z"
+    }
+  ],
   "cifBatches": [],
   "cifRecords": [],
   "payrolls": [],
@@ -75,7 +109,94 @@
   "wpsRecoveryTransactions": [],
   "loans": [],
   "loanRecoveries": [],
+  "leaveTypes": [],
+  "leaveRequests": [],
+  "departments": [],
+  "designations": [],
   "auditLogs": [
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "PASSWORD_CHANGED",
+      "module": "Authentication",
+      "recordId": "user-admin-uuid-001",
+      "description": "User admin updated their password.",
+      "ipAddress": "127.0.0.1",
+      "id": "a557a07a-f5c4-4cf8-b185-95f5395af34f",
+      "timestamp": "2026-09-07T18:21:05.067Z"
+    },
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "USER_LOGIN_PASSWORD_CHANGE_REQUIRED",
+      "module": "Authentication",
+      "recordId": "user-admin-uuid-001",
+      "description": "User admin (Administrator) signed in with a password that fails the security policy. Session restricted until the password is changed.",
+      "ipAddress": "127.0.0.1",
+      "id": "3683bb63-3fef-4b02-ae2f-66481a95f337",
+      "timestamp": "2026-09-07T18:21:04.868Z"
+    },
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "USER_LOGIN_PASSWORD_CHANGE_REQUIRED",
+      "module": "Authentication",
+      "recordId": "user-admin-uuid-001",
+      "description": "User admin (Administrator) signed in with a password that fails the security policy. Session restricted until the password is changed.",
+      "ipAddress": "127.0.0.1",
+      "id": "d8078914-ece7-4d19-bab7-d2fe96072b39",
+      "timestamp": "2026-09-07T18:20:55.557Z"
+    },
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "USER_LOGIN_PASSWORD_CHANGE_REQUIRED",
+      "module": "Authentication",
+      "recordId": "user-admin-uuid-001",
+      "description": "User admin (Administrator) signed in with a password that fails the security policy. Session restricted until the password is changed.",
+      "ipAddress": "127.0.0.1",
+      "id": "a3241728-1206-4c27-be6b-7853eeb919a3",
+      "timestamp": "2026-09-07T18:20:48.588Z"
+    },
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "PERSONAL_DETAILS_UPDATED",
+      "module": "Employee Master",
+      "description": "Updated personal details & critical document attachments for Usman (SFI0001).",
+      "ipAddress": "127.0.0.1",
+      "id": "aa2f0e9e-60ee-4f2a-8b3f-ccefec53c5de",
+      "timestamp": "2026-09-05T19:45:14.328Z"
+    },
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "EMPLOYEE_CREATED",
+      "module": "Employee Master",
+      "recordId": "08a6887d-d359-43fe-980f-65f823aeb9f2",
+      "description": "Created employee SFI0001 (Usman, Staff) at DGO.",
+      "ipAddress": "127.0.0.1",
+      "id": "0531984e-fcc2-42aa-bfea-244849b05b75",
+      "timestamp": "2026-09-05T19:45:07.105Z"
+    },
+    {
+      "userId": "user-admin-uuid-001",
+      "username": "admin",
+      "userRole": "Administrator",
+      "action": "EMPLOYEE_CREATED",
+      "module": "Employee Master",
+      "recordId": "7b0a497a-96ec-4f51-9cbe-9b5b443eebce",
+      "description": "Created employee TEST001 (Test Employee, Staff) at DGO.",
+      "ipAddress": "127.0.0.1",
+      "id": "0bba538e-add0-43db-8f66-499a8cdfd66e",
+      "timestamp": "2026-09-05T19:41:14.632Z"
+    },
     {
       "userId": "user-admin-uuid-001",
       "username": "admin",
@@ -254,7 +375,27 @@
   "drivingLicences": [],
   "visas": [],
   "governmentDocuments": [],
-  "personalDetails": {},
+  "personalDetails": {
+    "TEST001": {
+      "employeeId": "TEST001",
+      "bankName": "",
+      "bankAccountNumber": "",
+      "iban": "",
+      "bankBranch": "",
+      "accountHolderName": "Test Employee",
+      "updatedAt": "2026-09-05T19:41:14.632Z",
+      "createdAt": "2026-09-05T19:41:14.632Z"
+    },
+    "SFI0001": {
+      "employeeId": "SFI0001",
+      "employeeName": "Usman",
+      "nationalityType": "Expat",
+      "gender": "Male",
+      "maritalStatus": "Single",
+      "updatedAt": "2026-09-05T19:45:14.327Z",
+      "createdAt": "2026-09-05T19:45:14.327Z"
+    }
+  },
   "documents": [],
   "drivingLicenceCategories": [
     "Light Vehicle",
@@ -264,6 +405,5 @@
     "Truck",
     "Heavy Equipment",
     "Other"
-  ],
-  "leaveRequests": []
+  ]
 }

@@ -68,7 +68,7 @@ export interface EmployeeIdentificationModalProps {
   initialTab?: EmployeeRecordTab;
   backLabel?: string;
   onClose: () => void;
-  onUpdated?: () => void;
+  onUpdated?: (updatedEmployee?: Employee, isNew?: boolean) => void;
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
@@ -420,22 +420,23 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   };
 
   // Fetch full employee compliance data
-  const fetchCompliance = async () => {
-    if (!currentEmployee) return;
+  const fetchCompliance = async (targetEmp?: Employee) => {
+    const empToFetch = targetEmp || currentEmployee;
+    if (!empToFetch) return;
     setLoading(true);
     try {
-      const res = await apiRequest(`/api/employees/${currentEmployee.employeeId}/compliance`);
+      const res = await apiRequest(`/api/employees/${empToFetch.employeeId}/compliance?fresh=1`);
       setComplianceData(res);
 
       if (res.personalDetails) {
         setPersonalForm({
           ...res.personalDetails,
-          photoUrl: res.personalDetails.photoUrl || currentEmployee.photoUrl || undefined,
+          photoUrl: res.personalDetails.photoUrl || empToFetch.photoUrl || undefined,
         });
       } else {
         setPersonalForm({
-          employeeId: currentEmployee.employeeId,
-          photoUrl: currentEmployee.photoUrl || undefined,
+          employeeId: empToFetch.employeeId,
+          photoUrl: empToFetch.photoUrl || undefined,
           gender: 'Male',
           maritalStatus: 'Single',
           qualifications: [],
@@ -445,25 +446,25 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       }
 
       setEmploymentForm({
-        employeeCompany: currentEmployee.employeeCompany,
-        designation: currentEmployee.designation,
-        employeeType: currentEmployee.employeeType,
-        nationalityType: currentEmployee.nationalityType,
-        dateOfJoining: currentEmployee.dateOfJoining,
-        dateOfLeaving: currentEmployee.dateOfLeaving || '',
-        isActive: currentEmployee.isActive,
+        employeeCompany: empToFetch.employeeCompany,
+        designation: empToFetch.designation,
+        employeeType: empToFetch.employeeType,
+        nationalityType: empToFetch.nationalityType,
+        dateOfJoining: empToFetch.dateOfJoining,
+        dateOfLeaving: empToFetch.dateOfLeaving || '',
+        isActive: empToFetch.isActive,
         promotionReason: '',
-        assignedProjectCode: currentEmployee.assignedProjectCode || '',
+        assignedProjectCode: empToFetch.assignedProjectCode || '',
       });
 
       setPayrollForm({
-        wageType: currentEmployee.wageType,
-        monthlySalaryOrRate: currentEmployee.monthlySalaryOrRate,
-        wpsEmployee: currentEmployee.wpsEmployee,
-        wpsSalary: currentEmployee.wpsSalary || 0,
-        actualSalary: currentEmployee.actualSalary || currentEmployee.monthlySalaryOrRate,
-        salaryPaidBy: currentEmployee.salaryPaidBy,
-        recoverFrom: currentEmployee.recoverFrom || '',
+        wageType: empToFetch.wageType,
+        monthlySalaryOrRate: empToFetch.monthlySalaryOrRate,
+        wpsEmployee: empToFetch.wpsEmployee,
+        wpsSalary: empToFetch.wpsSalary || 0,
+        actualSalary: empToFetch.actualSalary || empToFetch.monthlySalaryOrRate,
+        salaryPaidBy: empToFetch.salaryPaidBy,
+        recoverFrom: empToFetch.recoverFrom || '',
         salaryRevisionReason: '',
       });
 
@@ -502,7 +503,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           visaNumber: res.currentVisa.visaNumber || '',
           expiryDate: res.currentVisa.expiryDate,
           issueDate: res.currentVisa.issueDate || '',
-          sponsor: res.currentVisa.sponsor || currentEmployee.employeeCompany,
+          sponsor: res.currentVisa.sponsor || empToFetch.employeeCompany,
           sponsorshipType: (res.currentVisa.sponsorshipType as any) || 'Corporate',
           reasonForChange: '',
           remarks: res.currentVisa.remarks || '',
@@ -512,7 +513,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
       // Fetch repository doc count
       try {
-        const docsRes = await apiRequest(`/api/storage/employees/${currentEmployee.employeeId}/documents`);
+        const docsRes = await apiRequest(`/api/storage/employees/${empToFetch.employeeId}/documents`);
         if (docsRes?.documents) {
           setDocCount(docsRes.documents.length);
         }
@@ -522,7 +523,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
       // Establish baseline snapshot for unsaved change tracking
       const loadedPersonal = res.personalDetails || {
-        employeeId: currentEmployee.employeeId,
+        employeeId: empToFetch.employeeId,
         gender: 'Male',
         maritalStatus: 'Single',
         qualifications: [],
@@ -530,33 +531,43 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         emergencyContacts: [],
       };
       const loadedEmployment = {
-        employeeCompany: currentEmployee.employeeCompany,
-        designation: currentEmployee.designation,
-        employeeType: currentEmployee.employeeType,
-        nationalityType: currentEmployee.nationalityType,
-        dateOfJoining: currentEmployee.dateOfJoining,
-        dateOfLeaving: currentEmployee.dateOfLeaving || '',
-        isActive: currentEmployee.isActive,
+        employeeCompany: empToFetch.employeeCompany,
+        designation: empToFetch.designation,
+        employeeType: empToFetch.employeeType,
+        nationalityType: empToFetch.nationalityType,
+        dateOfJoining: empToFetch.dateOfJoining,
+        dateOfLeaving: empToFetch.dateOfLeaving || '',
+        isActive: empToFetch.isActive,
         promotionReason: '',
-        assignedProjectCode: currentEmployee.assignedProjectCode || '',
+        assignedProjectCode: empToFetch.assignedProjectCode || '',
       };
       const loadedPayroll = {
-        wageType: currentEmployee.wageType,
-        monthlySalaryOrRate: currentEmployee.monthlySalaryOrRate,
-        wpsEmployee: currentEmployee.wpsEmployee,
-        wpsSalary: currentEmployee.wpsSalary || 0,
-        actualSalary: currentEmployee.actualSalary || currentEmployee.monthlySalaryOrRate,
-        salaryPaidBy: currentEmployee.salaryPaidBy,
-        recoverFrom: currentEmployee.recoverFrom || '',
+        wageType: empToFetch.wageType,
+        monthlySalaryOrRate: empToFetch.monthlySalaryOrRate,
+        wpsEmployee: empToFetch.wpsEmployee,
+        wpsSalary: empToFetch.wpsSalary || 0,
+        actualSalary: empToFetch.actualSalary || empToFetch.monthlySalaryOrRate,
+        salaryPaidBy: empToFetch.salaryPaidBy,
+        recoverFrom: empToFetch.recoverFrom || '',
         salaryRevisionReason: '',
       };
       const loadedBasic = {
-        employeeId: currentEmployee.employeeId,
-        employeeName: currentEmployee.employeeName,
-        nationalityType: currentEmployee.nationalityType,
+        employeeId: empToFetch.employeeId,
+        employeeName: empToFetch.employeeName,
+        nationalityType: empToFetch.nationalityType,
       };
       setBaselineSnapshot(serializeForms(loadedBasic, loadedPersonal, loadedEmployment, loadedPayroll));
     } catch (err: any) {
+      if (err.message?.includes('not found') && empToFetch) {
+        try {
+          await new Promise((r) => setTimeout(r, 250));
+          const retryRes = await apiRequest(`/api/employees/${empToFetch.employeeId}/compliance?fresh=1`);
+          setComplianceData(retryRes);
+          return;
+        } catch {
+          // fall through
+        }
+      }
       setFeedback({
         type: 'error',
         message: err.message || 'Failed to load employee records.',
@@ -705,7 +716,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         type: 'success',
         message: `Employee ${created.employeeId} (${created.employeeName}) registered successfully with complete profile, employment placement, and compensation records!`,
       });
-      onUpdated?.();
+      onUpdated?.(created, true);
+      fetchCompliance(created);
     } catch (err: any) {
       setFeedback({
         type: 'error',
@@ -749,30 +761,25 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         }),
       });
 
-      // Synchronize currentEmployee state with updated Name / Nationality / Photo
-      if (
-        basicInfoForm.employeeName !== currentEmployee.employeeName ||
-        basicInfoForm.nationalityType !== currentEmployee.nationalityType ||
-        personalForm.photoUrl !== currentEmployee.photoUrl
-      ) {
-        setCurrentEmployee((prev: any) =>
-          prev
-            ? {
-                ...prev,
-                employeeName: basicInfoForm.employeeName,
-                nationalityType: basicInfoForm.nationalityType,
-                photoUrl: personalForm.photoUrl,
-              }
-            : prev
-        );
-      }
+      const updatedEmp: Employee = {
+        ...currentEmployee,
+        employeeName: basicInfoForm.employeeName,
+        nationalityType: basicInfoForm.nationalityType,
+        photoUrl: personalForm.photoUrl || currentEmployee.photoUrl,
+        bankName: personalForm.bankName || currentEmployee.bankName,
+        bankAccountNumber: personalForm.bankAccountNumber || currentEmployee.bankAccountNumber,
+        iban: personalForm.iban || currentEmployee.iban,
+        bankBranch: personalForm.bankBranch || currentEmployee.bankBranch,
+        accountHolderName: personalForm.accountHolderName || currentEmployee.accountHolderName,
+      };
+      setCurrentEmployee(updatedEmp);
 
       setFeedback({
         type: 'success',
         message: 'Personal details, legal identity, and banking credentials saved successfully.',
       });
-      fetchCompliance();
-      onUpdated?.();
+      fetchCompliance(updatedEmp);
+      onUpdated?.(updatedEmp, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save personal details.' });
     } finally {
@@ -800,8 +807,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         type: 'success',
         message: 'Employment and organizational placement saved successfully.',
       });
-      fetchCompliance();
-      onUpdated?.();
+      fetchCompliance(updated);
+      onUpdated?.(updated, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to update employment details.' });
     } finally {
@@ -825,8 +832,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         type: 'success',
         message: 'Compensation, remuneration rates and WPS parameters saved successfully.',
       });
-      fetchCompliance();
-      onUpdated?.();
+      fetchCompliance(updated);
+      onUpdated?.(updated, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to update compensation.' });
     } finally {
@@ -857,7 +864,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           : 'Civil ID record established successfully.',
       });
       fetchCompliance();
-      onUpdated?.();
+      onUpdated?.(currentEmployee, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save Civil ID.' });
     } finally {
@@ -888,7 +895,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           : 'Driving licence record established.',
       });
       fetchCompliance();
-      onUpdated?.();
+      onUpdated?.(currentEmployee, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save Driving Licence.' });
     } finally {
@@ -919,7 +926,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           : 'Visa record established.',
       });
       fetchCompliance();
-      onUpdated?.();
+      onUpdated?.(currentEmployee, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to save Visa record.' });
     } finally {
@@ -951,7 +958,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         message: 'Government document / passport registered successfully.',
       });
       fetchCompliance();
-      onUpdated?.();
+      onUpdated?.(currentEmployee, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to add document.' });
     } finally {
@@ -967,7 +974,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       });
       setFeedback({ type: 'success', message: 'Document record deleted.' });
       fetchCompliance();
-      onUpdated?.();
+      onUpdated?.(currentEmployee, false);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to delete document.' });
     }

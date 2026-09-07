@@ -242,14 +242,14 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
     setError(null);
 
     try {
-      const emp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}`);
+      const emp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}?fresh=1`);
       setEmployee(emp);
     } catch (err: any) {
       setError(err.message || 'Failed to load employee profile');
     }
 
     try {
-      const comp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}/compliance`);
+      const comp = await apiRequest(`/api/employees/${encodeURIComponent(selectedEmployeeId)}/compliance?fresh=1`);
       setComplianceData(comp);
       setPersonalDetails(comp?.personalDetails || null);
     } catch {

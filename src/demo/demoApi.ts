@@ -239,14 +239,16 @@ route('GET', '/api/employees', ({ query }) => {
 
 route('GET', '/api/employees/:id', ({ params }) => {
   const store = getDemoStore();
-  const employee = store.employees.find(e => e.id === params.id || e.employeeId === params.id);
+  const normId = normalizeEmployeeId(params.id);
+  const employee = store.employees.find(e => e.id === params.id || normalizeEmployeeId(e.employeeId) === normId);
   if (!employee) throw new Error('Employee not found.');
   return { ...employee, designationHistory: [], salaryHistory: [] };
 });
 
 route('GET', '/api/employees/:id/compliance', ({ params }) => {
   const store = getDemoStore();
-  const employee = store.employees.find(e => e.id === params.id || e.employeeId === params.id);
+  const targetId = normalizeEmployeeId(params.id);
+  const employee = store.employees.find(e => e.id === params.id || normalizeEmployeeId(e.employeeId) === targetId);
   if (!employee) throw new Error('Employee not found.');
 
   const normId = employee.employeeId;
@@ -340,7 +342,8 @@ route('GET', '/api/employees/:id/compliance', ({ params }) => {
 
 route('GET', '/api/employees/:id/personal-details', ({ params }) => {
   const store = getDemoStore();
-  const employee = store.employees.find(e => e.id === params.id || e.employeeId === params.id);
+  const targetId = normalizeEmployeeId(params.id);
+  const employee = store.employees.find(e => e.id === params.id || normalizeEmployeeId(e.employeeId) === targetId);
   if (!employee) throw new Error('Employee not found.');
 
   const normId = employee.employeeId;
@@ -420,7 +423,8 @@ route('POST', '/api/employees', ({ body, role }) => {
 route('PUT', '/api/employees/:id', ({ params, body, role }) => {
   assertWrite(role);
   const store = getDemoStore();
-  const idx = store.employees.findIndex(e => e.id === params.id);
+  const targetId = normalizeEmployeeId(params.id);
+  const idx = store.employees.findIndex(e => e.id === params.id || normalizeEmployeeId(e.employeeId) === targetId);
   if (idx === -1) throw new Error('Employee not found.');
   const current = store.employees[idx];
   const updated: Employee = {
@@ -438,7 +442,8 @@ route('PUT', '/api/employees/:id', ({ params, body, role }) => {
 route('PATCH', '/api/employees/:id/toggle-active', ({ params, role }) => {
   assertWrite(role);
   const store = getDemoStore();
-  const idx = store.employees.findIndex(e => e.id === params.id);
+  const targetId = normalizeEmployeeId(params.id);
+  const idx = store.employees.findIndex(e => e.id === params.id || normalizeEmployeeId(e.employeeId) === targetId);
   if (idx === -1) throw new Error('Employee not found.');
   const emp = store.employees[idx];
   const newStatus = !emp.isActive;
@@ -1078,6 +1083,199 @@ route('GET', '/api/reports/salary-payroll', ({ query }) => {
   };
   const fullRows = pageSize === 'all' ? rows : rows.slice(0, 25);
   return { reportingPeriod: { months: store.payrolls.map(p => p.payrollMonth) }, summary, analytics, exceptions: [], rows: fullRows, totalCount: rows.length, page: 1, pageSize: pageSize === 'all' ? rows.length : 25 };
+});
+
+// ==================== Notifications ====================
+route('GET', '/api/notifications', () => {
+  const store = getDemoStore();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const notifications: any[] = [];
+
+  // 1. Birthdays this week for demo employees
+  const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday ...
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const currentYear = today.getFullYear();
+  const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const activeEmployees = store.employees.filter((e) => e.isActive);
+
+  activeEmployees.forEach((emp, index) => {
+    const normId = emp.employeeId;
+    const numericId = parseInt(normId.replace(/\D/g, '') || '1', 10);
+
+    let birthYear = 1982 + (numericId % 16);
+    let birthMonth = 1 + (numericId % 12);
+    let birthDay = 1 + (numericId % 28);
+
+    // To ensure demo mode always highlights birthdays this week vividly:
+    // First active staff member celebrates birthday TODAY
+    if (index === 0) {
+      birthMonth = today.getMonth() + 1;
+      birthDay = today.getDate();
+      birthYear = currentYear - 34;
+    } else if (index === 1) {
+      // Second active member celebrates in 2 days
+      const in2Days = new Date(today);
+      in2Days.setDate(today.getDate() + 2);
+      birthMonth = in2Days.getMonth() + 1;
+      birthDay = in2Days.getDate();
+      birthYear = currentYear - 29;
+    }
+
+    const candidates = [
+      new Date(currentYear - 1, birthMonth - 1, birthDay, 0, 0, 0, 0),
+      new Date(currentYear, birthMonth - 1, birthDay, 0, 0, 0, 0),
+      new Date(currentYear + 1, birthMonth - 1, birthDay, 0, 0, 0, 0),
+    ];
+
+    let matchedCandidate: Date | null = null;
+    let matchedDaysDiff = 0;
+
+    for (const cand of candidates) {
+      const daysDiff = Math.round((cand.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if ((cand >= monday && cand <= sunday) || (daysDiff >= 0 && daysDiff <= 7)) {
+        matchedCandidate = cand;
+        matchedDaysDiff = daysDiff;
+        break;
+      }
+    }
+
+    if (matchedCandidate) {
+      const isToday = matchedDaysDiff === 0;
+      const isTomorrow = matchedDaysDiff === 1;
+      const turningAge = currentYear - birthYear;
+      const dayName = weekdayNames[matchedCandidate.getDay()];
+      const monthName = monthNames[matchedCandidate.getMonth()];
+      const formattedDate = `${monthName} ${birthDay}`;
+
+      const statusText = isToday
+        ? 'Today!'
+        : isTomorrow
+        ? 'Tomorrow'
+        : matchedDaysDiff > 1
+        ? `In ${matchedDaysDiff} days`
+        : `${dayName}`;
+
+      const dobString = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
+
+      notifications.push({
+        id: `birthday-${emp.id || emp.employeeId}`,
+        category: 'birthday',
+        type: isToday ? 'birthday_today' : 'birthday_upcoming',
+        severity: isToday ? 'urgent' : 'info',
+        title: isToday
+          ? `🎉 Birthday Today: ${emp.employeeName}${turningAge ? ` (Turning ${turningAge}!)` : ''}`
+          : `🎂 Birthday This Week: ${emp.employeeName}${turningAge ? ` (Turning ${turningAge})` : ''} - ${statusText}`,
+        message: isToday
+          ? `Celebrate ${emp.employeeName}'s birthday today (${formattedDate})! ${emp.designation} at ${emp.employeeCompany}. Click to view profile & ledger.`
+          : `${emp.employeeName}'s birthday is this ${dayName}, ${formattedDate} (${statusText}). ${emp.designation} at ${emp.employeeCompany}. Click to view profile.`,
+        timestamp: new Date().toISOString(),
+        date: matchedCandidate.toISOString().split('T')[0],
+        daysRemaining: matchedDaysDiff,
+        status: statusText,
+        metadata: {
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          designation: emp.designation,
+          company: emp.employeeCompany,
+          photoUrl: emp.photoUrl,
+          dateOfBirth: dobString,
+          turningAge,
+          isToday,
+          dayName,
+          formattedDate,
+        },
+        action: {
+          view: 'employee-ledger',
+          params: { employeeId: emp.employeeId },
+          label: 'View Profile',
+        },
+      });
+    }
+  });
+
+  // 2. Draft / Revision payrolls
+  for (const p of store.payrolls) {
+    if (p.status === 'Draft') {
+      notifications.push({
+        id: `payroll-${p.id || p.payrollMonth}`,
+        category: 'payroll',
+        type: 'payroll_draft',
+        severity: 'warning',
+        title: `Payroll Pending Finalization: ${p.payrollMonth}`,
+        message: `Payroll calculation for ${p.payrollMonth} (${p.totalEmployees || 0} employees, Net OMR ${roundOMR(p.totalNetSalary || 0).toFixed(3)}) is in Draft and awaiting approval & finalization.`,
+        timestamp: p.updatedAt || new Date().toISOString(),
+        date: p.payrollMonth,
+        status: p.status,
+        metadata: {
+          payrollMonth: p.payrollMonth,
+          totalEmployees: p.totalEmployees,
+          totalNetSalary: p.totalNetSalary,
+        },
+        action: {
+          view: 'payroll',
+          params: { month: p.payrollMonth },
+          label: 'Review Payroll',
+        },
+      });
+    }
+  }
+
+  // 3. Submitted attendance
+  for (const m of store.attendanceMonths.filter((a) => a.status === 'Submitted')) {
+    notifications.push({
+      id: `attendance-${m.id || m.payrollMonth}`,
+      category: 'attendance',
+      type: 'attendance_approval',
+      severity: 'warning',
+      title: `Attendance Approval Pending: ${m.payrollMonth}`,
+      message: `Attendance register for ${m.payrollMonth} was submitted and requires manager approval before payroll processing.`,
+      timestamp: m.updatedAt || new Date().toISOString(),
+      date: m.payrollMonth,
+      status: m.status,
+      metadata: { payrollMonth: m.payrollMonth },
+      action: {
+        view: 'attendance',
+        params: { month: m.payrollMonth },
+        label: 'Review Attendance',
+      },
+    });
+  }
+
+  notifications.sort((a, b) => {
+    if (a.severity === 'urgent' && b.severity !== 'urgent') return -1;
+    if (a.severity !== 'urgent' && b.severity === 'urgent') return 1;
+    if (a.daysRemaining !== undefined && b.daysRemaining !== undefined) {
+      return a.daysRemaining - b.daysRemaining;
+    }
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
+
+  const visaAlertsCount = 0;
+  const payrollApprovalsCount = notifications.filter((n) => n.category === 'payroll' || n.category === 'attendance').length;
+  const birthdayCount = notifications.filter((n) => n.category === 'birthday').length;
+  const urgentCount = notifications.filter((n) => n.severity === 'urgent').length;
+
+  return {
+    summary: {
+      total: notifications.length,
+      visaAlertsCount,
+      payrollApprovalsCount,
+      birthdayCount,
+      urgentCount,
+    },
+    notifications,
+  };
 });
 
 // ==================== Dispatch ====================

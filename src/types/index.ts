@@ -877,8 +877,15 @@ export interface AuditLog {
 
 export interface SystemNotification {
   id: string;
-  category: 'visa' | 'payroll' | 'attendance';
-  type: 'visa_expiring' | 'visa_expired' | 'payroll_draft' | 'payroll_revision' | 'attendance_approval';
+  category: 'visa' | 'payroll' | 'attendance' | 'birthday';
+  type:
+    | 'visa_expiring'
+    | 'visa_expired'
+    | 'payroll_draft'
+    | 'payroll_revision'
+    | 'attendance_approval'
+    | 'birthday_today'
+    | 'birthday_upcoming';
   severity: 'urgent' | 'warning' | 'info';
   title: string;
   message: string;
@@ -898,5 +905,6 @@ export interface NotificationSummary {
   total: number;
   visaAlertsCount: number;
   payrollApprovalsCount: number;
+  birthdayCount: number;
   urgentCount: number;
 }

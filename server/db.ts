@@ -806,6 +806,12 @@ class DatabaseManager {
     return this.inFlightDurableSync;
   }
 
+  // Resets the durable sync timer so the next read cannot rely on cached state
+  // and will immediately re-sync against the durable store.
+  public invalidateDurableCache(): void {
+    this.lastDurableSyncAt = 0;
+  }
+
   // One line describing where the data this instance is serving actually came from.
   // Attached to "not found" replies so an operator can tell a genuinely absent record
   // apart from an instance that failed to see one.
@@ -853,6 +859,7 @@ class DatabaseManager {
           throw new ConcurrencyConflictError();
         }
         this.stateVersion = res.rows[0].version;
+        this.lastDurableSyncAt = Date.now();
         return;
       } catch (e) {
         if (e instanceof ConcurrencyConflictError) throw e;
@@ -864,6 +871,7 @@ class DatabaseManager {
       }
     }
     this.saveToDisk();
+    this.lastDurableSyncAt = Date.now();
   }
 
   // Wraps a mutation that (a) reads current in-memory state, (b) mutates it, in a retry

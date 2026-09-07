@@ -6,8 +6,15 @@ const router = express.Router();
 
 export interface NotificationItem {
   id: string;
-  category: 'visa' | 'payroll' | 'attendance';
-  type: 'visa_expiring' | 'visa_expired' | 'payroll_draft' | 'payroll_revision' | 'attendance_approval';
+  category: 'visa' | 'payroll' | 'attendance' | 'birthday';
+  type:
+    | 'visa_expiring'
+    | 'visa_expired'
+    | 'payroll_draft'
+    | 'payroll_revision'
+    | 'attendance_approval'
+    | 'birthday_today'
+    | 'birthday_upcoming';
   severity: 'urgent' | 'warning' | 'info';
   title: string;
   message: string;
@@ -169,6 +176,113 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ==========================================
+    // 4. Employee Birthdays This Week
+    // ==========================================
+    const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday ...
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const currentYear = today.getFullYear();
+
+    for (const emp of employees) {
+      const empNorm = normalizeEmployeeId(emp.employeeId);
+      const personal = db.personalDetails.get(empNorm) || db.personalDetails.get(emp.employeeId);
+      const rawDob = personal?.dateOfBirth || personal?.dob || (emp as any).dateOfBirth || (emp as any).dob;
+
+      if (rawDob && typeof rawDob === 'string') {
+        const parts = rawDob.trim().split(/[-/T]/);
+        if (parts.length >= 3) {
+          const birthYear = parseInt(parts[0], 10);
+          const birthMonth = parseInt(parts[1], 10);
+          const birthDay = parseInt(parts[2], 10);
+
+          if (!isNaN(birthMonth) && !isNaN(birthDay) && birthMonth >= 1 && birthMonth <= 12 && birthDay >= 1 && birthDay <= 31) {
+            const candidates = [
+              new Date(currentYear - 1, birthMonth - 1, birthDay, 0, 0, 0, 0),
+              new Date(currentYear, birthMonth - 1, birthDay, 0, 0, 0, 0),
+              new Date(currentYear + 1, birthMonth - 1, birthDay, 0, 0, 0, 0),
+            ];
+
+            let matchedCandidate: Date | null = null;
+            let matchedDaysDiff = 0;
+
+            for (const cand of candidates) {
+              const daysDiff = Math.round((cand.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              // In current calendar week OR upcoming in rolling 7 days
+              if ((cand >= monday && cand <= sunday) || (daysDiff >= 0 && daysDiff <= 7)) {
+                matchedCandidate = cand;
+                matchedDaysDiff = daysDiff;
+                break;
+              }
+            }
+
+            if (matchedCandidate) {
+              const isToday = matchedDaysDiff === 0;
+              const isTomorrow = matchedDaysDiff === 1;
+              const turningAge =
+                !isNaN(birthYear) && birthYear > 1900 && birthYear < currentYear
+                  ? currentYear - birthYear
+                  : undefined;
+
+              const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+              const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const dayName = weekdayNames[matchedCandidate.getDay()];
+              const monthName = monthNames[matchedCandidate.getMonth()];
+              const formattedDate = `${monthName} ${birthDay}`;
+
+              const statusText = isToday
+                ? 'Today!'
+                : isTomorrow
+                ? 'Tomorrow'
+                : matchedDaysDiff > 1
+                ? `In ${matchedDaysDiff} days`
+                : `${dayName}`;
+
+              notifications.push({
+                id: `birthday-${emp.id || emp.employeeId}`,
+                category: 'birthday',
+                type: isToday ? 'birthday_today' : 'birthday_upcoming',
+                severity: isToday ? 'urgent' : 'info',
+                title: isToday
+                  ? `🎉 Birthday Today: ${emp.employeeName}${turningAge ? ` (Turning ${turningAge}!)` : ''}`
+                  : `🎂 Birthday This Week: ${emp.employeeName}${turningAge ? ` (Turning ${turningAge})` : ''} - ${statusText}`,
+                message: isToday
+                  ? `Celebrate ${emp.employeeName}'s birthday today (${formattedDate})! ${emp.designation} at ${emp.employeeCompany}. Click to view profile & ledger.`
+                  : `${emp.employeeName}'s birthday is this ${dayName}, ${formattedDate} (${statusText}). ${emp.designation} at ${emp.employeeCompany}. Click to view profile.`,
+                timestamp: new Date().toISOString(),
+                date: matchedCandidate.toISOString().split('T')[0],
+                daysRemaining: matchedDaysDiff,
+                status: statusText,
+                metadata: {
+                  employeeId: emp.employeeId,
+                  employeeName: emp.employeeName,
+                  designation: emp.designation,
+                  company: emp.employeeCompany,
+                  photoUrl: emp.photoUrl || personal?.photoUrl,
+                  dateOfBirth: rawDob,
+                  turningAge,
+                  isToday,
+                  dayName,
+                  formattedDate,
+                },
+                action: {
+                  view: 'employee-ledger',
+                  params: { employeeId: emp.employeeId },
+                  label: 'View Profile',
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+
     // Sort: Urgent first, then warnings; within urgency, sort expired/lowest days remaining first
     notifications.sort((a, b) => {
       if (a.severity === 'urgent' && b.severity !== 'urgent') return -1;
@@ -183,6 +297,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     const payrollApprovalsCount = notifications.filter(
       (n) => n.category === 'payroll' || n.category === 'attendance'
     ).length;
+    const birthdayCount = notifications.filter((n) => n.category === 'birthday').length;
     const urgentCount = notifications.filter((n) => n.severity === 'urgent').length;
 
     res.json({
@@ -190,6 +305,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
         total: notifications.length,
         visaAlertsCount,
         payrollApprovalsCount,
+        birthdayCount,
         urgentCount,
       },
       notifications,

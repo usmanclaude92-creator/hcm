@@ -113,10 +113,11 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
   const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const params = new URLSearchParams();
+      params.append('fresh', '1');
       if (search) params.append('search', search);
       if (typeFilter !== 'ALL') params.append('employeeType', typeFilter);
       if (nationalityFilter !== 'ALL') params.append('nationalityType', nationalityFilter);
@@ -132,8 +133,30 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
     } catch (err: any) {
       setError(err.message || 'Failed to fetch employees');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
+  };
+
+  const handleEmployeeSaved = (updatedEmployee?: Employee, isNew?: boolean) => {
+    if (updatedEmployee) {
+      // 1. Immediately update client-side local state so table & state reflect changes instantly
+      setEmployees((prev) => {
+        const index = prev.findIndex(
+          (e) => (updatedEmployee.id && e.id === updatedEmployee.id) || e.employeeId === updatedEmployee.employeeId
+        );
+        if (index >= 0) {
+          const updatedList = [...prev];
+          updatedList[index] = { ...updatedList[index], ...updatedEmployee };
+          return updatedList;
+        } else {
+          return [updatedEmployee, ...prev];
+        }
+      });
+      // Also update selectedRecordEmp so the inline header & modal reflect updated name / ID
+      setSelectedRecordEmp(updatedEmployee);
+    }
+    // 2. Perform background re-fetch with fresh=1 to reconcile with server without flashing loading UI
+    fetchEmployees(true);
   };
 
   useEffect(() => {
@@ -171,12 +194,27 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
     if (!confirm(`Are you sure you want to ${emp.isActive ? 'deactivate' : 'activate'} ${emp.employeeId} (${emp.employeeName})?`)) {
       return;
     }
+    const previousActive = emp.isActive;
+    const nextActive = !previousActive;
+    // Immediate client-side local state update
+    setEmployees((prev) =>
+      prev.map((e) => (e.id === emp.id || e.employeeId === emp.employeeId ? { ...e, isActive: nextActive } : e))
+    );
     try {
-      await apiRequest(`/api/employees/${emp.id}/toggle-active`, {
+      const updated = await apiRequest(`/api/employees/${emp.id}/toggle-active`, {
         method: 'PATCH',
       });
-      fetchEmployees();
+      if (updated) {
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === emp.id || e.employeeId === emp.employeeId ? { ...e, ...updated } : e))
+        );
+      }
+      fetchEmployees(true);
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setEmployees((prev) =>
+        prev.map((e) => (e.id === emp.id || e.employeeId === emp.employeeId ? { ...e, isActive: previousActive } : e))
+      );
       alert(err.message);
     }
   };
@@ -374,7 +412,7 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
             setIsRecordDirty(false);
           }}
           onDirtyChange={setIsRecordDirty}
-          onUpdated={fetchEmployees}
+          onUpdated={handleEmployeeSaved}
         />
 
         {/* Confirmation Modal when clicking breadcrumb back with unsaved edits */}

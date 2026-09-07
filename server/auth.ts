@@ -80,6 +80,9 @@ function passwordChangePending(req: AuthRequest, res: Response): boolean {
 // CDN logs and browser history; see verifyAuthAllowingQueryToken for the single route that
 // genuinely cannot send a header.
 export function verifyAuth(req: AuthRequest, res: Response, next: NextFunction) {
+  if (req.user) {
+    return next();
+  }
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : undefined;
 

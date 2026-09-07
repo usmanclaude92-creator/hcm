@@ -54,7 +54,12 @@ export async function createApp(): Promise<Express> {
   app.use('/api', (req, res, next) => {
     if (req.path === '/system/storage') return next();
     const isMutation = req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS';
-    db.syncFromDurableStore(isMutation ? 0 : READ_FRESHNESS_MS)
+    const forceFresh =
+      isMutation ||
+      req.query.fresh === '1' ||
+      req.query.fresh === 'true' ||
+      req.headers['cache-control']?.includes('no-cache');
+    db.syncFromDurableStore(forceFresh ? 0 : READ_FRESHNESS_MS)
       .then(() => next())
       .catch((err) => (isMutation ? next(err) : next()));
   });
