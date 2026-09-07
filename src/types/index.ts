@@ -505,33 +505,12 @@ export interface AttendanceMonth {
   updatedAt: string;
 }
 
-export type TimesheetApprovalStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
-
-// Independent, per-entry record (NOT a month-batch-replace like AttendanceRecord) -- an
-// employee can have many rows across different dates/projects; edits to one entry must
-// never affect any other. Does not feed payroll math; coexists with Attendance's day/hour
-// totals for granular per-day/per-task labor tracking and project-cost analytics.
-export interface TimesheetEntry {
-  id: string;
-  employeeId: string;
-  employeeName?: string;
-  date: string;
-  payrollMonth: string;
-  company: EmployeeCompany;
-  projectId: string;
-  projectCode: string;
-  projectName?: string;
-  taskActivity: string;
-  normalHours: number;
-  overtimeHours: number;
-  remarks?: string;
-  approvalStatus: TimesheetApprovalStatus;
-  isVoided?: boolean;
-  voidReason?: string | null;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Timesheets were modelled here and given a full repository in server/db.ts, but no
+// endpoint or screen ever wrote one: the collection could not be populated, and the
+// Project Costing report presented its permanently-zero half as though it were data.
+// The model and its dead consumers were removed rather than left to imply a feature
+// that does not exist. Attendance already records per-project days and hours, which is
+// what project costing is actually computed from.
 
 export type CifBatchStatus = 'Uploaded' | 'Validated' | 'Previewed' | 'Processed' | 'Reconciled' | 'Complete';
 export type CifRecordStatus = 'Valid' | 'Invalid' | 'Duplicate';

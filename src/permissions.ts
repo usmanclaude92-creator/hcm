@@ -1,7 +1,7 @@
 import type { UserRole } from './types/index';
 
 // Granular permission strings for the Salary Payment / Payment Planning / Attendance /
-// Timesheet / CIF modules. Still driven by the existing 4-role model (no user-manageable
+// CIF modules. Still driven by the existing 4-role model (no user-manageable
 // permission-assignment UI) -- this just names the checks more precisely than the coarse
 // canWrite/isAdmin flags used elsewhere in the app.
 export type Permission =
@@ -22,12 +22,6 @@ export type Permission =
   | 'attendance.approve'
   | 'attendance.finalize'
   | 'attendance.revert'
-  | 'timesheet.view'
-  | 'timesheet.create'
-  | 'timesheet.edit'
-  | 'timesheet.import'
-  | 'timesheet.export'
-  | 'timesheet.approve'
   | 'cif.view'
   | 'cif.upload'
   | 'cif.process'
@@ -55,12 +49,6 @@ const ALL_PERMISSIONS: Permission[] = [
   'attendance.approve',
   'attendance.finalize',
   'attendance.revert',
-  'timesheet.view',
-  'timesheet.create',
-  'timesheet.edit',
-  'timesheet.import',
-  'timesheet.export',
-  'timesheet.approve',
   'cif.view',
   'cif.upload',
   'cif.process',
@@ -86,11 +74,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'attendance.import',
     'attendance.export',
     'attendance.submit',
-    'timesheet.view',
-    'timesheet.create',
-    'timesheet.edit',
-    'timesheet.import',
-    'timesheet.export',
     'cif.view',
     'cif.upload',
     'cif.export',
@@ -106,8 +89,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'payment_planning.export',
     'attendance.view',
     'attendance.export',
-    'timesheet.view',
-    'timesheet.export',
     'cif.view',
     'cif.export',
     'compliance.view',

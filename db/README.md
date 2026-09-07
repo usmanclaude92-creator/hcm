@@ -10,9 +10,11 @@ The application still stores everything in a single JSONB document
 |---|---|
 | 001 schema designed and written | Done |
 | 002 integrity controls written | Done |
+| 003 scoped overrides | Done — closes a control bypass 002 shipped with |
 | Rehearsed on real PostgreSQL 16 | Done — 3 consecutive passes, 0 errors |
-| Integrity test suite | Done — 38/38 assertions pass |
-| Applied to production | **Not yet** — awaiting a staging database decision |
+| Applied to a staging Supabase project | Done — `hcm-staging`, PostgreSQL 17.6 |
+| Integrity test suite | Done — 43/43 assertions pass on staging |
+| Applied to production | **Not yet** |
 | Data backfilled from `app_state` | Not yet |
 | Application reads/writes switched over | Not yet |
 
@@ -23,7 +25,8 @@ The application still stores everything in a single JSONB document
 | `migrations/000_legacy_baseline.sql` | The schema that already exists in production, so 001+ can be rehearsed from an identical starting point on a throwaway database. Never run against production. |
 | `migrations/001_relational_core.sql` | 43 tables, 61 foreign keys, 84 check constraints, 105 indexes. Non-destructive: the eight pre-existing empty tables are `ALTER`ed into shape, never dropped. |
 | `migrations/002_integrity_controls.sql` | Triggers and a reconciliation view: append-only audit, finalized-payroll and approved-attendance locks, payment/loan/WPS ceilings, payroll-month consistency. |
-| `tests/integrity_test.sql` | 38 assertions that each attempt a forbidden operation and confirm the database refuses it. |
+| `migrations/003_scoped_overrides.sql` | Replaces 002's single global override switch with one named scope per control. Required: without it, any one authorised correction unlocks every financial control for the rest of the transaction. |
+| `tests/integrity_test.sql` | 43 assertions that each attempt a forbidden operation and confirm the database refuses it, including four that specifically prove one control's override does not open another's. |
 
 ## Rehearsing locally
 
@@ -32,11 +35,18 @@ createdb hcm_rehearsal
 psql -d hcm_rehearsal -f db/migrations/000_legacy_baseline.sql
 psql -d hcm_rehearsal -f db/migrations/001_relational_core.sql
 psql -d hcm_rehearsal -f db/migrations/002_integrity_controls.sql
-psql -d hcm_rehearsal -f db/tests/integrity_test.sql     # expect 38 passed, 0 failed
+psql -d hcm_rehearsal -f db/migrations/003_scoped_overrides.sql
+psql -d hcm_rehearsal -f db/tests/integrity_test.sql     # expect 43 passed, 0 failed
 ```
 
-001 and 002 are idempotent — re-running them is a no-op. This was verified over
-three consecutive passes.
+001, 002 and 003 are idempotent — re-running them is a no-op. This was verified
+over three consecutive passes.
+
+**Rehearse in a single transaction as well as under autocommit.** psql
+autocommit puts every statement in its own transaction, which hides any
+override that outlives the statement that set it. That is not how the
+application talks to the database. Running the suite through one connection in
+one transaction is what caught the defect 003 fixes.
 
 ## Design decisions
 
@@ -48,17 +58,30 @@ three consecutive passes.
   years later. `payroll_line_inputs` records which attendance, leave and loan
   records produced each figure.
 - **Locks are enforced by trigger**, not by application convention. A legitimate
-  correction sets `SET LOCAL hcms.allow_locked_write = 'on'` inside its
-  transaction; the flag is transaction-scoped and cannot leak.
+  correction opens one named scope for the duration of its transaction:
+
+  ```sql
+  SELECT hcms_override('attendance_correction');
+  UPDATE attendance_records ...;
+  SELECT hcms_override_clear();
+  ```
+
+  Each guard accepts only its own scope, so an attendance correction cannot
+  authorise a payroll edit or a loan over-recovery. 002 shipped a single global
+  switch and its header claimed the flag "cannot leak into another statement";
+  that was wrong — `SET LOCAL` is transaction-scoped, not statement-scoped.
+  Under a pooled connection one correction disarmed every financial control for
+  the rest of the request. 003 fixes this; callers must still clear the scope.
 - **Statuses are `text` + `CHECK`** rather than PostgreSQL enums, which need a
   migration for every new value.
 
 ## Before applying to production
 
 Per the project's own rule, migrations run in staging first. The Supabase free
-plan caps this organisation at two active projects (`hcm`, `staff`), so a
-separate staging project could not be created. That decision is open — see the
-production-readiness notes.
+plan caps this organisation at two active projects; the `staff` project was
+paused to free the slot, and `hcm-staging` (region `ap-northeast-2`,
+PostgreSQL 17.6) now holds 000+001+002+003 with 43/43 integrity assertions
+passing. Production has **not** been touched.
 
 Regardless of that, a backup exists: `app_state` row
 `backup-preaudit-20260906` (inert; the application only reads `main`) and two

@@ -12,7 +12,6 @@ import type {
   Project,
   AttendanceRecord,
   AttendanceMonth,
-  TimesheetEntry,
   CifBatch,
   CifRecord,
   MonthlyPayroll,
@@ -251,7 +250,6 @@ interface DatabaseSchema {
   projects: Project[];
   attendance: AttendanceRecord[];
   attendanceMonths: AttendanceMonth[];
-  timesheets: TimesheetEntry[];
   cifBatches: CifBatch[];
   cifRecords: CifRecord[];
   payrolls: MonthlyPayroll[];
@@ -325,7 +323,6 @@ class DatabaseManager {
     projects: [],
     attendance: [],
     attendanceMonths: [],
-    timesheets: [],
     cifBatches: [],
     cifRecords: [],
     payrolls: [],
@@ -711,7 +708,6 @@ class DatabaseManager {
       projects: parsed.projects || [],
       attendance: parsed.attendance || [],
       attendanceMonths: parsed.attendanceMonths || [],
-      timesheets: parsed.timesheets || [],
       cifBatches: parsed.cifBatches || [],
       cifRecords: parsed.cifRecords || [],
       payrolls: parsed.payrolls || [],
@@ -1261,72 +1257,6 @@ class DatabaseManager {
           record.revertReason = reason;
           record.updatedAt = record.revertedAt;
           return { changed: true, value: record as AttendanceMonth };
-        });
-      },
-    };
-  }
-
-  // Independent per-entry records (NOT a month-batch-replace like AttendanceRecord) --
-  // editing/voiding one entry never touches any other. Does not feed payroll math; coexists
-  // with Attendance's day/hour totals for granular per-day/per-task labor tracking.
-  public get timesheets() {
-    return {
-      getAll: () => [...this.inMemoryData.timesheets],
-      getByMonth: (month: string) => this.inMemoryData.timesheets.filter(t => t.payrollMonth === month && !t.isVoided),
-      getByEmployeeAndMonth: (empId: string, month: string) => {
-        const norm = normalizeEmployeeId(empId);
-        return this.inMemoryData.timesheets.filter(
-          t => normalizeEmployeeId(t.employeeId) === norm && t.payrollMonth === month && !t.isVoided
-        );
-      },
-      getByProject: (projectId: string, month?: string) =>
-        this.inMemoryData.timesheets.filter(
-          t => t.projectId === projectId && !t.isVoided && (!month || t.payrollMonth === month)
-        ),
-      create: async (entry: TimesheetEntry) => {
-        return this.withOptimisticRetry(() => {
-          this.inMemoryData.timesheets.push(entry);
-          return { changed: true, value: entry };
-        });
-      },
-      update: async (id: string, updates: Partial<TimesheetEntry>) => {
-        return this.withOptimisticRetry(() => {
-          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
-          if (index === -1) return { changed: false, value: null as TimesheetEntry | null };
-          this.inMemoryData.timesheets[index] = {
-            ...this.inMemoryData.timesheets[index],
-            ...updates,
-            updatedAt: new Date().toISOString(),
-          };
-          return { changed: true, value: this.inMemoryData.timesheets[index] as TimesheetEntry | null };
-        });
-      },
-      voidEntry: async (id: string, reason: string, user: string) => {
-        return this.withOptimisticRetry(() => {
-          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
-          if (index === -1) return { changed: false, value: null as TimesheetEntry | null };
-          const entry = this.inMemoryData.timesheets[index];
-          if (entry.isVoided) throw new Error('This timesheet entry has already been voided.');
-          entry.isVoided = true;
-          entry.voidReason = reason;
-          entry.updatedAt = new Date().toISOString();
-          return { changed: true, value: entry as TimesheetEntry | null };
-        });
-      },
-      importBatch: async (entries: TimesheetEntry[]) => {
-        return this.withOptimisticRetry(() => {
-          this.inMemoryData.timesheets.push(...entries);
-          return { changed: true, value: entries };
-        });
-      },
-      setApprovalStatus: async (id: string, status: TimesheetEntry['approvalStatus'], user: string) => {
-        return this.withOptimisticRetry(() => {
-          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
-          if (index === -1) return { changed: false, value: null as TimesheetEntry | null };
-          const entry = this.inMemoryData.timesheets[index];
-          entry.approvalStatus = status;
-          entry.updatedAt = new Date().toISOString();
-          return { changed: true, value: entry as TimesheetEntry | null };
         });
       },
     };

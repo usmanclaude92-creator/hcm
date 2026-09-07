@@ -347,7 +347,13 @@ router.get('/loans', verifyAuth, (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/reports/project-costing - Per-project labor & cost analysis (Attendance + Timesheet)
+// GET /api/reports/project-costing - Per-project labor & cost analysis, from attendance.
+//
+// This used to also read a `timesheets` collection. Nothing in the application ever wrote
+// to that collection -- it had a data model and a repository but no UI and no endpoint --
+// so the timesheet half of every figure below was permanently zero while the report
+// presented it as a real number. The dead half has been removed rather than left to imply
+// data that cannot exist. Attendance already carries per-project days and hours.
 router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const { month, projectId } = req.query as { month?: string; projectId?: string };
@@ -355,7 +361,6 @@ router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => 
 
     const projects = db.projects.getAll().filter(p => !projectId || p.id === projectId);
     const attendanceRecords = db.attendance.getByMonth(month);
-    const timesheetEntries = db.timesheets.getByMonth(month);
     const employees = scopedEmployees(req);
     const employeeById = new Map(employees.map(e => [normalizeEmployeeId(e.employeeId), e]));
 
@@ -363,14 +368,10 @@ router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => 
       const attForProject = attendanceRecords.filter(a =>
         a.projectId === project.id || a.projectCode === project.projectCode
       );
-      const tsForProject = timesheetEntries.filter(t =>
-        t.projectId === project.id || t.projectCode === project.projectCode
-      );
 
-      const employeeIds = new Set<string>([
-        ...attForProject.map(a => normalizeEmployeeId(a.employeeId)),
-        ...tsForProject.map(t => normalizeEmployeeId(t.employeeId)),
-      ]);
+      const employeeIds = new Set<string>(
+        attForProject.map(a => normalizeEmployeeId(a.employeeId))
+      );
 
       let totalDays = 0;
       let totalHours = 0;
@@ -382,13 +383,10 @@ router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => 
       for (const empId of employeeIds) {
         const emp = employeeById.get(empId);
         const empAttendance = attForProject.filter(a => normalizeEmployeeId(a.employeeId) === empId);
-        const empTimesheet = tsForProject.filter(t => normalizeEmployeeId(t.employeeId) === empId);
 
         const days = empAttendance.reduce((s, a) => s + (Number(a.daysWorked) || 0), 0);
-        const hours = empAttendance.reduce((s, a) => s + (Number(a.hoursWorked) || 0), 0)
-          + empTimesheet.reduce((s, t) => s + (Number(t.normalHours) || 0), 0);
-        const overtime = empAttendance.reduce((s, a) => s + (Number(a.overtimeHours) || 0), 0)
-          + empTimesheet.reduce((s, t) => s + (Number(t.overtimeHours) || 0), 0);
+        const hours = empAttendance.reduce((s, a) => s + (Number(a.hoursWorked) || 0), 0);
+        const overtime = empAttendance.reduce((s, a) => s + (Number(a.overtimeHours) || 0), 0);
         const bonus = empAttendance.reduce((s, a) => s + (Number(a.bonus) || 0), 0);
         const deduction = empAttendance.reduce((s, a) => s + (Number(a.deduction) || 0), 0);
 
@@ -418,7 +416,6 @@ router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => 
         totalBonus: roundOMR(totalBonus),
         totalDeduction: roundOMR(totalDeduction),
         estimatedCost: roundOMR(estimatedCost),
-        timesheetEntryCount: tsForProject.length,
       };
     });
 

@@ -315,7 +315,7 @@ export const ReportsView: React.FC = () => {
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <h3 className="font-bold text-slate-900 text-sm">Project Labor & Costing — {month}</h3>
-              <span className="text-xs text-slate-500">Estimate only — sourced from Attendance & Timesheet, capture-only fields excluded from Payroll</span>
+              <span className="text-xs text-slate-500">Estimate only — sourced from Attendance; capture-only fields are excluded from Payroll</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
