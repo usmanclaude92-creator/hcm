@@ -11,12 +11,37 @@ The application still stores everything in a single JSONB document
 | 001 schema designed and written | Done |
 | 002 integrity controls written | Done |
 | 003 scoped overrides | Done — closes a control bypass 002 shipped with |
+| Rollback proven | Done — forward → rollback → forward, lossless both ways |
 | Rehearsed on real PostgreSQL 16 | Done — 3 consecutive passes, 0 errors |
 | Applied to a staging Supabase project | Done — `hcm-staging`, PostgreSQL 17.6 |
 | Integrity test suite | Done — 43/43 assertions pass on staging |
-| Applied to production | **Not yet** |
+| 001 applied to production | Done — 43 tables, 60/61 FKs, 84 checks, 105 indexes |
+| 001e + 002 + 003 applied to production | **Not yet** — see below |
 | Data backfilled from `app_state` | Not yet |
 | Application reads/writes switched over | Not yet |
+
+### What is live in production right now
+
+The relational tables, columns, foreign keys, check constraints and indexes of
+001 are applied. `app_state` was not touched and the application ran normally
+throughout — it advanced from version 186 to 192 and gained an employee while
+the migration was being applied, which is the intended property: the relational
+side is built alongside the live store, not in place of it.
+
+Three pieces are still outstanding, all of them additive and none of them
+blocking the running application (nothing writes these tables yet):
+
+| Step | File | What it does |
+|---|---|---|
+| `001e` | tail of `001_relational_core.sql` | Converts `audit_logs.id` / `user_id` to `uuid` and the remaining varchar columns to `text`, then adds `audit_logs_user_fk`. `audit_logs` holds 0 rows, so this rewrites nothing. |
+| `002` | `002_integrity_controls.sql` | The trigger layer and the reconciliation view. |
+| `003` | `003_scoped_overrides.sql` | Must be applied immediately after 002 — 002 alone ships the global override this replaces. |
+
+Until 002 and 003 are applied, the relational tables have their **structural**
+integrity (keys, FKs, checks, uniqueness) but not their **behavioural** locks
+(append-only audit, finalized-payroll immutability, payment and loan ceilings).
+That is safe only while the tables are empty, which they are. Apply 002 and 003
+before the backfill puts a single financial row in them.
 
 ## Files
 
