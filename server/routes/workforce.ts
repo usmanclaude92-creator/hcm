@@ -10,9 +10,7 @@ import {
 const router = Router();
 
 // GET /api/workforce/shift-status
-// Populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard. Linking is by
-// Civil ID (see workforceClient.ts) -- an employee with no current Civil ID on file simply
-// gets no entry here, same as if the Workforce lookup were unavailable.
+// Populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard.
 router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const scope = companyScopeOf(req.user);
@@ -22,14 +20,13 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
 
     const employeeIdByCivilId = new Map<string, string>();
     for (const e of activeEmployees) {
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber;
+      // Fall back to employeeId (55667788) if no secondary civilId entry exists
+      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber || e.employeeId;
       if (civilId) employeeIdByCivilId.set(civilId, normalizeEmployeeId(e.employeeId));
     }
 
     const result = await fetchWorkforceShiftStatuses(Array.from(employeeIdByCivilId.keys()));
 
-    // Re-key the Civil-ID-keyed response back onto HCMS Employee ID, which is what the
-    // dashboard/cards already key off of -- keeps the frontend contract unchanged.
     const statuses: Record<string, unknown> = {};
     for (const [civilId, status] of Object.entries(result.statuses)) {
       const employeeId = employeeIdByCivilId.get(civilId);
@@ -48,22 +45,18 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
 });
 
 // POST /api/workforce/sync-eligibility
-// Pushes active employees who have a current Civil ID on file into the Artify Workforce
-// app's eligibility list, so they can register there with that same Civil ID. Administrator
-// only: this sends names, phone numbers and Civil ID numbers to an external system.
+// Pushes active employees into the Artify Workforce app's eligibility list
 router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), async (req: AuthRequest, res: Response) => {
   try {
     const activeEmployees = db.employees.getAll().filter((e) => e.isActive);
 
     const records: WorkforceEligibilityRecord[] = [];
     for (const e of activeEmployees) {
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber;
+      // Fall back to employeeId (55667788) if no secondary civilId entry exists
+      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber || e.employeeId;
       if (!civilId) continue;
 
       const personal = db.personalDetails.get(e.employeeId);
-      // Employment Details' linked Assigned Project (Project Master Data) is the
-      // authoritative source; the free-text personalDetails.assignedProject is a legacy
-      // fallback for records imported before that link existed.
       const projectCode = e.assignedProjectCode || personal?.assignedProject || null;
       const project = projectCode ? db.projects.findByCode(projectCode) : undefined;
 
@@ -71,6 +64,7 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
         civilId,
         employeeCode: normalizeEmployeeId(e.employeeId),
         fullName: e.employeeName,
+        role: e.employeeType ? e.employeeType.toUpperCase() : 'STAFF',
         department: e.designation || null,
         phone: personal?.mobile || personal?.mobileNumber || null,
         companyCode: e.employeeCompany,
@@ -96,7 +90,7 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
       action: 'WORKFORCE_ELIGIBILITY_SYNC',
       module: 'Workforce Integration',
       recordId: 'sync-eligibility',
-      description: `Synced ${records.length} employee(s) with the Artify Workforce app (${result.summary?.lookupUpserted ?? 0} eligibility rows upserted, ${result.summary?.employeesRefreshed ?? 0} already-registered profiles refreshed, ${result.summary?.projectsCreated ?? 0} new site(s) created there).`,
+      description: `Synced ${records.length} employee(s) with the Artify Workforce app.`,
       ipAddress: req.ip,
     });
 
