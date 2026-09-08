@@ -16,6 +16,8 @@ export interface User {
   // Companies this user may see. Empty or absent = all companies (Administrator, or an
   // account deliberately left unscoped). Enforced server-side, not by hiding UI.
   companyScope?: EmployeeCompany[];
+  // Link to an Employee record for self-service mobile access
+  employeeId?: string;
 }
 
 // --- Leave management -----------------------------------------------------------------
@@ -505,12 +507,98 @@ export interface AttendanceMonth {
   updatedAt: string;
 }
 
-// Timesheets were modelled here and given a full repository in server/db.ts, but no
-// endpoint or screen ever wrote one: the collection could not be populated, and the
-// Project Costing report presented its permanently-zero half as though it were data.
-// The model and its dead consumers were removed rather than left to imply a feature
-// that does not exist. Attendance already records per-project days and hours, which is
-// what project costing is actually computed from.
+// Timesheets model supporting mobile and web project-based hours reporting
+export interface TimesheetRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  workDate: string; // YYYY-MM-DD
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  hoursWorked: number;
+  description: string;
+  status: 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Daily Attendance Punch model for mobile Check-In / Check-Out
+export interface AttendancePunch {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  punchDate: string; // YYYY-MM-DD
+  checkInTime: string; // ISO string
+  checkOutTime?: string | null; // ISO string
+  hoursWorked?: number;
+  overtimeHours?: number;
+  projectId?: string;
+  projectCode?: string;
+  projectName?: string;
+  // Geolocation & Device capture
+  checkInLatitude?: number | null;
+  checkInLongitude?: number | null;
+  checkInAccuracy?: number | null;
+  checkInAddress?: string | null;
+  checkOutLatitude?: number | null;
+  checkOutLongitude?: number | null;
+  checkOutAccuracy?: number | null;
+  checkOutAddress?: string | null;
+  // Geofence evaluation (non-blocking exception logging)
+  isGeofenceException?: boolean;
+  exceptionReason?: string | null;
+  status: 'Checked In' | 'Checked Out' | 'Exception';
+  notes?: string | null;
+  idempotencyKey?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeLedgerItem {
+  id: string;
+  date: string;
+  type: 'Payroll Gross' | 'Addition' | 'Deduction' | 'Salary Payment' | 'Loan Disbursement' | 'Loan Recovery';
+  description: string;
+  reference?: string;
+  credit: number; // OMR credited to employee
+  debit: number;  // OMR debited / paid / recovered
+  runningBalance: number;
+}
+
+export interface MobileDashboardData {
+  employee: Employee;
+  personal?: EmployeePersonalDetails;
+  todayPunch?: AttendancePunch | null;
+  monthAttendance: {
+    payrollMonth: string;
+    daysWorked: number;
+    hoursWorked: number;
+    overtimeHours: number;
+  };
+  leaveSummary: {
+    annualEntitlement: number;
+    approvedDays: number;
+    pendingDays: number;
+    remainingDays: number;
+  };
+  latestPayroll?: {
+    payrollMonth: string;
+    grossSalary: number;
+    totalAdditions: number;
+    totalDeductions: number;
+    netSalary: number;
+    status: string;
+  } | null;
+  pendingLoans: {
+    activeLoanCount: number;
+    totalOutstanding: number;
+  };
+  notificationsCount: number;
+}
 
 export type CifBatchStatus = 'Uploaded' | 'Validated' | 'Previewed' | 'Processed' | 'Reconciled' | 'Complete';
 export type CifRecordStatus = 'Valid' | 'Invalid' | 'Duplicate';

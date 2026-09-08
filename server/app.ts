@@ -24,6 +24,7 @@ import gratuityRouter from './routes/gratuity.js';
 import mastersRouter from './routes/masters.js';
 import notificationsRouter from './routes/notifications.js';
 import workforceRouter from './routes/workforce.js';
+import timesheetsRouter from './routes/timesheets.js';
 
 // Builds the Express app and ensures the database is initialized. Shared by the
 // traditional long-running entrypoint (server.ts) and the Vercel serverless
@@ -85,6 +86,7 @@ export async function createApp(): Promise<Express> {
   app.use('/api/masters', mastersRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/workforce', workforceRouter);
+  app.use('/api/timesheets', timesheetsRouter);
 
   // Public, pre-authentication. The sign-in screen used to assert "Production-grade
   // PostgreSQL / Persistent Data Store Enabled" as static text regardless of the truth;

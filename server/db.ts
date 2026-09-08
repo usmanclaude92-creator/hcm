@@ -40,6 +40,8 @@ import type {
   DocumentExpiryStatus,
   OverallComplianceStatus,
   DrivingLicenceCategory,
+  AttendancePunch,
+  TimesheetRecord,
 } from '../src/types/index';
 
 // 3-decimal safe monetary arithmetic helper
@@ -277,6 +279,8 @@ interface DatabaseSchema {
   documents: EmployeeDocument[];
   personalDetails: Record<string, EmployeePersonalDetails>;
   drivingLicenceCategories: string[];
+  attendancePunches?: AttendancePunch[];
+  timesheets?: TimesheetRecord[];
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -355,6 +359,8 @@ class DatabaseManager {
       'Heavy Equipment',
       'Other',
     ],
+    attendancePunches: [],
+    timesheets: [],
   };
 
   private pgPool: pg.Pool | null = null;
@@ -740,6 +746,8 @@ class DatabaseManager {
         'Heavy Equipment',
         'Other',
       ],
+      attendancePunches: parsed.attendancePunches || [],
+      timesheets: parsed.timesheets || [],
     };
   }
 
@@ -1270,6 +1278,192 @@ class DatabaseManager {
     };
   }
 
+  // Synchronize mobile attendance punches to the monthly attendance grid
+  private syncPunchesToMonthlyAttendance(employeeId: string, month: string) {
+    const norm = normalizeEmployeeId(employeeId);
+    const emp = this.employees.findByEmployeeId(norm);
+    if (!emp) return;
+
+    const monthPunches = (this.inMemoryData.attendancePunches || []).filter(
+      p => normalizeEmployeeId(p.employeeId) === norm && p.punchDate.startsWith(month)
+    );
+
+    const distinctDaysWorked = new Set(monthPunches.map(p => p.punchDate)).size;
+    const totalHoursWorked = roundOMR(
+      monthPunches.reduce((sum, p) => sum + (Number(p.hoursWorked) || (p.checkOutTime ? 8 : 0)), 0)
+    );
+    const totalOvertime = roundOMR(
+      monthPunches.reduce((sum, p) => sum + (Number(p.overtimeHours) || 0), 0)
+    );
+    const latestProjectCode = monthPunches[monthPunches.length - 1]?.projectCode || emp.assignedProjectCode || 'HQ-GEN';
+    const latestProjectId = monthPunches[monthPunches.length - 1]?.projectId || 'proj-hq';
+
+    const monthId = this.ensureAttendanceMonthInMemory(month);
+    const existingIdx = this.inMemoryData.attendance.findIndex(
+      a => normalizeEmployeeId(a.employeeId) === norm && a.payrollMonth === month
+    );
+
+    const timestamp = new Date().toISOString();
+    if (existingIdx !== -1) {
+      const existing = this.inMemoryData.attendance[existingIdx];
+      this.inMemoryData.attendance[existingIdx] = {
+        ...existing,
+        daysWorked: Math.max(existing.daysWorked, distinctDaysWorked),
+        hoursWorked: Math.max(existing.hoursWorked, totalHoursWorked),
+        overtimeHours: Math.max(existing.overtimeHours || 0, totalOvertime),
+        projectCode: existing.projectCode || latestProjectCode,
+        updatedAt: timestamp
+      };
+    } else {
+      this.inMemoryData.attendance.push({
+        id: crypto.randomUUID(),
+        attendanceMonthId: monthId,
+        employeeId: emp.employeeId,
+        employeeName: emp.employeeName,
+        employeeType: emp.employeeType,
+        wageType: emp.wageType,
+        employeeCompany: emp.employeeCompany,
+        payrollMonth: month,
+        projectId: latestProjectId,
+        projectCode: latestProjectCode,
+        daysWorked: distinctDaysWorked,
+        hoursWorked: totalHoursWorked,
+        overtimeHours: totalOvertime,
+        bonus: 0,
+        deduction: 0,
+        advancePaid: 0,
+        remarks: 'Synced from Mobile Attendance Punch',
+        createdAt: timestamp,
+        updatedAt: timestamp
+      });
+    }
+  }
+
+  // Daily attendance punches for mobile app check-in/out
+  public get attendancePunches() {
+    return {
+      getAll: () => [...(this.inMemoryData.attendancePunches || [])],
+      getByEmployee: (employeeId: string, month?: string) => {
+        const norm = normalizeEmployeeId(employeeId);
+        let list = (this.inMemoryData.attendancePunches || []).filter(
+          p => normalizeEmployeeId(p.employeeId) === norm
+        );
+        if (month) {
+          list = list.filter(p => p.punchDate.startsWith(month));
+        }
+        return list.sort((a, b) => b.punchDate.localeCompare(a.punchDate) || b.checkInTime.localeCompare(a.checkInTime));
+      },
+      getTodayPunch: (employeeId: string, dateStr: string) => {
+        const norm = normalizeEmployeeId(employeeId);
+        return (this.inMemoryData.attendancePunches || []).find(
+          p => normalizeEmployeeId(p.employeeId) === norm && p.punchDate === dateStr
+        ) || null;
+      },
+      create: async (punch: AttendancePunch) => {
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.attendancePunches) {
+            this.inMemoryData.attendancePunches = [];
+          }
+          this.inMemoryData.attendancePunches.push(punch);
+          this.syncPunchesToMonthlyAttendance(punch.employeeId, punch.punchDate.slice(0, 7));
+          return { changed: true, value: punch };
+        });
+      },
+      update: async (id: string, updates: Partial<AttendancePunch>) => {
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.attendancePunches) this.inMemoryData.attendancePunches = [];
+          const index = this.inMemoryData.attendancePunches.findIndex(p => p.id === id);
+          if (index === -1) throw new Error(`Attendance punch '${id}' not found.`);
+          const updated = {
+            ...this.inMemoryData.attendancePunches[index],
+            ...updates,
+            updatedAt: new Date().toISOString()
+          };
+          this.inMemoryData.attendancePunches[index] = updated;
+          this.syncPunchesToMonthlyAttendance(updated.employeeId, updated.punchDate.slice(0, 7));
+          return { changed: true, value: updated };
+        });
+      },
+      getExceptions: (month?: string) => {
+        let list = (this.inMemoryData.attendancePunches || []).filter(p => p.isGeofenceException || p.status === 'Exception');
+        if (month) {
+          list = list.filter(p => p.punchDate.startsWith(month));
+        }
+        return list.sort((a, b) => b.punchDate.localeCompare(a.punchDate));
+      }
+    };
+  }
+
+  // Timesheets repository
+  public get timesheets() {
+    return {
+      getAll: () => [...(this.inMemoryData.timesheets || [])],
+      getByEmployee: (employeeId: string) => {
+        const norm = normalizeEmployeeId(employeeId);
+        return (this.inMemoryData.timesheets || [])
+          .filter(t => normalizeEmployeeId(t.employeeId) === norm)
+          .sort((a, b) => b.workDate.localeCompare(a.workDate) || b.createdAt.localeCompare(a.createdAt));
+      },
+      findById: (id: string) => {
+        return (this.inMemoryData.timesheets || []).find(t => t.id === id) || null;
+      },
+      create: async (record: TimesheetRecord) => {
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.timesheets) this.inMemoryData.timesheets = [];
+          this.inMemoryData.timesheets.push(record);
+          return { changed: true, value: record };
+        });
+      },
+      update: async (id: string, updates: Partial<TimesheetRecord>) => {
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.timesheets) this.inMemoryData.timesheets = [];
+          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
+          if (index === -1) throw new Error(`Timesheet '${id}' not found.`);
+          const updated = {
+            ...this.inMemoryData.timesheets[index],
+            ...updates,
+            updatedAt: new Date().toISOString()
+          };
+          this.inMemoryData.timesheets[index] = updated;
+          return { changed: true, value: updated };
+        });
+      },
+      approve: async (id: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.timesheets) this.inMemoryData.timesheets = [];
+          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
+          if (index === -1) throw new Error(`Timesheet '${id}' not found.`);
+          const updated: TimesheetRecord = {
+            ...this.inMemoryData.timesheets[index],
+            status: 'Approved',
+            approvedBy: user,
+            approvedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          this.inMemoryData.timesheets[index] = updated;
+          return { changed: true, value: updated };
+        });
+      },
+      reject: async (id: string, reason: string, user: string) => {
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.timesheets) this.inMemoryData.timesheets = [];
+          const index = this.inMemoryData.timesheets.findIndex(t => t.id === id);
+          if (index === -1) throw new Error(`Timesheet '${id}' not found.`);
+          const updated: TimesheetRecord = {
+            ...this.inMemoryData.timesheets[index],
+            status: 'Rejected',
+            approvedBy: user,
+            rejectionReason: reason,
+            approvedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          this.inMemoryData.timesheets[index] = updated;
+          return { changed: true, value: updated };
+        });
+      }
+    };
+  }
+
   // Modeled on Attendance's own template/validate/preview/confirm pattern -- generic
   // accountReference/amount fields, not a specific bank's regulatory column spec.
   public get cif() {
@@ -1334,6 +1528,10 @@ class DatabaseManager {
   public get payroll() {
     return {
       getAll: () => [...this.inMemoryData.payrolls],
+      getLinesByEmployee: (employeeId: string) => {
+        const norm = normalizeEmployeeId(employeeId);
+        return this.inMemoryData.payrollLines.filter(l => normalizeEmployeeId(l.employeeId) === norm);
+      },
       getByMonth: (month: string) => {
         const payroll = this.inMemoryData.payrolls.find(p => p.payrollMonth === month);
         if (!payroll) return null;
@@ -1555,6 +1753,10 @@ class DatabaseManager {
   public get salaryPayments() {
     return {
       getAll: () => [...this.inMemoryData.salaryPayments],
+      getByEmployee: (empId: string) => {
+        const norm = normalizeEmployeeId(empId);
+        return this.inMemoryData.salaryPayments.filter(p => normalizeEmployeeId(p.employeeId) === norm && !p.isReversed);
+      },
       getByEmployeeAndMonth: (empId: string, month: string) => {
         const norm = normalizeEmployeeId(empId);
         return this.inMemoryData.salaryPayments.filter(p => normalizeEmployeeId(p.employeeId) === norm && p.payrollMonth === month && !p.isReversed);

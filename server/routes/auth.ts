@@ -55,6 +55,16 @@ router.post('/login', async (req, res) => {
     const policyError = validatePasswordStrength(password);
     const mustChangePassword = Boolean(policyError) && process.env.ALLOW_WEAK_PASSWORDS !== 'true';
 
+    // Link user to employee record if available for mobile employee self-service
+    let employeeId = user.employeeId;
+    if (!employeeId) {
+      const allEmps = db.employees.getAll();
+      const match = allEmps.find(e => e.employeeId.toLowerCase() === user.username.toLowerCase()) ||
+                    allEmps.find(e => db.personalDetails.get(e.employeeId)?.personalEmail?.toLowerCase() === user.email?.toLowerCase()) ||
+                    (user.username === 'admin' || user.username === 'manager' ? allEmps.find(e => e.isActive) : undefined);
+      if (match) employeeId = match.employeeId;
+    }
+
     const token = generateToken({
       id: user.id,
       username: user.username,
@@ -62,6 +72,7 @@ router.post('/login', async (req, res) => {
       name: user.name,
       email: user.email,
       mustChangePassword,
+      employeeId,
     });
 
     await db.audit.log({
@@ -87,6 +98,7 @@ router.post('/login', async (req, res) => {
         role: user.role,
         name: user.name,
         email: user.email,
+        employeeId,
         mustChangePassword,
       },
     });
@@ -104,12 +116,23 @@ router.get('/me', verifyAuth, (req: AuthRequest, res: Response) => {
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
+
+  let employeeId = user.employeeId || req.user.employeeId;
+  if (!employeeId) {
+    const allEmps = db.employees.getAll();
+    const match = allEmps.find(e => e.employeeId.toLowerCase() === user.username.toLowerCase()) ||
+                  allEmps.find(e => db.personalDetails.get(e.employeeId)?.personalEmail?.toLowerCase() === user.email?.toLowerCase()) ||
+                  (user.username === 'admin' || user.username === 'manager' ? allEmps.find(e => e.isActive) : undefined);
+    if (match) employeeId = match.employeeId;
+  }
+
   const userData = {
     id: user.id,
     username: user.username,
     role: user.role,
     name: user.name,
     email: user.email,
+    employeeId,
     isActive: user.isActive,
     createdAt: user.createdAt,
   };

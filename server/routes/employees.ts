@@ -26,6 +26,8 @@ import type {
   EmployeeVisa,
   EmployeeGovernmentDocument,
   EmployeePersonalDetails,
+  EmployeeLedgerItem,
+  MobileDashboardData,
 } from '../../src/types/index';
 import { validateBankAccountNumber, validateIban, validateBankDetails } from '../../src/utils/bankValidation.js';
 
@@ -294,6 +296,348 @@ function validateEmployeeFields(f: {
   }
   return null;
 }
+
+// ==================== Mobile Employee Self-Service & Ledger API ====================
+
+// GET /api/employees/me/dashboard - Self-service summary for the logged-in employee
+router.get('/me/dashboard', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    let empId = String(req.query.employeeId || req.user?.employeeId || '').trim();
+    const allEmps = db.employees.getAll();
+
+    let emp: Employee | undefined | null = null;
+    if (empId) {
+      emp = db.employees.findByEmployeeId(normalizeEmployeeId(empId));
+    }
+    if (!emp && req.user?.username) {
+      emp = allEmps.find(e => e.employeeId.toLowerCase() === req.user!.username.toLowerCase());
+    }
+    if (!emp && req.user?.email) {
+      emp = allEmps.find(e => db.personalDetails.get(e.employeeId)?.personalEmail?.toLowerCase() === req.user!.email.toLowerCase());
+    }
+    // Fallback for Admin/Manager testing: use first active employee
+    if (!emp && (req.user?.role === 'Administrator' || req.user?.role === 'Payroll Manager')) {
+      emp = allEmps.find(e => e.isActive) || allEmps[0];
+    }
+
+    if (!emp) {
+      return res.status(404).json({ error: 'No employee record linked to this user account.' });
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const currentMonth = todayStr.slice(0, 7);
+
+    // 1. Today punch
+    const todayPunch = db.attendancePunches.getTodayPunch(emp.employeeId, todayStr);
+
+    // 2. Month attendance
+    const monthRecords = db.attendance.getByEmployeeAndMonth(emp.employeeId, currentMonth);
+    const monthRecord = monthRecords[0];
+    const punchesThisMonth = db.attendancePunches.getByEmployee(emp.employeeId, currentMonth);
+    const daysWorked = monthRecord ? monthRecord.daysWorked : new Set(punchesThisMonth.map(p => p.punchDate)).size;
+    const hoursWorked = monthRecord ? monthRecord.hoursWorked : punchesThisMonth.reduce((s, p) => s + (p.hoursWorked || (p.checkOutTime ? 8 : 0)), 0);
+    const overtimeHours = monthRecord ? (monthRecord.overtimeHours || 0) : punchesThisMonth.reduce((s, p) => s + (p.overtimeHours || 0), 0);
+
+    // 3. Leave summary
+    const leaveRequests = db.leaveRequests.getByEmployee(emp.employeeId);
+    const approvedDays = leaveRequests
+      .filter(r => r.status === 'Approved' && r.startDate.startsWith(todayStr.slice(0, 4)))
+      .reduce((s, r) => s + (r.totalDays || 0), 0);
+    const pendingDays = leaveRequests
+      .filter(r => r.status === 'Submitted' && r.startDate.startsWith(todayStr.slice(0, 4)))
+      .reduce((s, r) => s + (r.totalDays || 0), 0);
+    const annualEntitlement = 30; // Oman Labour Law standard annual entitlement
+    const remainingDays = Math.max(0, annualEntitlement - approvedDays);
+
+    // 4. Latest payroll
+    const allPayrollLines = db.payroll.getLinesByEmployee(emp.employeeId);
+    let latestPayroll: MobileDashboardData['latestPayroll'] = null;
+    if (allPayrollLines.length > 0) {
+      const sorted = [...allPayrollLines].sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth));
+      const latestLine = sorted[0];
+      const header = db.payroll.getByMonth(latestLine.payrollMonth);
+      latestPayroll = {
+        payrollMonth: latestLine.payrollMonth,
+        grossSalary: latestLine.grossSalary,
+        totalAdditions: latestLine.totalAdditions,
+        totalDeductions: (latestLine.loanRecovery || 0) + (latestLine.otherDeductions || 0),
+        netSalary: latestLine.netSalary,
+        status: header?.status || 'Finalized',
+      };
+    }
+
+    // 5. Active loans
+    const allLoans = db.loans.getAll().filter(l => normalizeEmployeeId(l.employeeId) === normalizeEmployeeId(emp!.employeeId) && l.status === 'Active');
+    const totalOutstanding = roundOMR(allLoans.reduce((sum, l) => sum + (l.outstandingBalance || 0), 0));
+
+    // 6. Personal details
+    const personal = db.personalDetails.get(emp.employeeId);
+
+    // 7. Actionable notifications count (e.g., expiring documents or system alerts)
+    const civilId = db.civilIds.getCurrent(emp.employeeId);
+    const visa = db.visas.getCurrent(emp.employeeId);
+    let notificationsCount = 0;
+    if (civilId && (calculateExpiryStatus(civilId.expiryDate) === 'EXPIRED' || calculateExpiryStatus(civilId.expiryDate) === 'EXPIRING_30')) {
+      notificationsCount++;
+    }
+    if (visa && (calculateExpiryStatus(visa.expiryDate) === 'EXPIRED' || calculateExpiryStatus(visa.expiryDate) === 'EXPIRING_30')) {
+      notificationsCount++;
+    }
+
+    const data: MobileDashboardData = {
+      employee: emp,
+      personal,
+      todayPunch,
+      monthAttendance: {
+        payrollMonth: currentMonth,
+        daysWorked,
+        hoursWorked: roundOMR(hoursWorked),
+        overtimeHours: roundOMR(overtimeHours),
+      },
+      leaveSummary: {
+        annualEntitlement,
+        approvedDays,
+        pendingDays,
+        remainingDays,
+      },
+      latestPayroll,
+      pendingLoans: {
+        activeLoanCount: allLoans.length,
+        totalOutstanding,
+      },
+      notificationsCount,
+    };
+
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch dashboard summary.' });
+  }
+});
+
+// GET /api/employees/:employeeId/ledger - Transparent financial statement / ledger
+router.get('/:employeeId/ledger', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const emp = await resolveEmployee(req.params.employeeId);
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
+
+    const norm = normalizeEmployeeId(emp.employeeId);
+    const items: EmployeeLedgerItem[] = [];
+
+    // 1. Payroll earnings & deductions
+    const payrollLines = db.payroll.getLinesByEmployee(emp.employeeId);
+    for (const line of payrollLines) {
+      // Gross earnings credited
+      items.push({
+        id: `payroll-${line.id}-gross`,
+        date: `${line.payrollMonth}-28`,
+        type: 'Payroll Gross',
+        description: `Payroll ${line.payrollMonth} Gross Earnings`,
+        reference: line.payrollMonth,
+        credit: line.grossSalary,
+        debit: 0,
+        runningBalance: 0,
+      });
+
+      // Loan recovery deduction debited
+      if (line.loanRecovery > 0) {
+        items.push({
+          id: `payroll-${line.id}-loan`,
+          date: `${line.payrollMonth}-28`,
+          type: 'Loan Recovery',
+          description: `Loan Deduction (Payroll ${line.payrollMonth})`,
+          reference: line.payrollMonth,
+          credit: 0,
+          debit: line.loanRecovery,
+          runningBalance: 0,
+        });
+      }
+
+      // Other deductions debited
+      if (line.otherDeductions > 0) {
+        items.push({
+          id: `payroll-${line.id}-ded`,
+          date: `${line.payrollMonth}-28`,
+          type: 'Deduction',
+          description: `Other Deductions (Payroll ${line.payrollMonth})`,
+          reference: line.payrollMonth,
+          credit: 0,
+          debit: line.otherDeductions,
+          runningBalance: 0,
+        });
+      }
+    }
+
+    // 2. Salary payout transactions
+    const payments = db.salaryPayments.getByEmployee(emp.employeeId);
+    for (const p of payments) {
+      items.push({
+        id: `payment-${p.id}`,
+        date: p.paymentDate,
+        type: 'Salary Payment',
+        description: `Salary Payout (${p.payrollMonth}) via ${p.paymentMethod || 'Bank Transfer'}`,
+        reference: p.referenceNumber || p.paymentBatchId || undefined,
+        credit: 0,
+        debit: p.payAmount,
+        runningBalance: 0,
+      });
+    }
+
+    // 3. Loans disbursement & non-payroll direct recoveries
+    const loans = db.loans.getAll().filter(l => normalizeEmployeeId(l.employeeId) === norm);
+    for (const l of loans) {
+      const loanDate = l.disbursementDate || l.createdAt.slice(0, 10);
+      items.push({
+        id: `loan-${l.id}-disb`,
+        date: loanDate,
+        type: 'Loan Disbursement',
+        description: `Loan Disbursement: ${l.loanReason || 'Personal / Emergency Loan'}`,
+        reference: l.id.slice(0, 8),
+        credit: l.loanAmount,
+        debit: 0,
+        runningBalance: 0,
+      });
+
+      // Include non-payroll direct recoveries
+      if (l.recoveries) {
+        for (const r of l.recoveries) {
+          if (r.recoverySource !== 'Payroll' && !r.isReversed) {
+            items.push({
+              id: `loan-rec-${r.id}`,
+              date: r.recoveryDate,
+              type: 'Loan Recovery',
+              description: `Direct Loan Recovery payment`,
+              reference: r.id.slice(0, 8),
+              credit: 0,
+              debit: r.recoveryAmount,
+              runningBalance: 0,
+            });
+          }
+        }
+      }
+    }
+
+    // Sort chronologically ascending
+    items.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+
+    // Calculate running balance
+    let running = 0;
+    let totalCredits = 0;
+    let totalDebits = 0;
+    for (const item of items) {
+      totalCredits = roundOMR(totalCredits + item.credit);
+      totalDebits = roundOMR(totalDebits + item.debit);
+      running = roundOMR(running + item.credit - item.debit);
+      item.runningBalance = running;
+    }
+
+    res.json({
+      employeeId: emp.employeeId,
+      employeeName: emp.employeeName,
+      employeeCompany: emp.employeeCompany,
+      totalCredits,
+      totalDebits,
+      netBalance: running,
+      items: items.reverse(), // Return most recent first for display
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to generate employee ledger.' });
+  }
+});
+
+// GET /api/employees/:employeeId/payslips - Historical payslips list
+router.get('/:employeeId/payslips', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const emp = await resolveEmployee(req.params.employeeId);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const lines = db.payroll.getLinesByEmployee(emp.employeeId);
+    const payslips = lines.map(line => {
+      const header = db.payroll.getByMonth(line.payrollMonth);
+      return {
+        id: line.id,
+        payrollMonth: line.payrollMonth,
+        basicSalaryOrRate: line.basicSalaryOrRate,
+        houseAllowance: line.houseAllowance,
+        transportAllowance: line.transportAllowance,
+        bonus: line.bonus,
+        otherAllowance: line.otherAllowance,
+        grossSalary: line.grossSalary,
+        loanRecovery: line.loanRecovery,
+        otherDeductions: line.otherDeductions,
+        netSalary: line.netSalary,
+        wpsEmployee: line.wpsEmployee,
+        status: header?.status || 'Finalized',
+        finalizedAt: header?.finalizedAt,
+      };
+    });
+
+    payslips.sort((a, b) => b.payrollMonth.localeCompare(a.payrollMonth));
+    res.json(payslips);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch payslips.' });
+  }
+});
+
+// GET /api/employees/:employeeId/payslips/:month - Single detailed payslip
+router.get('/:employeeId/payslips/:month', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const emp = await resolveEmployee(req.params.employeeId);
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+
+    const month = req.params.month;
+    const lines = db.payroll.getLinesByEmployee(emp.employeeId);
+    const line = lines.find(l => l.payrollMonth === month);
+    if (!line) {
+      return res.status(404).json({ error: `No payslip found for month ${month}.` });
+    }
+
+    const header = db.payroll.getByMonth(month);
+    const attendanceRecords = db.attendance.getByEmployeeAndMonth(emp.employeeId, month);
+    const attendance = attendanceRecords[0] || null;
+    const personal = db.personalDetails.get(emp.employeeId);
+
+    res.json({
+      employee: {
+        employeeId: emp.employeeId,
+        employeeName: emp.employeeName,
+        designation: emp.designation,
+        employeeCompany: emp.employeeCompany,
+        salaryPaidBy: emp.salaryPaidBy,
+        dateOfJoining: emp.dateOfJoining,
+        bankName: personal?.bankName || emp.bankName,
+        bankAccountNumber: personal?.bankAccountNumber || emp.bankAccountNumber,
+        iban: personal?.iban || emp.iban,
+      },
+      payrollMonth: month,
+      status: header?.status || 'Finalized',
+      attendance: attendance ? {
+        daysWorked: attendance.daysWorked,
+        hoursWorked: attendance.hoursWorked,
+        overtimeHours: attendance.overtimeHours,
+        projectCode: attendance.projectCode,
+      } : null,
+      earnings: {
+        basicSalaryOrRate: line.basicSalaryOrRate,
+        houseAllowance: line.houseAllowance,
+        transportAllowance: line.transportAllowance,
+        bonus: line.bonus,
+        otherAllowance: line.otherAllowance,
+        grossSalary: line.grossSalary,
+      },
+      deductions: {
+        loanRecovery: line.loanRecovery,
+        otherDeductions: line.otherDeductions,
+        totalDeductions: roundOMR((line.loanRecovery || 0) + (line.otherDeductions || 0)),
+      },
+      netSalary: line.netSalary,
+      currency: 'OMR',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch detailed payslip.' });
+  }
+});
 
 // GET /api/employees - List employees with filters
 router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {

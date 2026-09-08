@@ -11,7 +11,7 @@ import {
   companyScopeOf,
   canSeeCompany,
 } from '../auth.js';
-import type { AttendanceRecord, EmployeeType, EmployeeCompany } from '../../src/types/index';
+import type { AttendanceRecord, EmployeeType, EmployeeCompany, AttendancePunch } from '../../src/types/index';
 
 const router = Router();
 
@@ -927,6 +927,232 @@ router.post('/:month/revert', verifyAuth, requirePermission('attendance.revert')
     res.json(updated);
   } catch (err: any) {
     res.status(400).json({ error: err.message || 'Failed to revert attendance.' });
+  }
+});
+
+// ==================== Mobile Punch & Attendance API ====================
+
+// Haversine distance in meters
+function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+// Default Oman Project / HQ coordinates (Muscat Central)
+const DEFAULT_GEOFENCE = {
+  latitude: 23.5880,
+  longitude: 58.3829,
+  radiusMeters: 1500, // 1.5 km
+};
+
+// GET /api/attendance/punches/today
+router.get('/punches/today', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = String(req.query.employeeId || req.user?.employeeId || '').trim();
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Employee ID is required.' });
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const punch = db.attendancePunches.getTodayPunch(employeeId, todayStr);
+    res.json({ punch });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch today punch.' });
+  }
+});
+
+// GET /api/attendance/punches
+router.get('/punches', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = req.query.employeeId ? String(req.query.employeeId) : req.user?.employeeId;
+    const month = req.query.month ? String(req.query.month) : undefined;
+    if (employeeId) {
+      const punches = db.attendancePunches.getByEmployee(employeeId, month);
+      return res.json(punches);
+    }
+    // If admin or manager, return all punches
+    const all = db.attendancePunches.getAll();
+    const filtered = month ? all.filter(p => p.punchDate.startsWith(month)) : all;
+    res.json(filtered.sort((a, b) => b.punchDate.localeCompare(a.punchDate) || b.checkInTime.localeCompare(a.checkInTime)));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch punches.' });
+  }
+});
+
+// GET /api/attendance/punches/exceptions
+router.get('/punches/exceptions', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const month = req.query.month ? String(req.query.month) : undefined;
+    const exceptions = db.attendancePunches.getExceptions(month);
+    res.json(exceptions);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch exceptions.' });
+  }
+});
+
+// POST /api/attendance/punches/check-in
+router.post('/punches/check-in', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = String(req.body.employeeId || req.user?.employeeId || '').trim();
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Employee ID is required.' });
+    }
+
+    const emp = db.employees.findByEmployeeId(employeeId);
+    if (!emp) {
+      return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
+    }
+
+    const todayStr = req.body.punchDate || new Date().toISOString().slice(0, 10);
+    const existingPunch = db.attendancePunches.getTodayPunch(emp.employeeId, todayStr);
+
+    if (existingPunch && !existingPunch.checkOutTime) {
+      return res.status(400).json({
+        error: `Already checked in for today at ${existingPunch.checkInTime.slice(11, 19)}. Please check out before checking in again.`,
+        punch: existingPunch,
+      });
+    }
+
+    // Idempotency check
+    if (req.body.idempotencyKey) {
+      const match = db.attendancePunches.getAll().find(p => p.idempotencyKey === req.body.idempotencyKey);
+      if (match) return res.json({ punch: match, idempotent: true });
+    }
+
+    // Geofence evaluation (non-blocking)
+    const lat = req.body.latitude != null ? Number(req.body.latitude) : null;
+    const lon = req.body.longitude != null ? Number(req.body.longitude) : null;
+    let isGeofenceException = false;
+    let exceptionReason: string | null = null;
+
+    if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+      const dist = computeDistanceMeters(lat, lon, DEFAULT_GEOFENCE.latitude, DEFAULT_GEOFENCE.longitude);
+      if (dist > DEFAULT_GEOFENCE.radiusMeters) {
+        isGeofenceException = true;
+        exceptionReason = `Check-in location is ${Math.round(dist)}m from designated site (boundary: ${DEFAULT_GEOFENCE.radiusMeters}m)`;
+      }
+    }
+
+    const projectId = req.body.projectId || 'proj-hq';
+    const projectCode = req.body.projectCode || emp.assignedProjectCode || 'HQ-GEN';
+    const projectName = req.body.projectName || 'General Operations';
+
+    const timestamp = new Date().toISOString();
+    const punch: AttendancePunch = {
+      id: crypto.randomUUID(),
+      employeeId: emp.employeeId,
+      employeeName: emp.employeeName,
+      punchDate: todayStr,
+      checkInTime: timestamp,
+      projectId,
+      projectCode,
+      projectName,
+      checkInLatitude: lat,
+      checkInLongitude: lon,
+      checkInAccuracy: req.body.accuracy != null ? Number(req.body.accuracy) : null,
+      checkInAddress: req.body.address || null,
+      isGeofenceException,
+      exceptionReason,
+      status: isGeofenceException ? 'Exception' : 'Checked In',
+      notes: req.body.notes || null,
+      idempotencyKey: req.body.idempotencyKey || null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    const saved = await db.attendancePunches.create(punch);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || emp.employeeId,
+      userRole: req.user?.role || 'Payroll User',
+      action: 'ATTENDANCE_CHECK_IN',
+      module: 'Attendance',
+      recordId: punch.id,
+      description: `Mobile check-in for ${emp.employeeName} (${emp.employeeId}) on project ${projectCode}.${isGeofenceException ? ` [EXCEPTION: ${exceptionReason}]` : ''}`,
+      newValue: { punchDate: todayStr, checkInTime: timestamp, projectCode, isGeofenceException },
+    });
+
+    res.json({ success: true, punch: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to check in.' });
+  }
+});
+
+// POST /api/attendance/punches/check-out
+router.post('/punches/check-out', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const employeeId = String(req.body.employeeId || req.user?.employeeId || '').trim();
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Employee ID is required.' });
+    }
+
+    const todayStr = req.body.punchDate || new Date().toISOString().slice(0, 10);
+    const punch = db.attendancePunches.getTodayPunch(employeeId, todayStr);
+
+    if (!punch) {
+      return res.status(404).json({ error: 'No check-in record found for today. Please check in first.' });
+    }
+    if (punch.checkOutTime) {
+      return res.status(400).json({ error: `Already checked out today at ${punch.checkOutTime.slice(11, 19)}.`, punch });
+    }
+
+    const timestamp = new Date().toISOString();
+    const checkInMs = new Date(punch.checkInTime).getTime();
+    const checkOutMs = new Date(timestamp).getTime();
+    const diffHours = Math.max(0.1, Number(((checkOutMs - checkInMs) / (1000 * 60 * 60)).toFixed(2)));
+    const overtimeHours = diffHours > 8 ? Number((diffHours - 8).toFixed(2)) : 0;
+
+    const lat = req.body.latitude != null ? Number(req.body.latitude) : null;
+    const lon = req.body.longitude != null ? Number(req.body.longitude) : null;
+    let isGeofenceException = punch.isGeofenceException || false;
+    let exceptionReason = punch.exceptionReason || null;
+
+    if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+      const dist = computeDistanceMeters(lat, lon, DEFAULT_GEOFENCE.latitude, DEFAULT_GEOFENCE.longitude);
+      if (dist > DEFAULT_GEOFENCE.radiusMeters) {
+        isGeofenceException = true;
+        exceptionReason = exceptionReason
+          ? `${exceptionReason}; Check-out location is ${Math.round(dist)}m from site`
+          : `Check-out location is ${Math.round(dist)}m from designated site`;
+      }
+    }
+
+    const updated = await db.attendancePunches.update(punch.id, {
+      checkOutTime: timestamp,
+      hoursWorked: diffHours,
+      overtimeHours,
+      checkOutLatitude: lat,
+      checkOutLongitude: lon,
+      checkOutAccuracy: req.body.accuracy != null ? Number(req.body.accuracy) : null,
+      checkOutAddress: req.body.address || null,
+      isGeofenceException,
+      exceptionReason,
+      status: isGeofenceException ? 'Exception' : 'Checked Out',
+      notes: req.body.notes ? `${punch.notes ? `${punch.notes}; ` : ''}${req.body.notes}` : punch.notes,
+    });
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || punch.employeeId,
+      userRole: req.user?.role || 'Payroll User',
+      action: 'ATTENDANCE_CHECK_OUT',
+      module: 'Attendance',
+      recordId: punch.id,
+      description: `Mobile check-out for ${punch.employeeName} (${punch.employeeId}). Total hours: ${diffHours} (OT: ${overtimeHours}).`,
+      newValue: { checkOutTime: timestamp, hoursWorked: diffHours, overtimeHours },
+    });
+
+    res.json({ success: true, punch: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to check out.' });
   }
 });
 

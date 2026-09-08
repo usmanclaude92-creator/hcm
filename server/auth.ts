@@ -30,6 +30,7 @@ export function generateToken(user: {
   name: string;
   email: string;
   mustChangePassword?: boolean;
+  employeeId?: string;
 }): string {
   return jwt.sign(
     {
@@ -38,6 +39,7 @@ export function generateToken(user: {
       role: user.role,
       name: user.name,
       email: user.email,
+      ...(user.employeeId ? { employeeId: user.employeeId } : {}),
       ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
     },
     JWT_SECRET,
@@ -52,6 +54,7 @@ function decodeToken(token: string) {
     role: UserRole;
     name: string;
     email: string;
+    employeeId?: string;
     mustChangePassword?: boolean;
   };
 }
