@@ -1,15 +1,4 @@
 // Lazy, fail-soft client for the Artify Workforce app's HCM integration Edge Functions
-// (shift-status, sync-eligibility), deployed on its own Supabase project. Configuration is
-// optional: when WORKFORCE_FUNCTIONS_URL / WORKFORCE_INTEGRATION_SECRET are unset, or a
-// remote call fails, callers simply see no data -- the dashboard falls back to its
-// existing "Not Tracked" placeholder, and sync becomes a no-op.
-//
-// Linking is by Civil ID, not HCMS Employee ID: Workforce's own eligibility table
-// (civil_id_lookup) and its employees table are keyed by Civil ID, since that is the one
-// identifier that genuinely exists in both systems for the same real person. Callers here
-// pass/receive Civil ID numbers; server/routes/workforce.ts maps between Civil ID and
-// HCMS Employee ID using this app's own employee master data.
-
 const REQUEST_TIMEOUT_MS = 8000;
 const MAX_BATCH_SIZE = 500;
 
@@ -26,7 +15,6 @@ export interface WorkforceShiftLookupResult {
   configured: boolean;
   available: boolean;
   reason?: string;
-  // Keyed by Civil ID number.
   statuses: Record<string, WorkforceShiftStatus>;
 }
 
@@ -86,15 +74,6 @@ async function callFunction(path: string, body: unknown): Promise<FunctionCallRe
       signal: controller.signal,
     });
     if (!response.ok) {
-      return { ok: false, reason: `Workforce responded ${response.status}.` };
-    }
-    return { ok: true, data: await response.json() };
-  } catch (err: any) {
-    return { ok: false, reason: err?.name === 'AbortError' ? 'Workforce request timed out.' : (err?.message || 'Workforce request failed.') };
-  } finally {
-    clearTimeout(timeout);
-  }
-}    if (!response.ok) {
       return { ok: false, reason: `Workforce responded ${response.status}.` };
     }
     return { ok: true, data: await response.json() };
