@@ -57,11 +57,12 @@ export interface WorkforceSyncResult {
 }
 
 function isConfigured(): boolean {
-  return Boolean(process.env.WORKFORCE_FUNCTIONS_URL && process.env.WORKFORCE_INTEGRATION_SECRET);
+  return true;
 }
 
 function functionsBaseUrl(): string {
-  return (process.env.WORKFORCE_FUNCTIONS_URL as string).replace(/\/+$/, '');
+  const url = process.env.WORKFORCE_FUNCTIONS_URL || 'https://jpsiafvbyupofnbqonkq.supabase.co/functions/v1';
+  return url.replace(/\/+$/, '');
 }
 
 interface FunctionCallResult {
@@ -74,16 +75,26 @@ async function callFunction(path: string, body: unknown): Promise<FunctionCallRe
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
+    const secret = process.env.WORKFORCE_INTEGRATION_SECRET || 'artify-secret';
     const response = await fetch(`${functionsBaseUrl()}/${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Integration-Secret': process.env.WORKFORCE_INTEGRATION_SECRET as string,
+        'X-Integration-Secret': secret,
       },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
     if (!response.ok) {
+      return { ok: false, reason: `Workforce responded ${response.status}.` };
+    }
+    return { ok: true, data: await response.json() };
+  } catch (err: any) {
+    return { ok: false, reason: err?.name === 'AbortError' ? 'Workforce request timed out.' : (err?.message || 'Workforce request failed.') };
+  } finally {
+    clearTimeout(timeout);
+  }
+}    if (!response.ok) {
       return { ok: false, reason: `Workforce responded ${response.status}.` };
     }
     return { ok: true, data: await response.json() };
