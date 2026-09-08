@@ -132,7 +132,7 @@
       "advancePaid": 0,
       "remarks": "Synced from Mobile Attendance Punch",
       "createdAt": "2026-09-08T09:18:10.074Z",
-      "updatedAt": "2026-09-08T09:19:24.340Z"
+      "updatedAt": "2026-09-08T18:16:22.256Z"
     }
   ],
   "attendanceMonths": [
@@ -191,6 +191,22 @@
       "employeeName": "Salim Al-Harthy",
       "employeeCompany": "DGO",
       "loanAmount": 500,
+      "monthlyRecoveryAmount": 50,
+      "totalRecovered": 0,
+      "outstandingBalance": 500,
+      "status": "Active",
+      "loanReason": "Emergency medical expenses",
+      "disbursementDate": "2026-08-01",
+      "createdAt": "2026-08-01T08:00:00.000Z",
+      "updatedAt": "2026-08-01T08:00:00.000Z"
+    },
+    {
+      "id": "loan-1788891382259",
+      "employeeId": "EMP-MOB-LEDGER-1788891382258",
+      "employeeName": "Salim Al-Harthy",
+      "employeeCompany": "DGO",
+      "loanAmount": 500,
+      "loanDate": "2026-08-01",
       "monthlyRecoveryAmount": 50,
       "totalRecovered": 0,
       "outstandingBalance": 500,
@@ -514,10 +530,26 @@
       "isGeofenceException": false,
       "status": "Checked Out",
       "createdAt": "2026-09-08T07:30:00.000Z",
-      "updatedAt": "2026-09-08T09:19:24.340Z",
+      "updatedAt": "2026-09-08T18:16:22.256Z",
       "checkOutTime": "2026-09-08T17:00:00.000Z",
       "hoursWorked": 9.5,
       "overtimeHours": 1.5
+    },
+    {
+      "id": "punch-test-01",
+      "employeeId": "EMP-MOB-01",
+      "employeeName": "Ahmed Al-Balushi",
+      "punchDate": "2026-09-08",
+      "checkInTime": "2026-09-08T07:30:00.000Z",
+      "projectId": "proj-muscat",
+      "projectCode": "PRJ-MUSCAT",
+      "projectName": "Muscat Substation",
+      "checkInLatitude": 23.588,
+      "checkInLongitude": 58.3829,
+      "isGeofenceException": false,
+      "status": "Checked In",
+      "createdAt": "2026-09-08T07:30:00.000Z",
+      "updatedAt": "2026-09-08T07:30:00.000Z"
     },
     {
       "id": "punch-test-01",
@@ -565,9 +597,9 @@
       "description": "Conduit laying and transformer panel installation",
       "status": "Approved",
       "createdAt": "2026-09-08T09:18:10.079Z",
-      "updatedAt": "2026-09-08T09:19:24.341Z",
+      "updatedAt": "2026-09-08T18:16:22.258Z",
       "approvedBy": "Site Supervisor Salim",
-      "approvedAt": "2026-09-08T09:19:24.341Z"
+      "approvedAt": "2026-09-08T18:16:22.258Z"
     },
     {
       "id": "timesheet-test-01",
@@ -596,6 +628,20 @@
       "status": "Submitted",
       "createdAt": "2026-09-08T09:19:24.341Z",
       "updatedAt": "2026-09-08T09:19:24.341Z"
+    },
+    {
+      "id": "timesheet-test-01",
+      "employeeId": "EMP-MOB-01",
+      "employeeName": "Ahmed Al-Balushi",
+      "workDate": "2026-09-08",
+      "projectId": "proj-muscat",
+      "projectCode": "PRJ-MUSCAT",
+      "projectName": "Muscat Substation",
+      "hoursWorked": 8,
+      "description": "Conduit laying and transformer panel installation",
+      "status": "Submitted",
+      "createdAt": "2026-09-08T18:16:22.257Z",
+      "updatedAt": "2026-09-08T18:16:22.257Z"
     }
   ]
 }

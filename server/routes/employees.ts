@@ -377,10 +377,10 @@ router.get('/me/dashboard', verifyAuth, async (req: AuthRequest, res: Response) 
     const civilId = db.civilIds.getCurrent(emp.employeeId);
     const visa = db.visas.getCurrent(emp.employeeId);
     let notificationsCount = 0;
-    if (civilId && (calculateExpiryStatus(civilId.expiryDate) === 'EXPIRED' || calculateExpiryStatus(civilId.expiryDate) === 'EXPIRING_30')) {
+    if (civilId && (calculateExpiryStatus(civilId.expiryDate) === 'Expired' || calculateExpiryStatus(civilId.expiryDate) === 'Urgent')) {
       notificationsCount++;
     }
-    if (visa && (calculateExpiryStatus(visa.expiryDate) === 'EXPIRED' || calculateExpiryStatus(visa.expiryDate) === 'EXPIRING_30')) {
+    if (visa && (calculateExpiryStatus(visa.expiryDate) === 'Expired' || calculateExpiryStatus(visa.expiryDate) === 'Urgent')) {
       notificationsCount++;
     }
 
@@ -479,7 +479,7 @@ router.get('/:employeeId/ledger', verifyAuth, async (req: AuthRequest, res: Resp
         description: `Salary Payout (${p.payrollMonth}) via ${p.paymentMethod || 'Bank Transfer'}`,
         reference: p.referenceNumber || p.paymentBatchId || undefined,
         credit: 0,
-        debit: p.payAmount,
+        debit: p.payAmount ?? p.paidAmount ?? p.amount ?? 0,
         runningBalance: 0,
       });
     }

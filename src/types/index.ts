@@ -55,6 +55,7 @@ export interface LeaveRequest {
   // Calendar days inclusive of both ends, computed server-side and never trusted from
   // the client.
   days: number;
+  totalDays?: number;
   reason: string;
   status: LeaveRequestStatus;
   submittedBy?: string;
@@ -464,6 +465,10 @@ export interface Project {
 export interface AttendanceRecord {
   id: string;
   employeeId: string;
+  employeeName?: string;
+  employeeType?: EmployeeType;
+  wageType?: WageType;
+  employeeCompany?: EmployeeCompany;
   employeeInternalId?: string;
   payrollMonth?: string;
   month?: string;
@@ -477,6 +482,8 @@ export interface AttendanceRecord {
   overtimeHours?: number;
   bonus?: number;
   deduction?: number;
+  advancePaid?: number;
+  remarks?: string;
   attendanceMonthId?: string;
   company?: EmployeeCompany;
   payrollType?: string;
@@ -649,6 +656,7 @@ export type PaymentMethod = 'WPS' | 'Non-WPS';
 export interface PayrollLine {
   id: string;
   payrollId: string;
+  payrollMonth?: string;
   employeeId: string;
   employeeName: string;
   employeeType: EmployeeType;
@@ -757,6 +765,8 @@ export interface SalaryPaymentTransaction {
   payAmount?: number;
   paidAmount?: number;
   paymentMode?: PaymentMode;
+  paymentMethod?: PaymentMethod | string;
+  paymentBatchId?: string;
   bankName?: string;
   payTo?: string;
   referenceNumber?: string;
@@ -931,8 +941,10 @@ export interface EmployeeLoan {
   id: string;
   employeeId: string;
   employeeName: string;
+  employeeCompany?: EmployeeCompany;
   loanAmount: number;
-  loanDate: string;
+  loanDate?: string;
+  disbursementDate?: string;
   monthlyDeduction?: number;
   monthlyRecoveryAmount?: number;
   repaidAmount?: number;
@@ -940,6 +952,7 @@ export interface EmployeeLoan {
   remainingBalance?: number;
   outstandingBalance?: number;
   purpose?: string;
+  loanReason?: string;
   status: LoanStatus;
   remarks?: string;
   createdAt: string;

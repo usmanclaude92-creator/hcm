@@ -1530,7 +1530,15 @@ class DatabaseManager {
       getAll: () => [...this.inMemoryData.payrolls],
       getLinesByEmployee: (employeeId: string) => {
         const norm = normalizeEmployeeId(employeeId);
-        return this.inMemoryData.payrollLines.filter(l => normalizeEmployeeId(l.employeeId) === norm);
+        return this.inMemoryData.payrollLines
+          .filter(l => normalizeEmployeeId(l.employeeId) === norm)
+          .map(l => {
+            const parent = this.inMemoryData.payrolls.find(p => p.id === l.payrollId);
+            return {
+              ...l,
+              payrollMonth: l.payrollMonth || parent?.payrollMonth || '',
+            };
+          });
       },
       getByMonth: (month: string) => {
         const payroll = this.inMemoryData.payrolls.find(p => p.payrollMonth === month);
