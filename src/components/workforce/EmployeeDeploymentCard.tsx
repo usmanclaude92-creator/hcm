@@ -107,23 +107,32 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
       title={onClick ? `Click to view Profile & Ledger for ${employeeName} (${employeeId})` : undefined}
       className={`w-44 shrink-0 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col transition-all text-left ${
         onClick
-          ? 'cursor-pointer hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5 group focus:outline-hidden focus:ring-2 focus:ring-blue-500/50'
-          : 'hover:shadow-xs hover:border-slate-300'
-      }`}
-    >
-      {/* Photo Area: Displays Selfie Photo whenever available */}
+{/* Photo Area: Displays Selfie Photo whenever available */}
       <div className="relative h-56 shrink-0 bg-slate-100 flex items-center justify-center overflow-hidden">
-        {selfiePhotoUrl && !imgError ? (
+        {selfiePhotoUrl ? (
           <img
             src={selfiePhotoUrl}
             alt={employeeName}
-            onError={() => setImgError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-all duration-200"
           />
         ) : (
           <UserRound className="w-20 h-20 text-slate-400 group-hover:scale-105 group-hover:text-slate-500 transition-all duration-200" />
         )}
 
+        {/* Color-Coded Status Badge */}
+        <div className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs tracking-wide z-10 ${badgeStyle}`}>
+          {badgeLabel}
+        </div>
+
+        {onClick && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/60 via-slate-900/30 to-transparent py-2 px-2 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <span className="text-[10px] font-bold text-white tracking-wide flex items-center gap-1 drop-shadow-xs">
+              <IdCard className="w-3 h-3 text-blue-300" />
+              View Profile &amp; Ledger
+            </span>
+          </div>
+        )}
+      </div>
         {/* Color-Coded Status Badge */}
         <div className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs tracking-wide z-10 ${badgeStyle}`}>
           {badgeLabel}
