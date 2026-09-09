@@ -1,0 +1,64 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build HCMS APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant Execute Permissions
+        run: |
+          if [ -d "HCMS app" ]; then
+            chmod +x "HCMS app/gradlew"
+          elif [ -f "gradlew" ]; then
+            chmod +x gradlew
+          fi
+
+      - name: Build Debug APK
+        run: |
+          if [ -d "HCMS app" ]; then
+            cd "HCMS app"
+            ./gradlew assembleDebug --stacktrace
+          else
+            ./gradlew assembleDebug --stacktrace
+          fi
+
+      - name: Build Release APK
+        run: |
+          if [ -d "HCMS app" ]; then
+            cd "HCMS app"
+            ./gradlew assembleRelease --stacktrace
+          else
+            ./gradlew assembleRelease --stacktrace
+          fi
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HCMS-Oman-Debug-APK
+          path: '**/app/build/outputs/apk/debug/*.apk'
+
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HCMS-Oman-Release-APK
+          path: '**/app/build/outputs/apk/release/*.apk'
