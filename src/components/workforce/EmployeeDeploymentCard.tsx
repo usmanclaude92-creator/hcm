@@ -8,6 +8,7 @@ export interface WorkforceShiftStatus {
   clockOutAt: string | null;
   status: 'NOT_LINKED' | 'NO_SHIFT_TODAY' | 'OPEN' | 'CLOSED';
   selfieUrl?: string | null;
+  selfie_url?: string | null;
 }
 
 interface Props {
@@ -27,24 +28,12 @@ function formatShiftTime(iso: string | null | undefined): string | null {
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function isShiftValidToday(shiftDate: string | null | undefined): boolean {
-  if (!shiftDate) return true;
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
-  // Card resets after 23:59:59
-  return shiftDate >= todayStr;
-}
-
 function formatHoursWorked(
   clockIn: string | null | undefined,
   clockOut: string | null | undefined,
-  isOpen: boolean,
-  isValidToday: boolean
+  isOpen: boolean
 ): string {
-  if (!isValidToday || !clockIn) return '-';
+  if (!clockIn) return '-';
   const start = new Date(clockIn).getTime();
   if (isNaN(start)) return '-';
   const end = clockOut ? new Date(clockOut).getTime() : (isOpen ? Date.now() : null);
@@ -66,22 +55,25 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
   shiftStatus,
   onClick,
 }) => {
-  // Midnight auto-refresh listener
   const [, setTick] = useState(0);
+  const [imgError, setImgError] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const isValidToday = isShiftValidToday(shiftStatus?.shiftDate);
-  const isOpenShift = isValidToday && shiftStatus?.status === 'OPEN';
-  const isClosedShift = isValidToday && shiftStatus?.status === 'CLOSED';
+  const isOpenShift = shiftStatus?.status === 'OPEN';
+  const isClosedShift = shiftStatus?.status === 'CLOSED';
 
-  const startTime = isValidToday ? formatShiftTime(shiftStatus?.clockInAt) : null;
-  const endTime = isValidToday ? formatShiftTime(shiftStatus?.clockOutAt) : null;
-  const hoursWorked = formatHoursWorked(shiftStatus?.clockInAt, shiftStatus?.clockOutAt, isOpenShift, isValidToday);
+  const startTime = formatShiftTime(shiftStatus?.clockInAt);
+  const endTime = formatShiftTime(shiftStatus?.clockOutAt);
+  const hoursWorked = formatHoursWorked(shiftStatus?.clockInAt, shiftStatus?.clockOutAt, isOpenShift);
 
-  // 1. Determine Badge Label & Color
+  // Photo URL support (handles both camelCase and snake_case)
+  const selfiePhotoUrl = shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
+
+  // Determine Badge Label & Color
   let badgeLabel = 'Absent';
   let badgeStyle = 'bg-rose-600 text-white'; // Red
 
@@ -119,12 +111,13 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           : 'hover:shadow-xs hover:border-slate-300'
       }`}
     >
-      {/* Photo Area: Displays Selfie if present, otherwise Avatar Placeholder */}
+      {/* Photo Area: Displays Selfie Photo whenever available */}
       <div className="relative h-56 shrink-0 bg-slate-100 flex items-center justify-center overflow-hidden">
-        {isValidToday && shiftStatus?.selfieUrl ? (
+        {selfiePhotoUrl && !imgError ? (
           <img
-            src={shiftStatus.selfieUrl}
+            src={selfiePhotoUrl}
             alt={employeeName}
+            onError={() => setImgError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-all duration-200"
           />
         ) : (
