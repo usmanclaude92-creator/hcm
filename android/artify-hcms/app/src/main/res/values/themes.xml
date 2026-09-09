@@ -1,6 +1,0 @@
-<resources>
-    <style name="Theme.ArtifyHcms" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@color/primary_navy</item>
-        <item name="android:navigationBarColor">@color/primary_navy</item>
-    </style>
-</resources>
