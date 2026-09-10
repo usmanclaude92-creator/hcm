@@ -9,6 +9,7 @@ export interface WorkforceShiftStatus {
   clockInAt: string | null;
   clockOutAt: string | null;
   status: WorkforceShiftState;
+  selfieUrl?: string | null;
 }
 
 export interface WorkforceShiftLookupResult {
@@ -114,11 +115,19 @@ export async function fetchWorkforceShiftStatuses(
     }
     const batchStatuses = result.data?.statuses || {};
     for (const [civilId, raw] of Object.entries<any>(batchStatuses)) {
+      // Build full public URL if raw is a storage path
+      let photoUrl = raw.selfie_url || raw.selfieUrl || null;
+      if (!photoUrl && raw.selfie_storage_path) {
+        const cleanPath = raw.selfie_storage_path.replace(/^attendance-selfies\//, '');
+        photoUrl = `https://jpsiafvbyupofnbqonkq.supabase.co/storage/v1/object/public/attendance-selfies/${cleanPath}`;
+      }
+
       statuses[civilId] = {
         shiftDate: raw.shift_date ?? null,
         clockInAt: raw.clock_in_at ?? null,
         clockOutAt: raw.clock_out_at ?? null,
         status: raw.status,
+        selfieUrl: photoUrl,
       };
     }
     anyBatchSucceeded = true;
