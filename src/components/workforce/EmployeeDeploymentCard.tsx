@@ -9,8 +9,9 @@ export interface WorkforceShiftStatus {
   status: 'NOT_LINKED' | 'NO_SHIFT_TODAY' | 'OPEN' | 'CLOSED';
   selfieUrl?: string | null;
   selfie_url?: string | null;
+  shiftDurationMinutes?: number | null;
+  totalTodayMinutes?: number | null;
   totalWorkedMinutes?: number | null;
-  total_worked_minutes?: number | null;
 }
 
 interface Props {
@@ -23,53 +24,20 @@ interface Props {
   onClick?: () => void;
 }
 
-function formatShiftTime(iso: string | null | undefined): string | null {
+function formatTimeOnly(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function isShiftValidToday(shiftDate: string | null | undefined): boolean {
-  if (!shiftDate) return true;
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const todayStr = `${year}-${month}-${day}`;
-  // Resets at 23:59:59
-  return shiftDate >= todayStr;
-}
-
-// Calculates total hours worked across ALL shifts today
-function formatTotalHoursWorked(
-  clockIn: string | null | undefined,
-  isOpen: boolean,
-  isValidToday: boolean,
-  completedShiftsMinutes: number = 0
-): string {
-  if (!isValidToday) return '-';
-
-  let currentRunningMinutes = 0;
-  if (isOpen && clockIn) {
-    const start = new Date(clockIn).getTime();
-    if (!isNaN(start)) {
-      currentRunningMinutes = Math.max(0, Math.floor((Date.now() - start) / (1000 * 60)));
-    }
-  }
-
-  const totalMinutes = completedShiftsMinutes + currentRunningMinutes;
-
-  if (totalMinutes <= 0) {
-    return isOpen ? '0 mins' : '-';
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-
-  if (hours === 0) return `${mins} mins`;
-  if (mins === 0) return `${hours} hrs`;
-  return `${hours} hrs ${mins} mins`;
+function formatMinutesToHours(minutes: number): string {
+  if (minutes <= 0) return '0 mins';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} mins`;
+  if (m === 0) return `${h} hrs`;
+  return `${h} hrs ${m} mins`;
 }
 
 export const EmployeeDeploymentCard: React.FC<Props> = ({
@@ -88,21 +56,60 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const isValidToday = isShiftValidToday(shiftStatus?.shiftDate);
-  const isOpenShift = isValidToday && shiftStatus?.status === 'OPEN';
-  const isClosedShift = isValidToday && shiftStatus?.status === 'CLOSED';
+  // Check if shift belongs to today
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isToday = !shiftStatus?.shiftDate || shiftStatus.shiftDate === todayStr;
 
-  const startTime = isValidToday ? formatShiftTime(shiftStatus?.clockInAt) : null;
-  const endTime = isValidToday ? formatShiftTime(shiftStatus?.clockOutAt) : null;
+  // 1. Start Time
+  const startTime = isToday ? formatTimeOnly(shiftStatus?.clockInAt) : null;
 
-  // Total completed minutes from prior shifts today
-  const priorMinutes = Number(shiftStatus?.totalWorkedMinutes ?? shiftStatus?.total_worked_minutes ?? 0);
-  const totalHoursWorked = formatTotalHoursWorked(shiftStatus?.clockInAt, isOpenShift, isValidToday, priorMinutes);
+  // 2. End Time (auto-ends at 23:59:59 if unended after midnight)
+  let endTimeDisplay: string | null = null;
+  const isOpen = isToday && shiftStatus?.status === 'OPEN';
 
-  // Extract selfie photo URL
-  const selfiePhotoUrl = shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
+  if (isToday) {
+    if (shiftStatus?.clockOutAt) {
+      endTimeDisplay = formatTimeOnly(shiftStatus.clockOutAt);
+    } else if (isOpen) {
+      endTimeDisplay = 'On Shift';
+    } else if (shiftStatus?.clockInAt) {
+      endTimeDisplay = '23:59:59';
+    }
+  }
 
-  // Determine Status Badge Label & Color
+  // 3. Shift Duration (difference between start & end/current, capped at 23:59:59)
+  let shiftDurationStr = '-';
+  let currentShiftMinutes = 0;
+
+  if (isToday && shiftStatus?.clockInAt) {
+    const startMs = new Date(shiftStatus.clockInAt).getTime();
+    if (!isNaN(startMs)) {
+      let endMs: number;
+      if (shiftStatus.clockOutAt) {
+        endMs = new Date(shiftStatus.clockOutAt).getTime();
+      } else if (isOpen) {
+        endMs = Date.now();
+      } else {
+        // Automatically ended at midnight
+        const midnight = new Date(shiftStatus.clockInAt);
+        midnight.setHours(23, 59, 59, 999);
+        endMs = midnight.getTime();
+      }
+      currentShiftMinutes = Math.max(0, Math.floor((endMs - startMs) / 60000));
+      shiftDurationStr = formatMinutesToHours(currentShiftMinutes);
+    }
+  }
+
+  // 4. Hours Worked Today (total of all shifts today, resets at 23:59:59)
+  let hoursWorkedTodayStr = '-';
+  if (isToday && (startTime || shiftStatus?.totalTodayMinutes)) {
+    const priorCompletedMinutes = Number(shiftStatus?.totalTodayMinutes ?? shiftStatus?.totalWorkedMinutes ?? 0);
+    const totalMinutes = priorCompletedMinutes > 0 ? (priorCompletedMinutes + (isOpen ? currentShiftMinutes : 0)) : currentShiftMinutes;
+    hoursWorkedTodayStr = formatMinutesToHours(totalMinutes);
+  }
+
+  // Status Badge Label & Color
   let badgeLabel = 'Absent';
   let badgeStyle = 'bg-rose-600 text-white'; // Red
 
@@ -111,16 +118,18 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
   if (isOnLeave) {
     badgeLabel = 'On Leave';
     badgeStyle = 'bg-amber-500 text-white'; // Orange
-  } else if (isOpenShift) {
+  } else if (isOpen) {
     badgeLabel = 'Shift Started';
     badgeStyle = 'bg-emerald-600 text-white'; // Green
-  } else if (isClosedShift) {
+  } else if (isToday && shiftStatus?.status === 'CLOSED') {
     badgeLabel = 'Shift Ended';
     badgeStyle = 'bg-blue-600 text-white'; // Blue
   } else {
     badgeLabel = 'Absent';
     badgeStyle = 'bg-rose-600 text-white'; // Red
   }
+
+  const selfiePhotoUrl = shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
 
   return (
     <div
@@ -169,10 +178,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
       {/* Name, then Staff/Worker : Code */}
       <div className="px-2 pt-2 pb-1.5 text-center border-t border-slate-100 shrink-0">
-        <p
-          className="text-xs font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors"
-          title={employeeName}
-        >
+        <p className="text-xs font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors" title={employeeName}>
           {employeeName}
         </p>
         <p className="text-[10px] mt-0.5 truncate">
@@ -184,30 +190,43 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         </p>
       </div>
 
-      {/* Attendance details below photo */}
+      {/* Attendance details below photo following your exact 4 rules */}
       <div className="px-2 pb-2 pt-1.5 border-t border-slate-100 space-y-1.5 text-[10px] shrink-0 bg-slate-50/40">
+        {/* 1. Start Time */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-emerald-700 font-semibold shrink-0">Shift Start Time:</span>
+          <span className="text-emerald-700 font-semibold shrink-0">Start Time:</span>
           {startTime ? (
             <span className="font-mono font-bold text-emerald-700 truncate">{startTime}</span>
           ) : (
             <span className="text-slate-400 italic truncate">-</span>
           )}
         </div>
+
+        {/* 2. End Time */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-blue-700 font-semibold shrink-0">Shift End Time:</span>
-          {endTime ? (
-            <span className="font-mono font-bold text-blue-700 truncate">{endTime}</span>
-          ) : isOpenShift ? (
-            <span className="text-blue-600 font-bold italic truncate">On Shift</span>
+          <span className="text-blue-700 font-semibold shrink-0">End Time:</span>
+          {endTimeDisplay ? (
+            <span className={`font-mono font-bold truncate ${isOpen ? 'text-blue-600 italic' : 'text-blue-700'}`}>
+              {endTimeDisplay}
+            </span>
           ) : (
             <span className="text-slate-400 italic truncate">-</span>
           )}
         </div>
+
+        {/* 3. Shift Duration */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Hours Worked:</span>
-          <span className="font-mono font-bold text-slate-800 truncate">{totalHoursWorked}</span>
+          <span className="text-slate-600 font-medium shrink-0">Shift Duration:</span>
+          <span className="font-mono font-bold text-slate-800 truncate">{shiftDurationStr}</span>
         </div>
+
+        {/* 4. Hours Worked Today */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-slate-600 font-medium shrink-0">Hours Worked Today:</span>
+          <span className="font-mono font-bold text-indigo-700 truncate">{hoursWorkedTodayStr}</span>
+        </div>
+
+        {/* Over-time */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-400 shrink-0">Over-time:</span>
           <span className={`font-mono font-bold ${overtimeHours > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
