@@ -10,6 +10,7 @@ export interface WorkforceShiftStatus {
   clockOutAt: string | null;
   status: WorkforceShiftState;
   selfieUrl?: string | null;
+  totalWorkedMinutes?: number | null;
 }
 
 export interface WorkforceShiftLookupResult {
@@ -115,7 +116,6 @@ export async function fetchWorkforceShiftStatuses(
     }
     const batchStatuses = result.data?.statuses || {};
     for (const [civilId, raw] of Object.entries<any>(batchStatuses)) {
-      // Build full public URL if raw is a storage path
       let photoUrl = raw.selfie_url || raw.selfieUrl || null;
       if (!photoUrl && raw.selfie_storage_path) {
         const cleanPath = raw.selfie_storage_path.replace(/^attendance-selfies\//, '');
@@ -128,6 +128,7 @@ export async function fetchWorkforceShiftStatuses(
         clockOutAt: raw.clock_out_at ?? null,
         status: raw.status,
         selfieUrl: photoUrl,
+        totalWorkedMinutes: raw.total_worked_minutes ?? raw.totalWorkedMinutes ?? null,
       };
     }
     anyBatchSucceeded = true;
