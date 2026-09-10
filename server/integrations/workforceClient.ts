@@ -10,6 +10,7 @@ export interface WorkforceShiftStatus {
   clockOutAt: string | null;
   status: WorkforceShiftState;
   selfieUrl?: string | null;
+  totalTodayMinutes?: number | null;
   totalWorkedMinutes?: number | null;
 }
 
@@ -128,7 +129,8 @@ export async function fetchWorkforceShiftStatuses(
         clockOutAt: raw.clock_out_at ?? null,
         status: raw.status,
         selfieUrl: photoUrl,
-        totalWorkedMinutes: raw.total_worked_minutes ?? raw.totalWorkedMinutes ?? null,
+        totalTodayMinutes: raw.total_today_minutes ?? raw.total_worked_minutes ?? null,
+        totalWorkedMinutes: raw.total_worked_minutes ?? null,
       };
     }
     anyBatchSucceeded = true;
