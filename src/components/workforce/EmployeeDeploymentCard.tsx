@@ -69,7 +69,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
   const endTime = formatShiftTime(shiftStatus?.clockOutAt);
   const hoursWorked = formatHoursWorked(shiftStatus?.clockInAt, shiftStatus?.clockOutAt, isOpenShift);
 
-  // Photo URL support (handles both camelCase and snake_case)
+  // Extract photo URL (handles camelCase and snake_case)
   const selfiePhotoUrl = shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
 
   // Determine Badge Label & Color
