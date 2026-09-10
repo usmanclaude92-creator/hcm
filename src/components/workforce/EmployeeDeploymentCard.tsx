@@ -9,6 +9,8 @@ export interface WorkforceShiftStatus {
   status: 'NOT_LINKED' | 'NO_SHIFT_TODAY' | 'OPEN' | 'CLOSED';
   selfieUrl?: string | null;
   selfie_url?: string | null;
+  totalWorkedMinutes?: number | null;
+  total_worked_minutes?: number | null;
 }
 
 interface Props {
@@ -28,21 +30,45 @@ function formatShiftTime(iso: string | null | undefined): string | null {
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatHoursWorked(
+function isShiftValidToday(shiftDate: string | null | undefined): boolean {
+  if (!shiftDate) return true;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+  // Resets at 23:59:59
+  return shiftDate >= todayStr;
+}
+
+// Calculates total hours worked across ALL shifts today
+function formatTotalHoursWorked(
   clockIn: string | null | undefined,
-  clockOut: string | null | undefined,
-  isOpen: boolean
+  isOpen: boolean,
+  isValidToday: boolean,
+  completedShiftsMinutes: number = 0
 ): string {
-  if (!clockIn) return '-';
-  const start = new Date(clockIn).getTime();
-  if (isNaN(start)) return '-';
-  const end = clockOut ? new Date(clockOut).getTime() : (isOpen ? Date.now() : null);
-  if (!end || isNaN(end) || end < start) return '-';
-  const diffMinutes = Math.floor((end - start) / (1000 * 60));
-  const hours = Math.floor(diffMinutes / 60);
-  const mins = diffMinutes % 60;
-  if (hours === 0 && mins === 0) return '0 mins';
+  if (!isValidToday) return '-';
+
+  let currentRunningMinutes = 0;
+  if (isOpen && clockIn) {
+    const start = new Date(clockIn).getTime();
+    if (!isNaN(start)) {
+      currentRunningMinutes = Math.max(0, Math.floor((Date.now() - start) / (1000 * 60)));
+    }
+  }
+
+  const totalMinutes = completedShiftsMinutes + currentRunningMinutes;
+
+  if (totalMinutes <= 0) {
+    return isOpen ? '0 mins' : '-';
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+
   if (hours === 0) return `${mins} mins`;
+  if (mins === 0) return `${hours} hrs`;
   return `${hours} hrs ${mins} mins`;
 }
 
@@ -55,24 +81,28 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
   shiftStatus,
   onClick,
 }) => {
+  // Live ticker updating duration every minute
   const [, setTick] = useState(0);
-
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const isOpenShift = shiftStatus?.status === 'OPEN';
-  const isClosedShift = shiftStatus?.status === 'CLOSED';
+  const isValidToday = isShiftValidToday(shiftStatus?.shiftDate);
+  const isOpenShift = isValidToday && shiftStatus?.status === 'OPEN';
+  const isClosedShift = isValidToday && shiftStatus?.status === 'CLOSED';
 
-  const startTime = formatShiftTime(shiftStatus?.clockInAt);
-  const endTime = formatShiftTime(shiftStatus?.clockOutAt);
-  const hoursWorked = formatHoursWorked(shiftStatus?.clockInAt, shiftStatus?.clockOutAt, isOpenShift);
+  const startTime = isValidToday ? formatShiftTime(shiftStatus?.clockInAt) : null;
+  const endTime = isValidToday ? formatShiftTime(shiftStatus?.clockOutAt) : null;
 
-  // Extract photo URL (handles camelCase and snake_case)
+  // Total completed minutes from prior shifts today
+  const priorMinutes = Number(shiftStatus?.totalWorkedMinutes ?? shiftStatus?.total_worked_minutes ?? 0);
+  const totalHoursWorked = formatTotalHoursWorked(shiftStatus?.clockInAt, isOpenShift, isValidToday, priorMinutes);
+
+  // Extract selfie photo URL
   const selfiePhotoUrl = shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
 
-  // Determine Badge Label & Color
+  // Determine Status Badge Label & Color
   let badgeLabel = 'Absent';
   let badgeStyle = 'bg-rose-600 text-white'; // Red
 
@@ -110,7 +140,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           : 'hover:shadow-xs hover:border-slate-300'
       }`}
     >
-      {/* Photo Area: Displays Selfie Photo whenever available */}
+      {/* Photo Area: Displays camera selfie with badge */}
       <div className="relative h-56 shrink-0 bg-slate-100 flex items-center justify-center overflow-hidden">
         {selfiePhotoUrl ? (
           <img
@@ -176,7 +206,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-600 font-medium shrink-0">Hours Worked:</span>
-          <span className="font-mono font-bold text-slate-800 truncate">{hoursWorked}</span>
+          <span className="font-mono font-bold text-slate-800 truncate">{totalHoursWorked}</span>
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-400 shrink-0">Over-time:</span>
