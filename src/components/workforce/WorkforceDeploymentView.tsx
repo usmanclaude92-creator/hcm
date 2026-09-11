@@ -3,6 +3,7 @@ import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDropdown';
 import { EmployeeDeploymentCard, type WorkforceShiftStatus } from './EmployeeDeploymentCard';
+import { EmployeeAttendanceReportModal } from './EmployeeAttendanceReportModal';
 import { Search, RotateCcw, Building, RefreshCw } from 'lucide-react';
 
 const HO0001_CODE = 'HO0001';
@@ -62,6 +63,8 @@ const EMPLOYEE_TYPE_OPTIONS: MultiSelectOption[] = [
 // exists yet. Kept as a proper multi-select (not hardcoded text) so adding real
 // statuses later is just a longer option list, no logic change.
 const GEOFENCE_OPTIONS: MultiSelectOption[] = [
+  { value: 'Inside Site Radius', label: 'Inside Site Radius' },
+  { value: 'Outside Site Radius', label: 'Outside Site Radius' },
   { value: 'Not Available', label: 'Not Available' },
 ];
 const MOBILITY_OPTIONS: MultiSelectOption[] = [
@@ -127,6 +130,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   // the seed in with only Head Office selected and no real projects.
   const [projectFilter, setProjectFilter] = useState<string[]>([]);
   const hasSeededProjectFilter = useRef(false);
+  const [reportEmployeeId, setReportEmployeeId] = useState<string | null>(null);
 
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
@@ -241,7 +245,14 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       }
       if (!companyFilter.includes(e.employeeCompany)) return false;
       if (!employeeTypeFilter.includes(e.employeeType)) return false;
-      if (!geofenceFilter.includes('Not Available')) return false;
+      const shift = shiftStatusByEmployee[e.employeeId.toUpperCase()];
+      const geofenceVal =
+        shift?.isInsideGeofence === true
+          ? 'Inside Site Radius'
+          : shift?.isInsideGeofence === false
+          ? 'Outside Site Radius'
+          : 'Not Available';
+      if (!geofenceFilter.includes(geofenceVal)) return false;
       if (!mobilityFilter.includes('Not Configured')) return false;
       const status = e.sectionKey === HO0001_CODE ? 'Head Office' : 'Deployed';
       if (!attendanceStatusFilter.includes(status)) return false;
@@ -373,13 +384,26 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
                   overtimeHours={emp.overtimeHours}
                   attendanceStatus={emp.hasAttendanceThisMonth ? 'Present' : 'Absent'}
                   shiftStatus={shiftStatusByEmployee[emp.employeeId.toUpperCase()]}
-                  onClick={() => onSelectEmployee?.(emp.employeeId)}
+                  onClick={() => setReportEmployeeId(emp.employeeId)}
                 />
               ))}
             </div>
           )}
         </div>
       ))}
+
+      {/* Employee Attendance Report Modal */}
+      <EmployeeAttendanceReportModal
+        employeeId={reportEmployeeId}
+        isOpen={Boolean(reportEmployeeId)}
+        onClose={() => setReportEmployeeId(null)}
+        initialMonth={currentMonth}
+        onAttendanceCreated={handleManualRefresh}
+        onNavigateToFullAttendance={(empId) => {
+          setReportEmployeeId(null);
+          onSelectEmployee?.(empId);
+        }}
+      />
     </div>
   );
 });

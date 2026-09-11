@@ -28,9 +28,47 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
     const result = await fetchWorkforceShiftStatuses(Array.from(employeeIdByCivilId.keys()));
 
     const statuses: Record<string, unknown> = {};
+    const todayStr = new Date().toISOString().slice(0, 10);
     for (const [civilId, status] of Object.entries(result.statuses)) {
       const employeeId = employeeIdByCivilId.get(civilId);
-      if (employeeId) statuses[employeeId] = status;
+      if (employeeId) {
+        const s = { ...(status as any) };
+        const punch = db.attendancePunches.getTodayPunch(employeeId, todayStr);
+        if (punch) {
+          if ((s.isInsideGeofence === null || s.isInsideGeofence === undefined) && punch.isGeofenceException !== undefined) {
+            s.isInsideGeofence = !punch.isGeofenceException;
+            s.geofenceStatus = punch.isGeofenceException ? 'OUTSIDE' : 'INSIDE';
+          }
+          if (!s.clockInAt && punch.checkInTime) s.clockInAt = punch.checkInTime;
+          if (!s.clockOutAt && punch.checkOutTime) s.clockOutAt = punch.checkOutTime;
+          if (!s.selfieTakenAt && punch.checkInTime) s.selfieTakenAt = punch.checkInTime;
+        }
+        statuses[employeeId] = s;
+      }
+    }
+
+    // Also include any active employees with today's local punches not yet returned by Workforce
+    for (const e of activeEmployees) {
+      const normId = normalizeEmployeeId(e.employeeId);
+      if (!statuses[normId]) {
+        const punch = db.attendancePunches.getTodayPunch(e.employeeId, todayStr);
+        if (punch) {
+          statuses[normId] = {
+            shiftDate: punch.punchDate,
+            clockInAt: punch.checkInTime,
+            clockOutAt: punch.checkOutTime || null,
+            status: punch.checkOutTime ? 'CLOSED' : 'OPEN',
+            selfieUrl: null,
+            startSelfieUrl: null,
+            endSelfieUrl: null,
+            selfieTakenAt: punch.checkInTime,
+            totalTodayMinutes: punch.hoursWorked ? Math.round(punch.hoursWorked * 60) : null,
+            totalWorkedMinutes: punch.hoursWorked ? Math.round(punch.hoursWorked * 60) : null,
+            isInsideGeofence: punch.isGeofenceException === false,
+            geofenceStatus: punch.isGeofenceException ? 'OUTSIDE' : 'INSIDE',
+          };
+        }
+      }
     }
 
     res.json({

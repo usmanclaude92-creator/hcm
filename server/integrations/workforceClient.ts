@@ -10,8 +10,13 @@ export interface WorkforceShiftStatus {
   clockOutAt: string | null;
   status: WorkforceShiftState;
   selfieUrl?: string | null;
+  startSelfieUrl?: string | null;
+  endSelfieUrl?: string | null;
+  selfieTakenAt?: string | null;
   totalTodayMinutes?: number | null;
   totalWorkedMinutes?: number | null;
+  isInsideGeofence?: boolean | null;
+  geofenceStatus?: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN' | null;
 }
 
 export interface WorkforceShiftLookupResult {
@@ -123,14 +128,40 @@ export async function fetchWorkforceShiftStatuses(
         photoUrl = `https://jpsiafvbyupofnbqonkq.supabase.co/storage/v1/object/public/attendance-selfies/${cleanPath}`;
       }
 
+      let startPhoto = raw.start_selfie_url || raw.clock_in_selfie_url || photoUrl;
+      let endPhoto = raw.end_selfie_url || raw.clock_out_selfie_url || null;
+      if (!endPhoto && raw.clock_out_selfie_storage_path) {
+        const cleanEndPath = raw.clock_out_selfie_storage_path.replace(/^attendance-selfies\//, '');
+        endPhoto = `https://jpsiafvbyupofnbqonkq.supabase.co/storage/v1/object/public/attendance-selfies/${cleanEndPath}`;
+      }
+
+      // Geofence status
+      let isInside: boolean | null = null;
+      if (raw.is_inside_geofence !== undefined && raw.is_inside_geofence !== null) {
+        isInside = Boolean(raw.is_inside_geofence);
+      } else if (raw.within_geofence !== undefined && raw.within_geofence !== null) {
+        isInside = Boolean(raw.within_geofence);
+      } else if (raw.geofence_status) {
+        isInside = String(raw.geofence_status).toUpperCase() === 'INSIDE';
+      } else if (raw.is_geofence_exception !== undefined && raw.is_geofence_exception !== null) {
+        isInside = !raw.is_geofence_exception;
+      } else if (raw.status === 'OPEN' || raw.status === 'CLOSED') {
+        isInside = true;
+      }
+
       statuses[civilId] = {
         shiftDate: raw.shift_date ?? null,
         clockInAt: raw.clock_in_at ?? null,
         clockOutAt: raw.clock_out_at ?? null,
         status: raw.status,
         selfieUrl: photoUrl,
+        startSelfieUrl: startPhoto,
+        endSelfieUrl: endPhoto,
+        selfieTakenAt: raw.selfie_taken_at || raw.clock_in_at || null,
         totalTodayMinutes: raw.total_today_minutes ?? raw.total_worked_minutes ?? null,
         totalWorkedMinutes: raw.total_worked_minutes ?? null,
+        isInsideGeofence: isInside,
+        geofenceStatus: isInside === true ? 'INSIDE' : isInside === false ? 'OUTSIDE' : null,
       };
     }
     anyBatchSucceeded = true;

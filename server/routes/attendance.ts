@@ -953,6 +953,146 @@ const DEFAULT_GEOFENCE = {
   radiusMeters: 1500, // 1.5 km
 };
 
+// GET /api/attendance/employee/:employeeId
+// Returns monthly attendance report & punches for a single employee
+router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const rawId = req.params.employeeId;
+    const emp = db.employees.findByEmployeeId(rawId) || db.employees.findByEmployeeId(normalizeEmployeeId(rawId));
+    if (!emp) {
+      return res.status(404).json({ error: `Employee '${rawId}' not found.` });
+    }
+
+    const month = String(req.query.month || new Date().toISOString().slice(0, 7)).trim();
+    const records = db.attendance.getByEmployeeAndMonth(emp.employeeId, month);
+    const punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+    const monthStatus = db.attendanceMonths.getByMonth(month)?.status || 'Draft';
+
+    const personal = db.personalDetails.get(emp.employeeId);
+    const projectCode = emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
+    const proj = db.projects.findByCode(projectCode) || db.projects.findById(projectCode);
+
+    res.json({
+      employee: {
+        employeeId: emp.employeeId,
+        employeeName: emp.employeeName,
+        employeeType: emp.employeeType,
+        designation: emp.designation,
+        employeeCompany: emp.employeeCompany,
+        salaryPaidBy: emp.salaryPaidBy,
+        wageType: emp.wageType,
+        monthlySalaryOrRate: emp.monthlySalaryOrRate,
+        assignedProjectCode: projectCode,
+        assignedProjectName: proj?.projectName || 'Head Office',
+      },
+      month,
+      hasReport: records.length > 0,
+      records,
+      punches,
+      summary: {
+        totalDays: records.reduce((s, r) => s + (r.daysWorked || 0), 0),
+        totalHours: records.reduce((s, r) => s + (r.hoursWorked || 0), 0),
+        totalOvertimeHours: records.reduce((s, r) => s + (r.overtimeHours || 0), 0),
+        totalBonus: records.reduce((s, r) => s + (r.bonus || 0), 0),
+        totalDeduction: records.reduce((s, r) => s + (r.deduction || 0), 0),
+      },
+      monthStatus,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch employee attendance report.' });
+  }
+});
+
+// POST /api/attendance/employee/:employeeId/make-report
+// Creates an attendance report for an employee for the specified month if none exists
+router.post('/employee/:employeeId/make-report', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const rawId = req.params.employeeId;
+    const emp = db.employees.findByEmployeeId(rawId) || db.employees.findByEmployeeId(normalizeEmployeeId(rawId));
+    if (!emp) {
+      return res.status(404).json({ error: `Employee '${rawId}' not found.` });
+    }
+
+    const month = String(req.body.month || new Date().toISOString().slice(0, 7)).trim();
+
+    const existingPayroll = db.payroll.getByMonth(month);
+    if (existingPayroll && existingPayroll.status === 'Finalized') {
+      return res.status(400).json({ error: `Payroll for ${month} is Finalized. Modify attendance only during Revision.` });
+    }
+    const attendanceMonth = db.attendanceMonths.getByMonth(month);
+    if (attendanceMonth && attendanceMonth.status === 'Finalized') {
+      return res.status(400).json({ error: `Attendance for ${month} is Finalized. Use Revert before making changes.` });
+    }
+
+    // Determine project
+    const personal = db.personalDetails.get(emp.employeeId);
+    const targetProjectCode = req.body.projectCode || req.body.projectId || emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
+    let proj = db.projects.findByCode(targetProjectCode) || db.projects.findById(targetProjectCode);
+    if (!proj) {
+      proj = db.projects.getAll().find(p => p.status === 'Active') || ({
+        id: 'proj-ho',
+        projectCode: 'HO0001',
+        projectName: 'Head Office',
+        company: emp.employeeCompany,
+        status: 'Active',
+      } as any);
+    }
+
+    // Determine days / hours
+    const punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+    let daysWorked = 0;
+    let hoursWorked = 0;
+    let overtimeHours = 0;
+
+    const isStaff = emp.employeeType === 'Staff';
+    if (req.body.daysWorked !== undefined || req.body.hoursWorked !== undefined) {
+      daysWorked = isStaff ? Number(req.body.daysWorked || 0) : 0;
+      hoursWorked = isStaff ? 0 : Number(req.body.hoursWorked || 0);
+      overtimeHours = Number(req.body.overtimeHours || 0);
+    } else if (punches.length > 0) {
+      daysWorked = isStaff ? new Set(punches.map(p => p.punchDate)).size : 0;
+      hoursWorked = isStaff ? 0 : punches.reduce((s, p) => s + (p.hoursWorked || (p.checkOutTime ? 8 : 0)), 0);
+      overtimeHours = punches.reduce((s, p) => s + (p.overtimeHours || 0), 0);
+    } else {
+      daysWorked = isStaff ? 25 : 0;
+      hoursWorked = isStaff ? 0 : 200;
+      overtimeHours = 0;
+    }
+
+    const newRecord: AttendanceRecord = {
+      id: crypto.randomUUID(),
+      employeeId: emp.employeeId,
+      employeeName: emp.employeeName,
+      employeeInternalId: emp.id,
+      employeeType: emp.employeeType,
+      employeeCompany: emp.employeeCompany,
+      company: emp.employeeCompany,
+      payrollMonth: month,
+      projectId: proj.id,
+      projectCode: proj.projectCode,
+      projectName: proj.projectName,
+      daysWorked,
+      hoursWorked,
+      overtimeHours,
+      bonus: 0,
+      deduction: 0,
+      payBy: emp.salaryPaidBy,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = await db.attendance.mergeMonthRecords(month, [newRecord]);
+    res.json({
+      success: true,
+      message: `Attendance report created for ${emp.employeeName} for ${month}.`,
+      record: newRecord,
+      allRecords: updated,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create attendance report.' });
+  }
+});
+
 // GET /api/attendance/punches/today
 router.get('/punches/today', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
