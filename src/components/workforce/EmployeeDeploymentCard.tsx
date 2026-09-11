@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { UserRound, MapPin, Clock, FileSpreadsheet } from 'lucide-react';
+import { UserRound, MapPin, Clock, FileSpreadsheet, ZoomIn } from 'lucide-react';
 import { type AttendanceStatus } from '../common/AttendanceStatusBadge';
+import { SelfieZoomModal } from './SelfieZoomModal';
 
 export interface WorkforceShiftStatus {
   shiftDate?: string | null;
@@ -88,6 +89,16 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     const timer = setInterval(() => setTick((t) => t + 1), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Click-to-zoom selfie lightbox state
+  const [zoomModalOpen, setZoomModalOpen] = useState(false);
+  const [zoomPhotoType, setZoomPhotoType] = useState<'start' | 'end'>('start');
+
+  const handleOpenZoom = (e: React.MouseEvent, type: 'start' | 'end' = 'start') => {
+    e.stopPropagation();
+    setZoomPhotoType(type);
+    setZoomModalOpen(true);
+  };
 
   // Check if shift belongs to today
   const now = new Date();
@@ -229,36 +240,93 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           />
         </div>
 
-        {/* 4. Photos: Show selfie taken at start and end of shift */}
+        {/* 4. Photos: Show selfie taken at start and end of shift with click-to-zoom */}
         {startPhotoUrl && endPhotoUrl ? (
           <div className="w-full h-full grid grid-cols-2 divide-x divide-white/60 bg-slate-200">
-            <div className="relative h-full w-full overflow-hidden" title="Shift Start Selfie">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(e) => handleOpenZoom(e, 'start')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenZoom(e as any, 'start');
+                }
+              }}
+              className="relative h-full w-full overflow-hidden cursor-zoom-in group/photo"
+              title="Click to zoom Shift Start Selfie"
+            >
               <img
                 src={startPhotoUrl}
                 alt="Shift Start Selfie"
-                className="w-full h-full object-cover group-hover:scale-105 transition-all duration-200"
+                className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
               />
-              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white">
+              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
                 Start
               </span>
+              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
+                <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
+                  <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
+                </span>
+              </div>
             </div>
-            <div className="relative h-full w-full overflow-hidden" title="Shift End Selfie">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(e) => handleOpenZoom(e, 'end')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenZoom(e as any, 'end');
+                }
+              }}
+              className="relative h-full w-full overflow-hidden cursor-zoom-in group/photo"
+              title="Click to zoom Shift End Selfie"
+            >
               <img
                 src={endPhotoUrl}
                 alt="Shift End Selfie"
-                className="w-full h-full object-cover group-hover:scale-105 transition-all duration-200"
+                className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
               />
-              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white">
+              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
                 End
               </span>
+              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
+                <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
+                  <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
+                </span>
+              </div>
             </div>
           </div>
         ) : startPhotoUrl ? (
-          <img
-            src={startPhotoUrl}
-            alt={employeeName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-all duration-200"
-          />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={(e) => handleOpenZoom(e, 'start')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                handleOpenZoom(e as any, 'start');
+              }
+            }}
+            className="relative w-full h-full cursor-zoom-in group/photo"
+            title="Click to zoom verification selfie"
+          >
+            <img
+              src={startPhotoUrl}
+              alt={employeeName}
+              className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
+            />
+            <div className="absolute inset-0 bg-slate-900/25 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/85 text-white text-[10px] font-medium shadow-md backdrop-blur-xs">
+                <ZoomIn className="w-3 h-3 text-blue-300" />
+                Click to Zoom
+              </span>
+            </div>
+          </div>
         ) : (
           <UserRound className="w-20 h-20 text-slate-400 group-hover:scale-105 group-hover:text-slate-500 transition-all duration-200" />
         )}
@@ -270,7 +338,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
         {/* Hover Action Overlay: Click to Open Attendance Report */}
         {onClick && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/75 via-slate-900/40 to-transparent py-2 px-2 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/75 via-slate-900/40 to-transparent py-2 px-2 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
             <span className="text-[10px] font-bold text-white tracking-wide flex items-center gap-1 drop-shadow-xs">
               <FileSpreadsheet className="w-3 h-3 text-emerald-300" />
               Open Attendance Report
@@ -351,6 +419,23 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           <span className="text-slate-400 italic truncate">Will setup later</span>
         </div>
       </div>
+
+      {/* Verification Selfie Zoom Modal */}
+      <SelfieZoomModal
+        isOpen={zoomModalOpen}
+        onClose={() => setZoomModalOpen(false)}
+        employeeName={employeeName}
+        employeeId={employeeId}
+        employeeType={employeeType}
+        initialType={zoomPhotoType}
+        startPhotoUrl={startPhotoUrl}
+        endPhotoUrl={endPhotoUrl}
+        startTime={startTime}
+        endTime={endTimeDisplay}
+        selfieDateTimeStr={selfieDateTimeStr}
+        isInsideGeofence={isInsideGeofence}
+        onOpenReport={onClick}
+      />
     </div>
   );
 };
