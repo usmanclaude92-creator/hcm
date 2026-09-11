@@ -5,7 +5,7 @@ import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDro
 import { EmployeeDeploymentCard, type WorkforceShiftStatus } from './EmployeeDeploymentCard';
 import { Search, RotateCcw, Building, RefreshCw } from 'lucide-react';
 
-const HEAD_OFFICE_KEY = 'HEAD_OFFICE';
+const HO0001_CODE = 'HO0001';
 const POLL_INTERVAL_MS = 60000;
 
 interface AttendanceRecordRow {
@@ -36,13 +36,13 @@ interface ProjectRow {
 }
 
 // One row per (employee, section) appearance -- an employee deployed to two
-// active projects this month appears once per project, never under Head Office.
+// active projects this month appears once per project.
 interface DeploymentEntry {
   employeeId: string;
   employeeName: string;
   employeeType: string;
   employeeCompany: string;
-  sectionKey: string; // HEAD_OFFICE_KEY or a projectCode
+  sectionKey: string; // projectCode (e.g. HO0001 or site code)
   overtimeHours: number; // for this section only (summed if somehow >1 record for the same project)
   hasAttendanceThisMonth: boolean; // across ALL of the employee's records, regardless of project
 }
@@ -180,10 +180,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const activeProjectCodes = useMemo(() => new Set(activeProjects.map(p => p.projectCode)), [activeProjects]);
 
   const projectOptions: MultiSelectOption[] = useMemo(
-    () => [
-      { value: HEAD_OFFICE_KEY, label: 'Head Office' },
-      ...activeProjects.map(p => ({ value: p.projectCode, label: `${p.projectCode} — ${p.projectName}` })),
-    ],
+    () => activeProjects.map(p => ({ value: p.projectCode, label: `${p.projectCode} — ${p.projectName}` })),
     [activeProjects]
   );
 
@@ -197,7 +194,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
 
   // Build one DeploymentEntry per (employee, section) appearance. Hours logged
   // against a project that has since gone Inactive don't count toward that
-  // (now-hidden) section -- such an employee falls back to Head Office.
+  // (now-hidden) section -- such an employee falls back to HO0001 (Head Office).
   const allEntries: DeploymentEntry[] = useMemo(() => {
     const entries: DeploymentEntry[] = [];
     for (const emp of grouped) {
@@ -211,7 +208,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
           employeeName: emp.employeeName,
           employeeType: emp.employeeType,
           employeeCompany: emp.employeeCompany,
-          sectionKey: HEAD_OFFICE_KEY,
+          sectionKey: HO0001_CODE,
           overtimeHours: emp.totalOvertimeHours || 0,
           hasAttendanceThisMonth,
         });
@@ -246,14 +243,14 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       if (!employeeTypeFilter.includes(e.employeeType)) return false;
       if (!geofenceFilter.includes('Not Available')) return false;
       if (!mobilityFilter.includes('Not Configured')) return false;
-      const status = e.sectionKey === HEAD_OFFICE_KEY ? 'Head Office' : 'Deployed';
+      const status = e.sectionKey === HO0001_CODE ? 'Head Office' : 'Deployed';
       if (!attendanceStatusFilter.includes(status)) return false;
       if (!projectFilter.includes(e.sectionKey)) return false;
       return true;
     });
   }, [allEntries, search, companyFilter, employeeTypeFilter, geofenceFilter, mobilityFilter, attendanceStatusFilter, projectFilter]);
 
-  // Head Office first, then each active project in Project Master's own order.
+  // Projects rendered strictly from Project Master (e.g. HO0001 — Head Office).
   const sections = useMemo(() => {
     const byKey = new Map<string, DeploymentEntry[]>();
     filteredEntries.forEach(e => {
@@ -262,9 +259,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     });
     const sortByName = (list: DeploymentEntry[]) => [...list].sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 
-    const result: { key: string; title: string; employees: DeploymentEntry[] }[] = [
-      { key: HEAD_OFFICE_KEY, title: 'HEAD OFFICE', employees: sortByName(byKey.get(HEAD_OFFICE_KEY) || []) },
-    ];
+    const result: { key: string; title: string; employees: DeploymentEntry[] }[] = [];
     activeProjects.forEach(p => {
       result.push({
         key: p.projectCode,
@@ -365,7 +360,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
           {section.employees.length === 0 ? (
             <div className="py-8 text-center text-slate-400">
               <p className="text-sm font-semibold">0 Active Employees</p>
-              <p className="text-xs mt-1">No employees currently deployed to this {section.key === HEAD_OFFICE_KEY ? 'section' : 'project'}.</p>
+              <p className="text-xs mt-1">No employees currently deployed to this project.</p>
             </div>
           ) : (
             <div className="flex flex-wrap gap-3">

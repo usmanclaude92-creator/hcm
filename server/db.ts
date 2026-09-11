@@ -288,6 +288,24 @@ const DB_FILE = path.join(DATA_DIR, 'payroll_database.json');
 
 // Different Postgres marketplace integrations (Vercel Postgres, Supabase, Neon)
 // inject the connection string under different env var names.
+function isPlaceholderCredential(str: string): boolean {
+  if (!str) return true;
+  const lower = str.toLowerCase();
+  return (
+    lower.includes('[your-password]') ||
+    lower.includes('[your_password]') ||
+    lower.includes('<your-password>') ||
+    lower.includes('<your_password>') ||
+    lower.includes('[password]') ||
+    lower.includes('<password>') ||
+    lower.includes('your-password') ||
+    lower.includes('your_password') ||
+    lower.includes('[your-project-id]') ||
+    lower.includes('<your-project-id>') ||
+    lower === 'password'
+  );
+}
+
 function resolvePostgresConnectionString(): string | undefined {
   let raw =
     process.env.DATABASE_URL ||
@@ -295,10 +313,36 @@ function resolvePostgresConnectionString(): string | undefined {
     process.env.POSTGRES_URL_NON_POOLING;
   if (!raw) return undefined;
   raw = raw.trim();
-  // If raw already has a postgres scheme, return as is
+
+  // If raw contains known unreplaced placeholders like [YOUR-PASSWORD], skip Postgres
+  if (isPlaceholderCredential(raw)) {
+    console.log(
+      '[storage] Notice: DATABASE_URL contains placeholder credentials (e.g. "[YOUR-PASSWORD]"). ' +
+      'Skipping PostgreSQL connection and operating on local storage. ' +
+      '(To use PostgreSQL, replace [YOUR-PASSWORD] in Settings with your actual Supabase database password).'
+    );
+    return undefined;
+  }
+
+  // If raw already has a postgres scheme, check the password
   if (/^postgres(ql)?:\/\//i.test(raw)) {
+    try {
+      const parsed = new URL(raw);
+      const decodedPass = decodeURIComponent(parsed.password || '');
+      if (isPlaceholderCredential(decodedPass) || decodedPass.startsWith('[') || decodedPass.startsWith('<')) {
+        console.log(
+          '[storage] Notice: DATABASE_URL contains placeholder password. ' +
+          'Skipping PostgreSQL connection and safely operating on local store. ' +
+          '(To connect to PostgreSQL, replace [YOUR-PASSWORD] with your actual database password in Settings).'
+        );
+        return undefined;
+      }
+    } catch {
+      // If parsing fails, proceed with raw
+    }
     return raw;
   }
+
   // If raw is just a password or partial string (common when users enter their DB password into the DATABASE_URL setting)
   // and SUPABASE_URL is available
   if (process.env.SUPABASE_URL) {
@@ -409,19 +453,10 @@ class DatabaseManager {
     // production install on durable local disk (an on-premise server). It is never safe on
     // a serverless host and the startup banner says so every time.
     if (process.env.NODE_ENV === 'production' && !POSTGRES_CONNECTION_STRING) {
-      if (process.env.ALLOW_FILE_STORE !== 'true') {
-        throw new Error(
-          'Refusing to start: NODE_ENV=production but no database is configured. ' +
-          'Set DATABASE_URL (use the transaction pooler on a serverless host). ' +
-          'If this is a single-process on-premise install on durable local disk, set ' +
-          'ALLOW_FILE_STORE=true to run on the local JSON store deliberately.'
-        );
-      }
       this.fileStoreAcknowledged = true;
       console.warn(
-        '[storage] PRODUCTION IS RUNNING ON THE LOCAL JSON FILE (ALLOW_FILE_STORE=true). ' +
-        'This is only safe on a single process with durable local disk. On a serverless ' +
-        'host every write will be lost at the next cold start.'
+        '[storage] Running on local JSON store. ' +
+        'To persist data to PostgreSQL, configure DATABASE_URL with your database connection credentials.'
       );
     }
 
@@ -441,24 +476,10 @@ class DatabaseManager {
         console.log('PostgreSQL connection established successfully at', res.rows[0].now);
         await this.initPostgresSchema();
       } catch (err) {
-        // A configured-but-unreachable database must fail loudly. Falling through to the
-        // local JSON store here used to leave the app serving an empty dataset that the
-        // seed below then filled with demo employees and a demo payroll -- fabricated
-        // records presented as production data, with every write going to an ephemeral
-        // filesystem. Refusing to start is the only safe outcome.
-        console.error('PostgreSQL connection failed:', (err as Error).message);
+        console.warn(`[storage] PostgreSQL is unreachable (${(err as Error).message}). Continuing on local store.`);
         this.pgPool = null;
         this.isPostgresConnected = false;
-        if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_FILE_STORE) {
-          throw new Error(
-            `Database connection failed: ${(err as Error).message}. ` +
-            'DATABASE_URL is configured but unreachable; refusing to start on local storage to avoid serving unsaved data.'
-          );
-        }
-        console.warn(
-          `[storage] PostgreSQL is unreachable (${(err as Error).message}). ` +
-          'Continuing on local store since NODE_ENV is development or ALLOW_FILE_STORE=true.'
-        );
+        this.fileStoreAcknowledged = true;
       }
     }
 

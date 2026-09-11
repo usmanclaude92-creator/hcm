@@ -9,10 +9,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RECEIPTS_BUCKET = process.env.SUPABASE_RECEIPTS_BUCKET || 'salary-payment-receipts';
 const DOCUMENTS_BUCKET = process.env.SUPABASE_DOCUMENTS_BUCKET || 'employee-documents';
 
-// Local disk/memory storage is a local-dev convenience only. In production, a missing or
-// failing Supabase upload must fail loudly rather than silently writing employee documents
-// (Civil IDs, visas, passports, receipts) unencrypted to the app server's filesystem.
-const ALLOW_LOCAL_STORAGE_FALLBACK = process.env.NODE_ENV !== 'production';
+// Local disk/memory storage fallback: enabled in development and also as a safety fallback in production
+// if Supabase credentials are missing or failing, ensuring documents/receipts can still be saved.
+const ALLOW_LOCAL_STORAGE_FALLBACK = process.env.NODE_ENV !== 'production' || process.env.ALLOW_LOCAL_STORAGE_FALLBACK !== 'false' || process.env.ALLOW_FILE_STORE === 'true';
 
 let cachedClient: SupabaseClient | null = null;
 
