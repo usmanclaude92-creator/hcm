@@ -52,13 +52,29 @@ export interface WorkforceSyncResult {
   };
 }
 
+// Configured only when every credential the integration needs is actually present.
+// This previously always returned true, and the calls below silently fell back to a
+// hardcoded project URL, anon key and integration secret whenever the env vars were
+// unset -- so the "integration is disabled without these" behavior the README documents
+// never actually happened, and the fallback secret ('artify-secret') plus a live anon key
+// were sitting in source. It fails closed now: missing configuration, no calls at all.
 function isConfigured(): boolean {
-  return true;
+  return Boolean(process.env.WORKFORCE_FUNCTIONS_URL && process.env.SUPABASE_ANON_KEY && process.env.WORKFORCE_INTEGRATION_SECRET);
 }
 
 function functionsBaseUrl(): string {
-  const url = process.env.WORKFORCE_FUNCTIONS_URL || 'https://jpsiafvbyupofnbqonkq.supabase.co/functions/v1';
-  return url.replace(/\/+$/, '');
+  return (process.env.WORKFORCE_FUNCTIONS_URL || '').replace(/\/+$/, '');
+}
+
+function storagePublicBaseUrl(): string {
+  // The Workforce Supabase project's storage endpoint, derived from the same functions
+  // URL rather than hardcoded a second time.
+  try {
+    const origin = new URL(functionsBaseUrl()).origin;
+    return `${origin}/storage/v1/object/public/attendance-selfies`;
+  } catch {
+    return '';
+  }
 }
 
 interface FunctionCallResult {
@@ -67,20 +83,20 @@ interface FunctionCallResult {
   reason?: string;
 }
 
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impwc2lhZnZieXVwb2ZuYnFvbmtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODIxMzAsImV4cCI6MjEwMzc1ODEzMH0.7ppmA3GRy-ABdva_A2GfrEmCgmtV5CneKBrQYwABbHM';
-
 async function callFunction(path: string, body: unknown): Promise<FunctionCallResult> {
+  if (!isConfigured()) {
+    return { ok: false, reason: 'Workforce integration not configured (WORKFORCE_FUNCTIONS_URL / SUPABASE_ANON_KEY / WORKFORCE_INTEGRATION_SECRET).' };
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const secret = process.env.WORKFORCE_INTEGRATION_SECRET || 'artify-secret';
     const response = await fetch(`${functionsBaseUrl()}/${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'X-Integration-Secret': secret,
+        'apikey': process.env.SUPABASE_ANON_KEY!,
+        'Authorization': `Bearer ${process.env.SUPABASE_ANON_KEY!}`,
+        'X-Integration-Secret': process.env.WORKFORCE_INTEGRATION_SECRET!,
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -125,14 +141,14 @@ export async function fetchWorkforceShiftStatuses(
       let photoUrl = raw.selfie_url || raw.selfieUrl || null;
       if (!photoUrl && raw.selfie_storage_path) {
         const cleanPath = raw.selfie_storage_path.replace(/^attendance-selfies\//, '');
-        photoUrl = `https://jpsiafvbyupofnbqonkq.supabase.co/storage/v1/object/public/attendance-selfies/${cleanPath}`;
+        photoUrl = `${storagePublicBaseUrl()}/${cleanPath}`;
       }
 
       let startPhoto = raw.start_selfie_url || raw.clock_in_selfie_url || photoUrl;
       let endPhoto = raw.end_selfie_url || raw.clock_out_selfie_url || null;
       if (!endPhoto && raw.clock_out_selfie_storage_path) {
         const cleanEndPath = raw.clock_out_selfie_storage_path.replace(/^attendance-selfies\//, '');
-        endPhoto = `https://jpsiafvbyupofnbqonkq.supabase.co/storage/v1/object/public/attendance-selfies/${cleanEndPath}`;
+        endPhoto = `${storagePublicBaseUrl()}/${cleanEndPath}`;
       }
 
       // Geofence status

@@ -20,8 +20,10 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
 
     const employeeIdByCivilId = new Map<string, string>();
     for (const e of activeEmployees) {
-      // Fall back to employeeId (55667788) if no secondary civilId entry exists
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber || e.employeeId;
+      // Civil ID only: an employee with no genuine Civil ID on file is skipped rather
+      // than substituting the internal employeeId, which would query Workforce using an
+      // identifier that was never actually registered as that employee's Civil ID there.
+      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber;
       if (civilId) employeeIdByCivilId.set(civilId, normalizeEmployeeId(e.employeeId));
     }
 
@@ -89,10 +91,17 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
     const activeEmployees = db.employees.getAll().filter((e) => e.isActive);
 
     const records: WorkforceEligibilityRecord[] = [];
+    const skippedNoCivilId: string[] = [];
     for (const e of activeEmployees) {
-      // Fall back to employeeId (55667788) if no secondary civilId entry exists
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber || e.employeeId;
-      if (!civilId) continue;
+      // Civil ID only -- this was previously falling back to the internal employeeId,
+      // which meant an employee with no Civil ID on file was never actually skipped (an
+      // employeeId is always truthy) and got pushed into Workforce's eligibility
+      // whitelist keyed by a value that isn't really their Civil ID.
+      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber;
+      if (!civilId) {
+        skippedNoCivilId.push(e.employeeId);
+        continue;
+      }
 
       const personal = db.personalDetails.get(e.employeeId);
       const projectCode = e.assignedProjectCode || personal?.assignedProject || null;
@@ -128,11 +137,13 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
       action: 'WORKFORCE_ELIGIBILITY_SYNC',
       module: 'Workforce Integration',
       recordId: 'sync-eligibility',
-      description: `Synced ${records.length} employee(s) with the Artify Workforce app.`,
+      description: `Synced ${records.length} employee(s) with the Artify Workforce app.${
+        skippedNoCivilId.length ? ` Skipped ${skippedNoCivilId.length} with no Civil ID on file.` : ''
+      }`,
       ipAddress: req.ip,
     });
 
-    res.json({ synced: records.length, summary: result.summary });
+    res.json({ synced: records.length, summary: result.summary, skippedNoCivilId });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to sync with Workforce.' });
   }
