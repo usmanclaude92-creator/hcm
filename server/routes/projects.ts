@@ -35,7 +35,19 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 // POST /api/projects - Create project
 router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
-    const { projectCode, projectName, status, startDate, endDate, remarks, allowedCompanies } = req.body;
+    const {
+      projectCode,
+      projectName,
+      status,
+      startDate,
+      endDate,
+      remarks,
+      allowedCompanies,
+      latitude,
+      longitude,
+      radiusMeters,
+      geofenceName
+    } = req.body;
 
     if (!projectCode || !projectName) {
       return res.status(400).json({ error: 'Project Code and Project Name are mandatory.' });
@@ -57,6 +69,10 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       endDate: endDate || null,
       remarks: remarks ? remarks.trim() : '',
       allowedCompanies: Array.isArray(allowedCompanies) && allowedCompanies.length > 0 ? allowedCompanies : undefined,
+      latitude: latitude !== undefined && latitude !== null && !isNaN(Number(latitude)) ? Number(latitude) : null,
+      longitude: longitude !== undefined && longitude !== null && !isNaN(Number(longitude)) ? Number(longitude) : null,
+      radiusMeters: radiusMeters !== undefined && radiusMeters !== null && !isNaN(Number(radiusMeters)) ? Number(radiusMeters) : null,
+      geofenceName: geofenceName ? String(geofenceName).trim() : null,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -86,7 +102,19 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     const project = db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
-    const { projectCode, projectName, status, startDate, endDate, remarks, allowedCompanies } = req.body;
+    const {
+      projectCode,
+      projectName,
+      status,
+      startDate,
+      endDate,
+      remarks,
+      allowedCompanies,
+      latitude,
+      longitude,
+      radiusMeters,
+      geofenceName
+    } = req.body;
 
     if (projectCode) {
       const normCode = projectCode.trim().toUpperCase();
@@ -105,6 +133,18 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (remarks !== undefined) updates.remarks = remarks.trim();
     if (allowedCompanies !== undefined) {
       updates.allowedCompanies = Array.isArray(allowedCompanies) && allowedCompanies.length > 0 ? allowedCompanies : undefined;
+    }
+    if (latitude !== undefined) {
+      updates.latitude = latitude !== null && !isNaN(Number(latitude)) ? Number(latitude) : null;
+    }
+    if (longitude !== undefined) {
+      updates.longitude = longitude !== null && !isNaN(Number(longitude)) ? Number(longitude) : null;
+    }
+    if (radiusMeters !== undefined) {
+      updates.radiusMeters = radiusMeters !== null && !isNaN(Number(radiusMeters)) ? Number(radiusMeters) : null;
+    }
+    if (geofenceName !== undefined) {
+      updates.geofenceName = geofenceName ? String(geofenceName).trim() : null;
     }
 
     const updated = await db.projects.update(id, updates);

@@ -458,6 +458,11 @@ export interface Project {
   // Undefined/empty = unrestricted (every existing project keeps its current unrestricted
   // behavior). When populated, only employees from a listed company may be allocated here.
   allowedCompanies?: EmployeeCompany[];
+  // Geofence coordinate settings
+  latitude?: number | null;
+  longitude?: number | null;
+  radiusMeters?: number | null;
+  geofenceName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1101,3 +1106,18 @@ export interface EmployeeProjectAssignment {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface PayGrade {
+  id: string;
+  gradeCode: string;
+  gradeName: string;
+  minimumSalary: number;
+  maximumSalary: number;
+  currency: string;
+  standardAllowance?: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+

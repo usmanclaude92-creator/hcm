@@ -2033,6 +2033,14 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.departments[idx] };
         });
       },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.departments.findIndex(d => d.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.departments.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
     };
   }
 
@@ -2061,6 +2069,14 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.designations[idx] };
         });
       },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.designations.findIndex(d => d.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.designations.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
     };
   }
 
@@ -2087,6 +2103,14 @@ class DatabaseManager {
             updatedAt: new Date().toISOString(),
           };
           return { changed: true, value: this.inMemoryData.leaveTypes[idx] };
+        });
+      },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.leaveTypes.findIndex(t => t.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.leaveTypes.splice(idx, 1);
+          return { changed: true, value: true };
         });
       },
     };

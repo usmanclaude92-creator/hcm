@@ -85,6 +85,14 @@ export async function createApp(): Promise<Express> {
   app.use('/api/gratuity', gratuityRouter);
   app.use('/api/masters', mastersRouter);
   app.use('/api/master', mastersRouter);
+  app.use('/api/departments', (req, res, next) => {
+    req.url = '/departments' + (req.url === '/' ? '' : req.url);
+    mastersRouter(req, res, next);
+  });
+  app.use('/api/designations', (req, res, next) => {
+    req.url = '/designations' + (req.url === '/' ? '' : req.url);
+    mastersRouter(req, res, next);
+  });
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/workforce', workforceRouter);
   app.use('/api/timesheets', timesheetsRouter);

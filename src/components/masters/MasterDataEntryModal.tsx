@@ -14,7 +14,10 @@ import {
   HelpCircle,
   Compass,
   ArrowRight,
-  Info
+  Info,
+  BadgePercent,
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import type { MasterTab } from './MasterDataContainer';
 import type { Department, Project } from '../../types';
@@ -22,26 +25,36 @@ import type { Department, Project } from '../../types';
 interface MasterDataEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTab: MasterTab;
-  modalMode: 'create' | 'edit';
+  activeTab?: MasterTab;
+  tab?: MasterTab;
+  modalMode?: 'create' | 'edit';
+  mode?: 'create' | 'edit';
   initialData?: any;
   departments: Department[];
   projects: Project[];
+  selectedProjectId?: string;
   onSave: (savedData: any) => Promise<void>;
-  isSaving: boolean;
+  isSaving?: boolean;
+  isLoading?: boolean;
 }
 
 export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
   isOpen,
   onClose,
-  activeTab,
-  modalMode,
+  activeTab: explicitActiveTab,
+  tab: fallbackTab,
+  modalMode: explicitModalMode,
+  mode: fallbackMode,
   initialData,
   departments,
   projects,
   onSave,
-  isSaving
+  isSaving: explicitIsSaving,
+  isLoading: fallbackIsLoading
 }) => {
+  const activeTab: MasterTab = explicitActiveTab || fallbackTab || 'companies';
+  const modalMode: 'create' | 'edit' = explicitModalMode || fallbackMode || 'create';
+  const isSaving = explicitIsSaving ?? fallbackIsLoading ?? false;
   const [formData, setFormData] = useState<any>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [geoLocating, setGeoLocating] = useState(false);
@@ -108,6 +121,26 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
           isActive: true,
           effectiveFrom: new Date().toISOString().split('T')[0]
         });
+      } else if (activeTab === 'pay-grades') {
+        setFormData({
+          gradeCode: '',
+          gradeName: '',
+          minimumSalary: 250,
+          maximumSalary: 500,
+          currency: 'OMR',
+          standardAllowance: 50,
+          description: '',
+          isActive: true
+        });
+      } else if (activeTab === 'leave-types') {
+        setFormData({
+          code: '',
+          name: '',
+          isPaid: true,
+          annualEntitlementDays: 30,
+          remarks: '',
+          isActive: true
+        });
       }
     }
     setErrors({});
@@ -150,6 +183,21 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
       }
       if (!formData.radiusMeters || Number(formData.radiusMeters) < 25) {
         newErrors.radiusMeters = 'Radius must be at least 25 meters';
+      }
+    } else if (activeTab === 'pay-grades') {
+      if (!formData.gradeCode?.trim()) newErrors.gradeCode = 'Grade Code is required (e.g. GRD-EXEC, GRD-ENG)';
+      if (!formData.gradeName?.trim()) newErrors.gradeName = 'Grade Name is required';
+      if (formData.minimumSalary === undefined || formData.minimumSalary === '' || Number(formData.minimumSalary) < 0) {
+        newErrors.minimumSalary = 'Minimum salary must be 0 or greater';
+      }
+      if (Number(formData.maximumSalary) < Number(formData.minimumSalary)) {
+        newErrors.maximumSalary = 'Maximum salary cannot be less than minimum salary';
+      }
+    } else if (activeTab === 'leave-types') {
+      if (!formData.code?.trim()) newErrors.code = 'Leave Code is required (e.g. AL, SL, EL)';
+      if (!formData.name?.trim()) newErrors.name = 'Leave Type Name is required';
+      if (formData.annualEntitlementDays === undefined || Number(formData.annualEntitlementDays) < 0) {
+        newErrors.annualEntitlementDays = 'Annual entitlement days must be 0 or greater';
       }
     }
 
@@ -243,6 +291,27 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
           subtitle: 'GPS perimeter boundary for mobile Workforce-App check-in / check-out verification',
           icon: MapPin,
           color: 'emerald'
+        };
+      case 'pay-grades':
+        return {
+          title: modalMode === 'create' ? 'Define Pay-Grade Scale' : 'Edit Pay-Grade Scale',
+          subtitle: 'Salary bands, basic wage brackets, and standard site allowances',
+          icon: BadgePercent,
+          color: 'violet'
+        };
+      case 'leave-types':
+        return {
+          title: modalMode === 'create' ? 'Create Leave Type' : 'Edit Leave Type Record',
+          subtitle: 'Statutory and company leave entitlements, paid status rules, and balance accrual configuration',
+          icon: Calendar,
+          color: 'teal'
+        };
+      default:
+        return {
+          title: modalMode === 'create' ? 'Add Master Record' : 'Edit Master Record',
+          subtitle: 'Manage central system master definitions',
+          icon: Layers,
+          color: 'indigo'
         };
     }
   };
@@ -952,6 +1021,264 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       Location Zone is Currently Active
                     </label>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* PAY-GRADES FORM */}
+            {activeTab === 'pay-grades' && (
+              <div className="space-y-4">
+                <div className="bg-violet-50/70 border border-violet-200 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <BadgePercent className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-violet-800 leading-relaxed">
+                    Pay-Grades define salary bands (minimum and maximum wage brackets in OMR) and standard site allowances to ensure equitable compensation and automated payroll band validation.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Grade Code <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.gradeCode || ''}
+                      onChange={e => setFormData({ ...formData, gradeCode: e.target.value.toUpperCase() })}
+                      placeholder="e.g. GRD-EXEC, GRD-ENG"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 font-mono ${
+                        errors.gradeCode ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                      }`}
+                    />
+                    {errors.gradeCode && <p className="text-[11px] text-rose-600 mt-1">{errors.gradeCode}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Grade Title / Band Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.gradeName || ''}
+                      onChange={e => setFormData({ ...formData, gradeName: e.target.value })}
+                      placeholder="e.g. Senior Engineer / Section Head"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 ${
+                        errors.gradeName ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                      }`}
+                    />
+                    {errors.gradeName && <p className="text-[11px] text-rose-600 mt-1">{errors.gradeName}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Minimum Salary (OMR) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="10"
+                        value={formData.minimumSalary ?? ''}
+                        onChange={e => setFormData({ ...formData, minimumSalary: parseFloat(e.target.value) || 0 })}
+                        className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 font-mono ${
+                          errors.minimumSalary ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        }`}
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">OMR</span>
+                    </div>
+                    {errors.minimumSalary && <p className="text-[11px] text-rose-600 mt-1">{errors.minimumSalary}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Maximum Salary (OMR) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="10"
+                        value={formData.maximumSalary ?? ''}
+                        onChange={e => setFormData({ ...formData, maximumSalary: parseFloat(e.target.value) || 0 })}
+                        className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 font-mono ${
+                          errors.maximumSalary ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        }`}
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">OMR</span>
+                    </div>
+                    {errors.maximumSalary && <p className="text-[11px] text-rose-600 mt-1">{errors.maximumSalary}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Standard Field Allowance (OMR)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        value={formData.standardAllowance ?? ''}
+                        onChange={e => setFormData({ ...formData, standardAllowance: parseFloat(e.target.value) || 0 })}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono"
+                      />
+                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">OMR</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Recommended baseline site / travel allowance</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Currency
+                    </label>
+                    <input
+                      type="text"
+                      disabled
+                      value={formData.currency || 'OMR'}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-100 text-slate-600 font-mono cursor-not-allowed"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Omani Rial (OMR) statutory standard</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Grade Description & Target Roles
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.description || ''}
+                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="e.g. Lead Project Engineers, Commercial Managers, and HSE Leads"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200">
+                  <input
+                    type="checkbox"
+                    id="isActivePayGradeCheck"
+                    checked={formData.isActive !== false}
+                    onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="rounded text-violet-600 focus:ring-violet-500 w-4 h-4"
+                  />
+                  <label htmlFor="isActivePayGradeCheck" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                    Pay-Grade is Active and Available for Employee Assignment
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* LEAVE-TYPES FORM */}
+            {activeTab === 'leave-types' && (
+              <div className="space-y-4">
+                <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <Calendar className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-teal-800 leading-relaxed">
+                    Leave Types govern annual leave balances, paid/unpaid status for automated payroll deduction, and statutory Oman Labour Law compliance rules.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Leave Type Code <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.code || ''}
+                      onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="e.g. AL, SL, EL, HAJJ"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 font-mono ${
+                        errors.code ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                      }`}
+                    />
+                    {errors.code && <p className="text-[11px] text-rose-600 mt-1">{errors.code}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Leave Type Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name || ''}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g. Annual Paid Vacation, Sick Leave"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 ${
+                        errors.name ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                      }`}
+                    />
+                    {errors.name && <p className="text-[11px] text-rose-600 mt-1">{errors.name}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Annual Entitlement (Days) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.annualEntitlementDays ?? ''}
+                      onChange={e => setFormData({ ...formData, annualEntitlementDays: parseInt(e.target.value, 10) || 0 })}
+                      placeholder="30"
+                      className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 font-mono ${
+                        errors.annualEntitlementDays ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                      }`}
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Days per calendar year. Set 0 for ad-hoc / unpaid leaves</p>
+                    {errors.annualEntitlementDays && <p className="text-[11px] text-rose-600 mt-1">{errors.annualEntitlementDays}</p>}
+                  </div>
+
+                  <div className="flex flex-col justify-center bg-slate-50 p-3 rounded-xl border border-slate-200 mt-1">
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="isPaidLeaveCheck"
+                        checked={formData.isPaid !== false}
+                        onChange={e => setFormData({ ...formData, isPaid: e.target.checked })}
+                        className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4"
+                      />
+                      <label htmlFor="isPaidLeaveCheck" className="text-xs font-bold text-slate-800 cursor-pointer">
+                        Paid Leave (Salary Accrued)
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-500 ml-6.5 mt-1">
+                      Paid leave counts as payable days in monthly payroll calculations.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Policy Remarks & Statutory Guidelines
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formData.remarks || ''}
+                    onChange={e => setFormData({ ...formData, remarks: e.target.value })}
+                    placeholder="e.g. Oman Labour Law Article 61: 30 calendar days per annum with full basic wage."
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200">
+                  <input
+                    type="checkbox"
+                    id="isActiveLeaveTypeCheck"
+                    checked={formData.isActive !== false}
+                    onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4"
+                  />
+                  <label htmlFor="isActiveLeaveTypeCheck" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                    Leave Type is Active and Selectable by Employees
+                  </label>
                 </div>
               </div>
             )}
