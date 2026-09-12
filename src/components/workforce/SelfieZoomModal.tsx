@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   ZoomIn,
@@ -178,7 +179,12 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
   const currentPhotoLabel = activeType === 'end' ? 'Shift End Verification Selfie' : 'Shift Start Verification Selfie';
   const currentTimestamp = activeType === 'end' ? endTime : startTime || selfieDateTimeStr;
 
-  return (
+  // Rendered via a portal straight into document.body: this modal is opened from a
+  // card that applies a hover transform (hover:-translate-y-0.5) and overflow-hidden,
+  // both of which create a new containing/clipping context for `position: fixed`
+  // descendants. Without the portal, this "fullscreen" overlay was being clipped to
+  // and sized against that small card instead of the viewport.
+  return createPortal(
     <div
       id="selfie-zoom-backdrop"
       className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 select-none overflow-hidden"
@@ -410,6 +416,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
         <span>•</span>
         <span>Keys: <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">+</kbd> / <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">-</kbd> Zoom, <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">R</kbd> Rotate, <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">Esc</kbd> Close</span>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

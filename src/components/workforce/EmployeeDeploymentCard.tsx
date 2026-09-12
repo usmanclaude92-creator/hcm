@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserRound, MapPin, Clock, FileSpreadsheet, ZoomIn } from 'lucide-react';
+import { UserRound, MapPin, Clock, ZoomIn } from 'lucide-react';
 import { type AttendanceStatus } from '../common/AttendanceStatusBadge';
 import { SelfieZoomModal } from './SelfieZoomModal';
 
@@ -204,23 +204,18 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         {/* 2. Top-Left Corner: Date and Time of Selfie Taken */}
         {selfieDateTimeStr ? (
           <div
-            className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-slate-900/80 backdrop-blur-xs text-[9px] font-medium text-white shadow-xs z-10 flex items-center gap-1 tracking-tight"
+            className="absolute top-2 left-2 max-w-[calc(100%-2.25rem)] px-1.5 py-1 rounded-md bg-gradient-to-br from-slate-900/90 to-slate-800/80 ring-1 ring-white/10 text-[9px] font-semibold text-white shadow-md z-10 flex items-center gap-1 tracking-tight whitespace-nowrap"
             title={`Selfie taken: ${selfieDateTimeStr}`}
           >
-            <Clock className="w-2.5 h-2.5 text-slate-300 shrink-0" />
-            <span>{selfieDateTimeStr}</span>
+            <Clock className="w-2.5 h-2.5 text-sky-300 shrink-0" />
+            <span className="truncate font-mono">{selfieDateTimeStr}</span>
           </div>
         ) : null}
 
-        {/* 3. Top-Right Corner: Location Icon (Green when inside geofence, Red when outside) */}
+        {/* 3. Top-Right Corner: Location Icon (Green when inside geofence, Red when outside) — a plain
+             colored pin with a drop-shadow for legibility against any photo, no circular badge */}
         <div
-          className={`absolute top-2 right-2 p-1 rounded-full shadow-xs border z-10 ${
-            isInsideGeofence === true
-              ? 'bg-white/95 border-emerald-500/40 text-emerald-600'
-              : isInsideGeofence === false
-              ? 'bg-white/95 border-rose-500/40 text-rose-600'
-              : 'bg-white/75 border-slate-200 text-slate-300'
-          }`}
+          className="absolute top-1.5 right-1.5 z-10"
           title={
             isInsideGeofence === true
               ? 'Inside Site Radius (Within Geofence)'
@@ -230,13 +225,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           }
         >
           <MapPin
-            className={`w-3.5 h-3.5 ${
+            className={`w-5 h-5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)] ${
               isInsideGeofence === true
-                ? 'fill-emerald-500 text-emerald-600'
+                ? 'fill-emerald-500 text-emerald-100'
                 : isInsideGeofence === false
-                ? 'fill-rose-500 text-rose-600'
-                : 'text-slate-300'
+                ? 'fill-rose-500 text-rose-100'
+                : 'fill-slate-400 text-slate-100'
             }`}
+            strokeWidth={1.75}
           />
         </div>
 
@@ -335,16 +331,6 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         <div className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs tracking-wide z-10 ${badgeStyle}`}>
           {badgeLabel}
         </div>
-
-        {/* Hover Action Overlay: Click to Open Attendance Report */}
-        {onClick && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/75 via-slate-900/40 to-transparent py-2 px-2 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-            <span className="text-[10px] font-bold text-white tracking-wide flex items-center gap-1 drop-shadow-xs">
-              <FileSpreadsheet className="w-3 h-3 text-emerald-300" />
-              Open Attendance Report
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Name, then Staff/Worker : Code */}
