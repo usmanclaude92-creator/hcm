@@ -13,7 +13,8 @@ import {
   AlertCircle,
   XCircle,
   ShieldCheck,
-  FolderGit2
+  FolderGit2,
+  Loader2
 } from 'lucide-react';
 import {
   CompanyMaster,
@@ -31,6 +32,24 @@ export const MasterDataContainer: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Per-tab granular loading states
+  const [loadingStates, setLoadingStates] = useState<Record<MasterTab, boolean>>({
+    companies: false,
+    departments: false,
+    designations: false,
+    trades: false,
+    locations: false
+  });
+
+  // Per-tab error notifications
+  const [errorStates, setErrorStates] = useState<Record<MasterTab, string | null>>({
+    companies: null,
+    departments: null,
+    designations: null,
+    trades: null,
+    locations: null
+  });
 
   // Centralized Master Data Collections
   const [companies, setCompanies] = useState<CompanyMaster[]>([]);
@@ -53,29 +72,148 @@ export const MasterDataContainer: React.FC = () => {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const clearTabError = (tab: MasterTab) => {
+    setErrorStates(prev => ({ ...prev, [tab]: null }));
+  };
+
+  // Fetch a single tab's data with dedicated loading and error states
+  const fetchTabData = async (tab: MasterTab) => {
+    setLoadingStates(prev => ({ ...prev, [tab]: true }));
+    setErrorStates(prev => ({ ...prev, [tab]: null }));
+
+    try {
+      if (tab === 'companies') {
+        const res = await fetch('/api/master/companies');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load companies`);
+        const data = await res.json();
+        setCompanies(Array.isArray(data) ? data : []);
+      } else if (tab === 'departments') {
+        const res = await fetch('/api/departments');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load departments`);
+        const data = await res.json();
+        setDepartments(Array.isArray(data) ? data : []);
+      } else if (tab === 'designations') {
+        const res = await fetch('/api/designations');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load designations`);
+        const data = await res.json();
+        setDesignations(Array.isArray(data) ? data : []);
+      } else if (tab === 'trades') {
+        const res = await fetch('/api/master/trades');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load trades`);
+        const data = await res.json();
+        setTrades(Array.isArray(data) ? data : []);
+      } else if (tab === 'locations') {
+        const [resLoc, resProj] = await Promise.all([
+          fetch('/api/master/geofences'),
+          fetch('/api/projects')
+        ]);
+        if (!resLoc.ok) throw new Error(`HTTP ${resLoc.status}: Failed to load geofence locations`);
+        const dataLoc = await resLoc.json();
+        setLocations(Array.isArray(dataLoc) ? dataLoc : []);
+
+        if (resProj.ok) {
+          const dataProj = await resProj.json();
+          setProjects(Array.isArray(dataProj) ? dataProj : []);
+        }
+      }
+    } catch (err: any) {
+      const msg = err.message || `Failed to fetch ${tab} data`;
+      setErrorStates(prev => ({ ...prev, [tab]: msg }));
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [tab]: false }));
+    }
+  };
+
+  // Central fetch across all endpoints with individual progress and error capture
   const fetchCentralData = async () => {
     setIsLoading(true);
-    try {
-      const [resComp, resDept, resDesig, resTrades, resLoc, resProj] = await Promise.all([
-        fetch('/api/master/companies').then(r => r.json()).catch(() => []),
-        fetch('/api/departments').then(r => r.json()).catch(() => []),
-        fetch('/api/designations').then(r => r.json()).catch(() => []),
-        fetch('/api/master/trades').then(r => r.json()).catch(() => []),
-        fetch('/api/master/geofences').then(r => r.json()).catch(() => []),
-        fetch('/api/projects').then(r => r.json()).catch(() => [])
-      ]);
+    setLoadingStates({
+      companies: true,
+      departments: true,
+      designations: true,
+      trades: true,
+      locations: true
+    });
+    setErrorStates({
+      companies: null,
+      departments: null,
+      designations: null,
+      trades: null,
+      locations: null
+    });
 
-      setCompanies(Array.isArray(resComp) ? resComp : []);
-      setDepartments(Array.isArray(resDept) ? resDept : []);
-      setDesignations(Array.isArray(resDesig) ? resDesig : []);
-      setTrades(Array.isArray(resTrades) ? resTrades : []);
-      setLocations(Array.isArray(resLoc) ? resLoc : []);
-      setProjects(Array.isArray(resProj) ? resProj : []);
-    } catch (err: any) {
-      showNotification('error', 'Error reading from central master data APIs: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    const tasks = [
+      (async () => {
+        try {
+          const res = await fetch('/api/master/companies');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          setCompanies(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, companies: err.message || 'Error fetching companies' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, companies: false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const res = await fetch('/api/departments');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          setDepartments(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, departments: err.message || 'Error fetching departments' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, departments: false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const res = await fetch('/api/designations');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          setDesignations(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, designations: err.message || 'Error fetching designations' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, designations: false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const res = await fetch('/api/master/trades');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          setTrades(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, trades: err.message || 'Error fetching trades' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, trades: false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const [resLoc, resProj] = await Promise.all([
+            fetch('/api/master/geofences'),
+            fetch('/api/projects')
+          ]);
+          if (!resLoc.ok) throw new Error(`HTTP ${resLoc.status}`);
+          const dataLoc = await resLoc.json();
+          setLocations(Array.isArray(dataLoc) ? dataLoc : []);
+          if (resProj.ok) {
+            const dataProj = await resProj.json();
+            setProjects(Array.isArray(dataProj) ? dataProj : []);
+          }
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, locations: err.message || 'Error fetching geofence locations' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, locations: false }));
+        }
+      })()
+    ];
+
+    await Promise.allSettled(tasks);
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -216,39 +354,104 @@ export const MasterDataContainer: React.FC = () => {
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 mt-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
           {[
-            { id: 'companies', label: 'Companies', icon: Building2, count: companies.length },
-            { id: 'departments', label: 'Departments', icon: Layers, count: departments.length },
-            { id: 'designations', label: 'Designations', icon: Briefcase, count: designations.length },
-            { id: 'trades', label: 'Trades', icon: Wrench, count: trades.length },
-            { id: 'locations', label: 'Project Locations', icon: MapPin, count: locations.length }
+            { id: 'companies' as MasterTab, label: 'Companies', icon: Building2, count: companies.length },
+            { id: 'departments' as MasterTab, label: 'Departments', icon: Layers, count: departments.length },
+            { id: 'designations' as MasterTab, label: 'Designations', icon: Briefcase, count: designations.length },
+            { id: 'trades' as MasterTab, label: 'Trades', icon: Wrench, count: trades.length },
+            { id: 'locations' as MasterTab, label: 'Project Locations', icon: MapPin, count: locations.length }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+            const isTabLoading = loadingStates[tab.id];
+            const hasTabError = !!errorStates[tab.id];
+
             return (
               <button
                 key={tab.id}
                 onClick={() => {
-                  setActiveTab(tab.id as MasterTab);
+                  setActiveTab(tab.id);
                   setSearchTerm('');
                 }}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors relative ${
                   isActive
                     ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50 rounded-t-lg'
                     : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                {tab.label}
-                <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                  isActive ? 'bg-indigo-100 text-indigo-800 font-bold' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {tab.count}
+                {isTabLoading ? (
+                  <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                ) : (
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                )}
+                <span>{tab.label}</span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full font-mono transition-colors ${
+                    isActive
+                      ? 'bg-indigo-100 text-indigo-800 font-bold'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {isTabLoading ? '...' : tab.count}
                 </span>
+                {hasTabError && (
+                  <span
+                    title={`Error loading ${tab.label}`}
+                    className="flex h-2 w-2 relative"
+                  >
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Per-Tab Error Notification Banner */}
+      {errorStates[activeTab] && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start justify-between gap-3 text-rose-900 shadow-sm animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="font-semibold text-sm text-rose-800 flex items-center gap-2">
+                Failed to load {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} master data
+              </div>
+              <p className="text-xs text-rose-700 mt-0.5">
+                {errorStates[activeTab]}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => fetchTabData(activeTab)}
+              disabled={loadingStates[activeTab]}
+              className="px-3 py-1.5 text-xs font-semibold bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg flex items-center gap-1.5 transition"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingStates[activeTab] ? 'animate-spin' : ''}`} />
+              Retry
+            </button>
+            <button
+              onClick={() => clearTabError(activeTab)}
+              className="text-rose-400 hover:text-rose-600 p-1"
+              title="Dismiss error"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Loading Status Overlay/Banner if active tab is refreshing */}
+      {loadingStates[activeTab] && (
+        <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl px-4 py-3 flex items-center justify-between text-indigo-900 shadow-sm animate-pulse">
+          <div className="flex items-center gap-2 text-sm font-medium text-indigo-800">
+            <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+            <span>Fetching updated {activeTab} master records from central API...</span>
+          </div>
+          <span className="text-xs text-indigo-600 font-mono">Syncing...</span>
+        </div>
+      )}
 
       {/* Filter / Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
@@ -304,44 +507,86 @@ export const MasterDataContainer: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {companies
+                {loadingStates.companies ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        <span className="text-sm font-semibold text-slate-700">Loading companies from central master API...</span>
+                        <span className="text-xs text-slate-500">Fetching corporate legal entities & registration data</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : errorStates.companies ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <AlertCircle className="w-8 h-8 text-rose-500" />
+                        <span className="text-sm font-bold text-rose-800">Unable to load Companies</span>
+                        <p className="text-xs text-slate-600">{errorStates.companies}</p>
+                        <button
+                          onClick={() => fetchTabData('companies')}
+                          className="mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry Fetch
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : companies
                   .filter(c =>
                     c.companyCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     c.companyName.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map(comp => (
-                    <tr key={comp.id} className="hover:bg-slate-50/75 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-slate-900 flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-indigo-600" />
-                        {comp.companyCode}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-900">{comp.companyName}</div>
-                        {comp.legalName && <div className="text-xs text-slate-500">{comp.legalName}</div>}
-                      </td>
-                      <td className="px-6 py-4 font-mono text-slate-700">{comp.crNumber || '—'}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
-                          {comp.country} ({comp.currency})
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                          comp.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {comp.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => openEditModal(comp)}
-                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  ).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                      <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="font-semibold text-slate-700">No companies found</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {searchTerm ? 'Try adjusting your search criteria' : 'Click "Add Record" to create your first central company'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  companies
+                    .filter(c =>
+                      c.companyCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      c.companyName.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(comp => (
+                      <tr key={comp.id} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-slate-900 flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-indigo-600" />
+                          {comp.companyCode}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-slate-900">{comp.companyName}</div>
+                          {comp.legalName && <div className="text-xs text-slate-500">{comp.legalName}</div>}
+                        </td>
+                        <td className="px-6 py-4 font-mono text-slate-700">{comp.crNumber || '—'}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                            {comp.country} ({comp.currency})
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                            comp.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {comp.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => openEditModal(comp)}
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
@@ -365,41 +610,83 @@ export const MasterDataContainer: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {departments
+                {loadingStates.departments ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        <span className="text-sm font-semibold text-slate-700">Loading departments from central master API...</span>
+                        <span className="text-xs text-slate-500">Fetching organizational structures & hierarchies</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : errorStates.departments ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <AlertCircle className="w-8 h-8 text-rose-500" />
+                        <span className="text-sm font-bold text-rose-800">Unable to load Departments</span>
+                        <p className="text-xs text-slate-600">{errorStates.departments}</p>
+                        <button
+                          onClick={() => fetchTabData('departments')}
+                          className="mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry Fetch
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : departments
                   .filter(d =>
                     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     (d.code && d.code.toLowerCase().includes(searchTerm.toLowerCase()))
-                  )
-                  .map(dept => {
-                    const deptDesigs = designations.filter(des => des.departmentId === dept.id);
-                    return (
-                      <tr key={dept.id} className="hover:bg-slate-50/75 transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-slate-900">{dept.code || '—'}</td>
-                        <td className="px-6 py-4 font-semibold text-slate-900 flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-emerald-600" />
-                          {dept.name}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-medium">
-                            {deptDesigs.length} Designations
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-                            Active
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => openEditModal(dept)}
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  ).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                      <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="font-semibold text-slate-700">No departments found</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {searchTerm ? 'Try adjusting your search criteria' : 'Click "Add Record" to create your first central department'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  departments
+                    .filter(d =>
+                      d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (d.code && d.code.toLowerCase().includes(searchTerm.toLowerCase()))
+                    )
+                    .map(dept => {
+                      const deptDesigs = designations.filter(des => des.departmentId === dept.id);
+                      return (
+                        <tr key={dept.id} className="hover:bg-slate-50/75 transition-colors">
+                          <td className="px-6 py-4 font-mono font-bold text-slate-900">{dept.code || '—'}</td>
+                          <td className="px-6 py-4 font-semibold text-slate-900 flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-emerald-600" />
+                            {dept.name}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-medium">
+                              {deptDesigs.length} Designations
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+                              Active
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => openEditModal(dept)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
               </tbody>
             </table>
           </div>
@@ -423,38 +710,77 @@ export const MasterDataContainer: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {designations
-                  .filter(d => d.title.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map(desig => {
-                    const dept = departments.find(dep => dep.id === desig.departmentId);
-                    return (
-                      <tr key={desig.id} className="hover:bg-slate-50/75 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-slate-900 flex items-center gap-2">
-                          <Briefcase className="w-4 h-4 text-indigo-600" />
-                          {desig.title}
-                        </td>
-                        <td className="px-6 py-4 text-slate-700">{dept?.name || 'General Department'}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
-                            Staff
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-                            Active
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => openEditModal(desig)}
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                {loadingStates.designations ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        <span className="text-sm font-semibold text-slate-700">Loading designations from central master API...</span>
+                        <span className="text-xs text-slate-500">Standardizing job titles and roles across workforce</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : errorStates.designations ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <AlertCircle className="w-8 h-8 text-rose-500" />
+                        <span className="text-sm font-bold text-rose-800">Unable to load Designations</span>
+                        <p className="text-xs text-slate-600">{errorStates.designations}</p>
+                        <button
+                          onClick={() => fetchTabData('designations')}
+                          className="mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry Fetch
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : designations
+                  .filter(d => d.title.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                      <Briefcase className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="font-semibold text-slate-700">No designations found</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {searchTerm ? 'Try adjusting your search criteria' : 'Click "Add Record" to create your first central job title'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  designations
+                    .filter(d => d.title.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(desig => {
+                      const dept = departments.find(dep => dep.id === desig.departmentId);
+                      return (
+                        <tr key={desig.id} className="hover:bg-slate-50/75 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-slate-900 flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-indigo-600" />
+                            {desig.title}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">{dept?.name || 'General Department'}</td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                              Staff
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+                              Active
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => openEditModal(desig)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
               </tbody>
             </table>
           </div>
@@ -478,40 +804,82 @@ export const MasterDataContainer: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {trades
+                {loadingStates.trades ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        <span className="text-sm font-semibold text-slate-700">Loading trades from central master API...</span>
+                        <span className="text-xs text-slate-500">Fetching specialized craft skills & labor master classifications</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : errorStates.trades ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <AlertCircle className="w-8 h-8 text-rose-500" />
+                        <span className="text-sm font-bold text-rose-800">Unable to load Trades</span>
+                        <p className="text-xs text-slate-600">{errorStates.trades}</p>
+                        <button
+                          onClick={() => fetchTabData('trades')}
+                          className="mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry Fetch
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : trades
                   .filter(t =>
                     t.tradeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     t.tradeName.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map(trade => (
-                    <tr key={trade.id} className="hover:bg-slate-50/75 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-slate-900 flex items-center gap-2">
-                        <Wrench className="w-4 h-4 text-amber-600" />
-                        {trade.tradeCode}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-slate-900">{trade.tradeName}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
-                          {trade.category}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                          trade.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {trade.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => openEditModal(trade)}
-                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  ).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                      <Wrench className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="font-semibold text-slate-700">No trades found</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {searchTerm ? 'Try adjusting your search criteria' : 'Click "Add Record" to create your first central trade classification'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  trades
+                    .filter(t =>
+                      t.tradeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      t.tradeName.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(trade => (
+                      <tr key={trade.id} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-slate-900 flex items-center gap-2">
+                          <Wrench className="w-4 h-4 text-amber-600" />
+                          {trade.tradeCode}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-slate-900">{trade.tradeName}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                            {trade.category}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                            trade.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {trade.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => openEditModal(trade)}
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
@@ -538,65 +906,110 @@ export const MasterDataContainer: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {locations
+                {loadingStates.locations ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                        <span className="text-sm font-semibold text-slate-700">Loading project geofences from central master API...</span>
+                        <span className="text-xs text-slate-500">Retrieving GPS coordinates, polygons & perimeter verification rules</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : errorStates.locations ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-md mx-auto">
+                        <AlertCircle className="w-8 h-8 text-rose-500" />
+                        <span className="text-sm font-bold text-rose-800">Unable to load Project Locations</span>
+                        <p className="text-xs text-slate-600">{errorStates.locations}</p>
+                        <button
+                          onClick={() => fetchTabData('locations')}
+                          className="mt-2 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry Fetch
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : locations
                   .filter(loc => (!selectedProjectId || loc.projectId === selectedProjectId))
                   .filter(loc =>
                     loc.locationCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     loc.locationName.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map(loc => {
-                    const proj = projects.find(p => p.id === loc.projectId);
-                    return (
-                      <tr key={loc.id} className="hover:bg-slate-50/75 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
-                            <FolderGit2 className="w-4 h-4 text-blue-600" />
-                            {proj?.projectCode || loc.projectId}
-                          </div>
-                          <div className="text-xs text-slate-500">{proj?.projectName}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-slate-900">{loc.locationName}</div>
-                          <div className="font-mono text-xs text-slate-500">{loc.locationCode}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
-                            {loc.locationType}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 font-mono text-xs text-slate-800">
-                          {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
-                        </td>
-                        <td className="px-6 py-4 font-mono text-xs font-semibold text-slate-900">
-                          {loc.radiusMeters} m
-                        </td>
-                        <td className="px-6 py-4">
-                          {loc.isPrimary ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800">
-                              Primary Gate
+                  ).length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                      <MapPin className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="font-semibold text-slate-700">No project geofences found</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {searchTerm || selectedProjectId
+                          ? 'Try adjusting your filters or search keywords'
+                          : 'Click "Add Record" to configure your first project geofence boundary'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  locations
+                    .filter(loc => (!selectedProjectId || loc.projectId === selectedProjectId))
+                    .filter(loc =>
+                      loc.locationCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      loc.locationName.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(loc => {
+                      const proj = projects.find(p => p.id === loc.projectId);
+                      return (
+                        <tr key={loc.id} className="hover:bg-slate-50/75 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
+                              <FolderGit2 className="w-4 h-4 text-blue-600" />
+                              {proj?.projectCode || loc.projectId}
+                            </div>
+                            <div className="text-xs text-slate-500">{proj?.projectName}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-slate-900">{loc.locationName}</div>
+                            <div className="font-mono text-xs text-slate-500">{loc.locationCode}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
+                              {loc.locationType}
                             </span>
-                          ) : (
-                            <span className="text-xs text-slate-400">Sub-Zone</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                            loc.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            {loc.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => openEditModal(loc)}
-                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs text-slate-800">
+                            {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs font-semibold text-slate-900">
+                            {loc.radiusMeters} m
+                          </td>
+                          <td className="px-6 py-4">
+                            {loc.isPrimary ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800">
+                                Primary Gate
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">Sub-Zone</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                              loc.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {loc.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => openEditModal(loc)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                )}
               </tbody>
             </table>
           </div>
