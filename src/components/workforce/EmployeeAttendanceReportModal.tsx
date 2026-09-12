@@ -52,6 +52,9 @@ interface AttendancePunchItem {
   isGeofenceException?: boolean;
   distanceFromSiteMeters?: number;
   siteName?: string;
+  projectCode?: string;
+  projectName?: string;
+  supervisorApproved?: boolean;
 }
 
 interface EmployeeReportData {
@@ -187,13 +190,8 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   if (!isOpen || !employeeId) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white animate-in fade-in duration-150">
+      <div className="w-full h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -201,8 +199,11 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900">Employee Attendance Report</h2>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Employee Attendance Report</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-extrabold text-slate-900 block">
+                  {data?.employee?.employeeName || employeeId}
+                </h2>
                 {data?.employee?.employeeType && (
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
@@ -221,9 +222,9 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                {data?.employee?.employeeName || employeeId} • ID:{' '}
-                <span className="font-mono font-bold text-slate-700">{employeeId}</span>
-                {data?.employee?.designation ? ` • ${data.employee.designation}` : ''}
+                {data?.employee?.designation || '—'}
+                <span className="mx-1.5 text-slate-300">•</span>
+                ID: <span className="font-mono font-bold text-slate-700">{employeeId}</span>
               </p>
             </div>
           </div>
@@ -379,38 +380,97 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Monthly Attendance Records Breakdown */}
+              {/* Attendance & Approval Register: one row per worked date, with the
+                  Days/Hours column adapting to the employee type, a geofence compliance
+                  percentage for that date's selfies, and supervisor approval status. */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Monthly Register Entries</h3>
-                  <span className="text-[11px] text-slate-500">{data.records.length} Project Entry(s)</span>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Attendance &amp; Approval Register</h3>
+                  <span className="text-[11px] text-slate-500">{data.punches.length} Day(s)</span>
                 </div>
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-semibold">
-                        <th className="py-2.5 px-3">Project Code</th>
-                        <th className="py-2.5 px-3">Project Name</th>
-                        <th className="py-2.5 px-3 text-center">Days Worked</th>
-                        <th className="py-2.5 px-3 text-center">Hours Worked</th>
-                        <th className="py-2.5 px-3 text-center">Overtime</th>
-                        <th className="py-2.5 px-3 text-right">Month</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {data.records.map((rec) => (
-                        <tr key={rec.id || rec.projectCode} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-blue-600">{rec.projectCode}</td>
-                          <td className="py-2.5 px-3 font-medium text-slate-900">{rec.projectName || '-'}</td>
-                          <td className="py-2.5 px-3 text-center font-semibold">{rec.daysWorked}</td>
-                          <td className="py-2.5 px-3 text-center font-semibold">{rec.hoursWorked}</td>
-                          <td className="py-2.5 px-3 text-center font-semibold text-amber-600">{rec.overtimeHours || 0}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-500">{rec.payrollMonth}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {data.punches.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
+                    No daily attendance entries recorded for this month yet.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-semibold">
+                            <th className="py-2.5 px-3">Date</th>
+                            <th className="py-2.5 px-3">Project</th>
+                            <th className="py-2.5 px-3 text-center">
+                              {data.employee.employeeType === 'Staff' ? 'Days Worked' : 'Hours Worked'}
+                            </th>
+                            <th className="py-2.5 px-3 text-center">Overtime</th>
+                            <th className="py-2.5 px-3 text-center">Geofence</th>
+                            <th className="py-2.5 px-3 text-center">Approval</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-700">
+                          {data.punches.map((punch) => {
+                            const isStaff = data.employee.employeeType === 'Staff';
+                            const daysOrHoursValue = isStaff
+                              ? 1
+                              : punch.hoursWorked ?? (punch.checkOutTime ? 8 : 0);
+
+                            // Geofence %: inside-radius selfies ÷ total selfies captured that date.
+                            // The backend records a single isGeofenceException flag per punch (not
+                            // separately per selfie), so when an exception is flagged on a day with
+                            // both a start and end selfie, one of the two is treated as the outlier.
+                            const totalSelfies = (punch.checkInTime ? 1 : 0) + (punch.checkOutTime ? 1 : 0);
+                            const insideSelfies = punch.isGeofenceException
+                              ? Math.max(totalSelfies - 1, 0)
+                              : totalSelfies;
+                            const geofencePercent = totalSelfies > 0 ? Math.round((insideSelfies / totalSelfies) * 100) : null;
+
+                            const isApproved = punch.supervisorApproved === true;
+
+                            return (
+                              <tr key={punch.id} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                                  {formatDate(punch.punchDate)}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                                  {punch.projectName || punch.projectCode || data.employee.assignedProjectName || '-'}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-semibold">
+                                  {isStaff ? daysOrHoursValue : `${daysOrHoursValue.toFixed(1)} Hrs`}
+                                </td>
+                                <td className="py-2.5 px-3 text-center font-semibold text-amber-600">
+                                  {punch.overtimeHours || 0}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {geofencePercent === null ? (
+                                    <span className="text-slate-400 italic">-</span>
+                                  ) : (
+                                    <span className={`font-bold ${geofencePercent >= 100 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                      {geofencePercent}%
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {isApproved ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      Approved
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                      <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                      Not-approved
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Daily Shift Punches & Selfies */}

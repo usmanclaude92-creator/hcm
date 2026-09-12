@@ -48,6 +48,28 @@ interface DeploymentEntry {
   hasAttendanceThisMonth: boolean; // across ALL of the employee's records, regardless of project
 }
 
+// Present/Absent/Leave classification shared by the HR summary widget, each project
+// section's header counts, and the Staff/Worker sub-header counts, so all three always
+// agree with each other and with the badge shown on the employee's own card.
+// Priority: an approved leave request covering today wins over any shift/attendance
+// signal; otherwise a live "today" shift (open, or closed with a clock-out) counts as
+// Present; otherwise we fall back to whether the employee has any attendance logged
+// this month at all (the only signal available for employees not on the mobile app).
+function classifyPresence(
+  employeeId: string,
+  hasAttendanceThisMonth: boolean,
+  shiftStatusByEmployee: Record<string, WorkforceShiftStatus>,
+  onLeaveIds: Set<string>
+): 'Present' | 'Absent' | 'Leave' {
+  const key = employeeId.toUpperCase();
+  if (onLeaveIds.has(key)) return 'Leave';
+  const shift = shiftStatusByEmployee[key];
+  if (shift?.status === 'OPEN') return 'Present';
+  if (shift?.status === 'CLOSED' && shift.clockOutAt) return 'Present';
+  if (hasAttendanceThisMonth) return 'Present';
+  return 'Absent';
+}
+
 const COMPANY_OPTIONS: MultiSelectOption[] = [
   { value: 'DGO', label: 'DGO' },
   { value: 'SMI', label: 'SMI' },
@@ -94,9 +116,19 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [shiftStatusByEmployee, setShiftStatusByEmployee] = useState<Record<string, WorkforceShiftStatus>>({});
+  const [onLeaveIds, setOnLeaveIds] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-dismiss the sync result banner instead of leaving it on screen indefinitely --
+  // it also gets cleared the next time data is refreshed (fetchData below), whichever
+  // comes first.
+  useEffect(() => {
+    if (!syncMessage) return;
+    const timer = setTimeout(() => setSyncMessage(null), 8000);
+    return () => clearTimeout(timer);
+  }, [syncMessage]);
 
   // Pushes active employees (by Civil ID) into the Artify Workforce app's eligibility
   // list so they can register there. Administrator only -- see server/routes/workforce.ts.
@@ -135,6 +167,10 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
   const fetchData = async () => {
+    // A stale sync banner should not survive a data refresh (manual "Refresh" click or
+    // the 60s auto-poll below), on top of the 8s auto-dismiss timer above.
+    setSyncMessage(null);
+
     try {
       setError(null);
       const data = await apiRequest(`/api/attendance?month=${currentMonth}`);
@@ -152,6 +188,24 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       setShiftStatusByEmployee(shiftData?.statuses || {});
     } catch {
       setShiftStatusByEmployee({});
+    }
+
+    // Best-effort: employees on an approved leave request covering today, so the HR
+    // summary widget and per-project counts can show them separately from "Absent".
+    // Non-fatal if this endpoint isn't reachable for the current role -- everyone just
+    // falls back to the Present/Absent classification.
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const leaveData = await apiRequest(`/api/leave/requests?year=${todayStr.slice(0, 4)}&status=Approved`);
+      const ids = new Set<string>();
+      (leaveData?.requests || []).forEach((r: any) => {
+        if (r?.employeeId && r.startDate <= todayStr && todayStr <= r.endDate) {
+          ids.add(String(r.employeeId).toUpperCase());
+        }
+      });
+      setOnLeaveIds(ids);
+    } catch {
+      setOnLeaveIds(new Set());
     }
   };
 
@@ -281,6 +335,32 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     return result;
   }, [filteredEntries, activeProjects]);
 
+  // Human Resource summary widget: total active roster, present today, and on leave --
+  // each split by Staff/Worker. Built from `grouped` (the deduplicated per-employee
+  // roster for the month) rather than the per-project `allEntries`, so an employee
+  // deployed to more than one project isn't counted twice.
+  const overview = useMemo(() => {
+    let totalStaff = 0, totalWorkers = 0;
+    let presentStaff = 0, presentWorkers = 0;
+    let leaveStaff = 0, leaveWorkers = 0;
+    grouped.forEach((emp) => {
+      const isStaff = emp.employeeType === 'Staff';
+      if (isStaff) totalStaff += 1; else totalWorkers += 1;
+      const hasAttendance = (Number(emp.totalDays) || 0) > 0 || (Number(emp.totalHours) || 0) > 0;
+      const state = classifyPresence(emp.employeeId, hasAttendance, shiftStatusByEmployee, onLeaveIds);
+      if (state === 'Leave') {
+        if (isStaff) leaveStaff += 1; else leaveWorkers += 1;
+      } else if (state === 'Present') {
+        if (isStaff) presentStaff += 1; else presentWorkers += 1;
+      }
+    });
+    return {
+      totalStaff, totalWorkers, total: totalStaff + totalWorkers,
+      presentStaff, presentWorkers, present: presentStaff + presentWorkers,
+      leaveStaff, leaveWorkers, leave: leaveStaff + leaveWorkers,
+    };
+  }, [grouped, shiftStatusByEmployee, onLeaveIds]);
+
   const handleResetFilters = () => {
     setSearch('');
     setCompanyFilter(COMPANY_OPTIONS.map(o => o.value));
@@ -310,6 +390,40 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       {syncMessage && (
         <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-700 text-xs">{syncMessage}</div>
       )}
+
+      {/* Human Resource Summary Widget */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
+        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">Human Resource Summary</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Active Employees</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{overview.total}</p>
+            <p className="text-[11px] mt-1">
+              <span className="text-blue-700 font-semibold">Staff: {overview.totalStaff}</span>
+              <span className="mx-1.5 text-slate-300">•</span>
+              <span className="text-indigo-700 font-semibold">Workers: {overview.totalWorkers}</span>
+            </p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+            <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Total Present Employees</p>
+            <p className="text-2xl font-bold text-emerald-700 mt-1">{overview.present}</p>
+            <p className="text-[11px] mt-1">
+              <span className="text-emerald-700 font-semibold">Staff: {overview.presentStaff}</span>
+              <span className="mx-1.5 text-emerald-300">•</span>
+              <span className="text-emerald-700 font-semibold">Workers: {overview.presentWorkers}</span>
+            </p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+            <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Employees on Leave</p>
+            <p className="text-2xl font-bold text-amber-700 mt-1">{overview.leave}</p>
+            <p className="text-[11px] mt-1">
+              <span className="text-amber-700 font-semibold">Staff: {overview.leaveStaff}</span>
+              <span className="mx-1.5 text-amber-300">•</span>
+              <span className="text-amber-700 font-semibold">Workers: {overview.leaveWorkers}</span>
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Filter Bar */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
@@ -356,41 +470,95 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       </div>
 
       {/* Sections */}
-      {sections.map(section => (
-        <div key={section.key} className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 tracking-wide">
-              <Building className="w-4 h-4 text-slate-400" />
-              {section.title}
-            </h3>
-            <span className="text-xs font-semibold text-slate-500">
-              Active Employees: <span className="text-slate-900 font-bold">{section.employees.length}</span>
-            </span>
-          </div>
+      {sections.map(section => {
+        const classify = (e: DeploymentEntry) => classifyPresence(e.employeeId, e.hasAttendanceThisMonth, shiftStatusByEmployee, onLeaveIds);
+        const presentCount = section.employees.filter(e => classify(e) === 'Present').length;
+        const absentCount = section.employees.length - presentCount;
 
-          {section.employees.length === 0 ? (
-            <div className="py-8 text-center text-slate-400">
-              <p className="text-sm font-semibold">0 Active Employees</p>
-              <p className="text-xs mt-1">No employees currently deployed to this project.</p>
+        // Staff first, then Workers, separated by a light divider (sorted lists already
+        // preserve the alphabetical-by-name order from the `sections` memo above).
+        const staffList = section.employees.filter(e => e.employeeType === 'Staff');
+        const workerList = section.employees.filter(e => e.employeeType !== 'Staff');
+        const staffPresent = staffList.filter(e => classify(e) === 'Present').length;
+        const workerPresent = workerList.filter(e => classify(e) === 'Present').length;
+
+        const renderCard = (emp: DeploymentEntry) => {
+          const state = classify(emp);
+          return (
+            <EmployeeDeploymentCard
+              key={`${section.key}-${emp.employeeId}`}
+              employeeId={emp.employeeId}
+              employeeName={emp.employeeName}
+              employeeType={emp.employeeType}
+              overtimeHours={emp.overtimeHours}
+              attendanceStatus={state}
+              shiftStatus={shiftStatusByEmployee[emp.employeeId.toUpperCase()]}
+              onClick={() => setReportEmployeeId(emp.employeeId)}
+            />
+          );
+        };
+
+        return (
+          <div key={section.key} className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 flex-wrap gap-2">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 tracking-wide">
+                <Building className="w-4 h-4 text-slate-400" />
+                {section.title}
+              </h3>
+              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
+                <span>Total: <span className="text-slate-900 font-bold">{section.employees.length}</span></span>
+                <span className="text-emerald-600">Active: <span className="font-bold">{presentCount}</span></span>
+                <span className="text-rose-600">Absent: <span className="font-bold">{absentCount}</span></span>
+              </div>
             </div>
-          ) : (
-            <div className="flex flex-wrap gap-3">
-              {section.employees.map(emp => (
-                <EmployeeDeploymentCard
-                  key={`${section.key}-${emp.employeeId}`}
-                  employeeId={emp.employeeId}
-                  employeeName={emp.employeeName}
-                  employeeType={emp.employeeType}
-                  overtimeHours={emp.overtimeHours}
-                  attendanceStatus={emp.hasAttendanceThisMonth ? 'Present' : 'Absent'}
-                  shiftStatus={shiftStatusByEmployee[emp.employeeId.toUpperCase()]}
-                  onClick={() => setReportEmployeeId(emp.employeeId)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+
+            {section.employees.length === 0 ? (
+              <div className="py-8 text-center text-slate-400">
+                <p className="text-sm font-semibold">0 Active Employees</p>
+                <p className="text-xs mt-1">No employees currently deployed to this project.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {staffList.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                      <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Staff ({staffList.length})</span>
+                      <span className="text-[11px] font-semibold">
+                        <span className="text-emerald-600">Present Staff: {staffPresent}</span>
+                        <span className="mx-1.5 text-slate-300">•</span>
+                        <span className="text-rose-600">Absent Staff: {staffList.length - staffPresent}</span>
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {staffList.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+
+                {staffList.length > 0 && workerList.length > 0 && (
+                  <div className="border-t border-slate-100" />
+                )}
+
+                {workerList.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                      <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Workers ({workerList.length})</span>
+                      <span className="text-[11px] font-semibold">
+                        <span className="text-emerald-600">Present Workers: {workerPresent}</span>
+                        <span className="mx-1.5 text-slate-300">•</span>
+                        <span className="text-rose-600">Absent Workers: {workerList.length - workerPresent}</span>
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {workerList.map(renderCard)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* Employee Attendance Report Modal */}
       <EmployeeAttendanceReportModal
