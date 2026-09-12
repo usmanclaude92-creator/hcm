@@ -29,8 +29,22 @@ import { MasterDataEntryModal } from './MasterDataEntryModal';
 
 export type MasterTab = 'companies' | 'departments' | 'designations' | 'trades' | 'locations';
 
-export const MasterDataContainer: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<MasterTab>('companies');
+export interface MasterDataContainerProps {
+  initialTab?: MasterTab;
+  openCreateModal?: boolean;
+}
+
+export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
+  initialTab,
+  openCreateModal: initialOpenCreateModal,
+}) => {
+  const [activeTab, setActiveTab] = useState<MasterTab>(initialTab || 'companies');
+
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -250,6 +264,12 @@ export const MasterDataContainer: React.FC = () => {
     setFormData(init);
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    if (initialOpenCreateModal) {
+      openCreateModal();
+    }
+  }, [initialOpenCreateModal, activeTab]);
 
   const openEditModal = (item: any) => {
     setModalMode('edit');

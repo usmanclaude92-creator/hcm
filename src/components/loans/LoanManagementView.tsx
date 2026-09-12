@@ -21,7 +21,11 @@ import {
 import type { EmployeeLoan, LoanRepayment, Employee } from '../../types/index';
 import { SearchableEmployeeSelect } from '../common/SearchableEmployeeSelect';
 
-export const LoanManagementView: React.FC = () => {
+export interface LoanManagementViewProps {
+  initialOpenNewLoan?: boolean;
+}
+
+export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialOpenNewLoan }) => {
   const { canWrite } = useAuth();
   const [loans, setLoans] = useState<EmployeeLoan[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -35,6 +39,12 @@ export const LoanManagementView: React.FC = () => {
 
   // Modals
   const [isNewLoanModalOpen, setIsNewLoanModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (initialOpenNewLoan) {
+      setIsNewLoanModalOpen(true);
+    }
+  }, [initialOpenNewLoan]);
   const [isRepayModalOpen, setIsRepayModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<EmployeeLoan | null>(null);

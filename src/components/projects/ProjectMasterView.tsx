@@ -16,7 +16,11 @@ import type { Project, EmployeeCompany } from '../../types/index';
 
 const ALL_COMPANIES: EmployeeCompany[] = ['DGO', 'SMI', 'NC', 'Supplier', 'Azad'];
 
-export const ProjectMasterView: React.FC = () => {
+export interface ProjectMasterViewProps {
+  initialOpenAddModal?: boolean;
+}
+
+export const ProjectMasterView: React.FC<ProjectMasterViewProps> = ({ initialOpenAddModal }) => {
   const { canWrite } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +75,12 @@ export const ProjectMasterView: React.FC = () => {
     });
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    if (initialOpenAddModal) {
+      handleOpenAdd();
+    }
+  }, [initialOpenAddModal]);
 
   const handleOpenEdit = (proj: Project) => {
     setEditingProject(proj);

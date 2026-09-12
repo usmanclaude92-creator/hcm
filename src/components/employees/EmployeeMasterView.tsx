@@ -47,6 +47,7 @@ export interface EmployeeMasterViewProps {
     company?: string;
     employeeType?: string;
     nationalityType?: string;
+    openAddModal?: boolean;
   };
   onClearInitialFilters?: () => void;
 }
@@ -168,6 +169,15 @@ export const EmployeeMasterView: React.FC<EmployeeMasterViewProps> = ({
     setRecordInitialTab('personal');
     setIsRecordModalOpen(true);
   };
+
+  useEffect(() => {
+    if (initialFilters?.openAddModal) {
+      handleOpenAdd();
+      if (onClearInitialFilters) {
+        onClearInitialFilters();
+      }
+    }
+  }, [initialFilters?.openAddModal]);
 
   const handleOpenEdit = (emp: Employee) => {
     setSelectedRecordEmp(emp);

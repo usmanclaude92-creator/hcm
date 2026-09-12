@@ -26,6 +26,7 @@ import { AuditLogsView } from './components/audit/AuditLogsView';
 import { UserManagementView } from './components/users/UserManagementView';
 import { ComplianceDashboardView } from './components/compliance/ComplianceDashboardView';
 import { DocumentRepositoryView } from './components/documents/DocumentRepositoryView';
+import { WorkforceDeploymentView } from './components/workforce/WorkforceDeploymentView';
 import { useIdleTimer, IDLE_TIMEOUT_MS, WARNING_DURATION_MS } from './hooks/useIdleTimer';
 import { IdleTimeoutModal } from './components/common/IdleTimeoutModal';
 
@@ -94,8 +95,10 @@ const MainApp: React.FC = () => {
             onNavigateToEmployee={(empId) => handleNavigate('employees', { search: empId })}
           />
         );
+      case 'workforce':
+        return <WorkforceDeploymentView />;
       case 'projects':
-        return <ProjectMasterView />;
+        return <ProjectMasterView initialOpenAddModal={viewParams?.openAddModal || viewParams?.initialOpenAddModal} />;
       case 'attendance':
         return <AttendanceView initialMonth={viewParams.month} />;
       case 'cif':
@@ -116,13 +119,23 @@ const MainApp: React.FC = () => {
       case 'wps':
         return <WPSRecoveryView />;
       case 'loans':
-        return <LoanManagementView />;
+        return <LoanManagementView initialOpenNewLoan={viewParams?.openNewLoan || viewParams?.initialOpenNewLoan} />;
       case 'leave':
-        return <LeaveManagementView />;
+        return (
+          <LeaveManagementView
+            initialTab={viewParams?.tab || viewParams?.initialTab}
+            initialOpenModal={viewParams?.openModal || viewParams?.initialOpenModal}
+          />
+        );
       case 'gratuity':
         return <EndOfServiceView />;
       case 'master-data':
-        return <MasterDataContainer />;
+        return (
+          <MasterDataContainer
+            initialTab={viewParams?.tab}
+            openCreateModal={viewParams?.openCreateModal}
+          />
+        );
       case 'master-data-legacy':
         return <MasterDataView />;
       case 'reports':
@@ -143,7 +156,8 @@ const MainApp: React.FC = () => {
       {/* Sidebar Navigation */}
       <Sidebar
         currentView={currentView}
-        onSelectView={(view) => handleNavigate(view)}
+        currentViewParams={viewParams}
+        onSelectView={(view, params) => handleNavigate(view, params)}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />

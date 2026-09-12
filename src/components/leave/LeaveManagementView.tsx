@@ -41,10 +41,30 @@ const STATUS_STYLES: Record<string, string> = {
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
-export const LeaveManagementView: React.FC = () => {
+export interface LeaveManagementViewProps {
+  initialTab?: TabKey;
+  initialOpenModal?: boolean;
+}
+
+export const LeaveManagementView: React.FC<LeaveManagementViewProps> = ({
+  initialTab,
+  initialOpenModal,
+}) => {
   const { canWrite, isManager, user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('requests');
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab || 'requests');
+
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (initialOpenModal) {
+      setIsModalOpen(true);
+    }
+  }, [initialOpenModal]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
