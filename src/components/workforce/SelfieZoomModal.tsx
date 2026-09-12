@@ -189,6 +189,11 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
       id="selfie-zoom-backdrop"
       className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 select-none overflow-hidden"
       onClick={(e) => {
+        // React portals still bubble through the *React* component tree (not the DOM
+        // tree), so without this a click anywhere in this modal — even just closing it
+        // — would keep bubbling up to the deployment card's own onClick and re-open the
+        // Attendance Report behind it. Stop that here; backdrop clicks still close below.
+        e.stopPropagation();
         if (e.target === e.currentTarget) {
           onClose();
         }
