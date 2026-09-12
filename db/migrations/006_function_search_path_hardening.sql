@@ -4,10 +4,8 @@
 -- reference inside these functions by creating same-named objects earlier in their own
 -- search_path.
 --
--- NOTE: drafted 2026-09-12 during an automated audit/remediation session; the session was
--- blocked from applying this migration directly by a platform-level production-safety
--- control. Apply by hand: `supabase db push`, or paste into the SQL editor for project
--- jpsiafvbyupofnbqonkq, then remove this note.
+-- APPLIED to production (jpsiafvbyupofnbqonkq) 2026-09-12 -- verified via the security
+-- advisor, which no longer flags function_search_path_mutable.
 
 ALTER FUNCTION public.hcms_to_uuid(text) SET search_path = public, pg_temp;
 ALTER FUNCTION public.hcms_to_uuid(text, text) SET search_path = public, pg_temp;

@@ -20,7 +20,7 @@ The application still stores everything in a single JSONB document
 | 004 (link Workforce Civil ID) applied to production | Done |
 | Data backfilled from `app_state` | Not yet |
 | Application reads/writes switched over | Not yet |
-| 005–006 (revoke dangerous anon RPC grants, function search_path hardening) | Drafted 2026-09-12, **not yet applied** — see `005_revoke_dangerous_anon_execute.sql` / `006_function_search_path_hardening.sql` |
+| 005–006 (revoke dangerous anon RPC grants, function search_path hardening) | Applied 2026-09-12 — verified via `information_schema.role_routine_grants` (005) and security advisor (006, `function_search_path_mutable` no longer flagged) |
 | 007 (view security_invoker) | Applied 2026-09-12 |
 | 008 (geofence + PIN-lockout columns) | Applied 2026-09-12 |
 

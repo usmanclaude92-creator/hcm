@@ -10,11 +10,8 @@
 -- Nothing in hcm or the Workforce Android app calls either function via RPC (confirmed by
 -- searching both repos for `.rpc(` and equivalent REST calls), so revoking is safe.
 --
--- NOTE: drafted 2026-09-12 during an automated audit/remediation session; the session was
--- blocked from applying this migration directly by a platform-level production-safety
--- control (grant/permission changes on a live database require a human to apply them).
--- Apply by hand: `supabase db push`, or paste into the SQL editor for project
--- jpsiafvbyupofnbqonkq, then remove this note.
+-- APPLIED to production (jpsiafvbyupofnbqonkq) 2026-09-12 -- verified via
+-- information_schema.role_routine_grants: only postgres/service_role remain as grantees.
 
 REVOKE ALL ON FUNCTION public.register_workforce_staff(text, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
