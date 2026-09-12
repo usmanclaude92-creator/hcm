@@ -8,7 +8,6 @@ import { Sidebar } from './components/common/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { EmployeeMasterView } from './components/employees/EmployeeMasterView';
 import { EmployeeProfileLedgerView } from './components/employees/EmployeeProfileLedgerView';
-import { ProjectMasterView } from './components/projects/ProjectMasterView';
 import { AttendanceView } from './components/attendance/AttendanceView';
 import { CifUploadView } from './components/cif/CifUploadView';
 import { PayrollView } from './components/payroll/PayrollView';
@@ -97,8 +96,6 @@ const MainApp: React.FC = () => {
         );
       case 'workforce':
         return <WorkforceDeploymentView />;
-      case 'projects':
-        return <ProjectMasterView initialOpenAddModal={viewParams?.openAddModal || viewParams?.initialOpenAddModal} />;
       case 'attendance':
         return <AttendanceView initialMonth={viewParams.month} />;
       case 'cif':

@@ -36,12 +36,14 @@ import {
 } from '../../types';
 import { getStoredToken } from '../../api/client';
 import { MasterDataEntryModal } from './MasterDataEntryModal';
+import { ProjectMasterView } from '../projects/ProjectMasterView';
 
 export type MasterTab =
   | 'companies'
   | 'departments'
   | 'designations'
   | 'locations'
+  | 'projects'
   | 'pay-grades'
   | 'leave-types'
   | 'trades';
@@ -73,6 +75,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     departments: false,
     designations: false,
     locations: false,
+    projects: false,
     'pay-grades': false,
     'leave-types': false,
     trades: false,
@@ -84,6 +87,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     departments: null,
     designations: null,
     locations: null,
+    projects: null,
     'pay-grades': null,
     'leave-types': null,
     trades: null,
@@ -101,6 +105,19 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
 
   // Project filter for geofence locations
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+
+  // The merged "Projects" master tab has two nested sections: the project
+  // directory itself, and the geofence zones that belong to those projects.
+  const [projectsSubView, setProjectsSubView] = useState<'directory' | 'geofences'>('directory');
+
+  // Geofence CRUD (create/edit/delete/toggle/save) still runs on the 'locations'
+  // tab identity internally -- only the outer nav groups it under "Projects".
+  const effectiveTab: MasterTab =
+    activeTab === 'projects' && projectsSubView === 'geofences' ? 'locations' : activeTab;
+
+  // The Project Directory sub-view renders its own self-contained toolbar/modal
+  // (ProjectMasterView), so this container's generic Add Record/search bar hide there.
+  const isProjectDirectory = activeTab === 'projects' && projectsSubView === 'directory';
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -198,6 +215,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       departments: true,
       designations: true,
       locations: true,
+      projects: false,
       'pay-grades': true,
       'leave-types': true,
       trades: true,
@@ -207,6 +225,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       departments: null,
       designations: null,
       locations: null,
+      projects: null,
       'pay-grades': null,
       'leave-types': null,
       trades: null,
@@ -327,7 +346,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       init = { title: '', departmentId: departments[0]?.id || '', remarks: '', isActive: true };
     } else if (activeTab === 'trades') {
       init = { tradeCode: '', tradeName: '', category: 'Civil', isActive: true };
-    } else if (activeTab === 'locations') {
+    } else if (effectiveTab === 'locations') {
       init = {
         projectId: selectedProjectId || projects[0]?.id || '',
         locationCode: 'GATE-01',
@@ -388,6 +407,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       departments: 'departments',
       designations: 'designations',
       locations: 'geofences',
+      projects: 'projects',
       'pay-grades': 'pay-grades',
       'leave-types': 'leave-types',
       trades: 'trades'
@@ -433,6 +453,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       departments: 'departments',
       designations: 'designations',
       locations: 'geofences',
+      projects: 'projects',
       'pay-grades': 'pay-grades',
       'leave-types': 'leave-types',
       trades: 'trades'
@@ -473,7 +494,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     let url = '';
     const method = modalMode === 'create' ? 'POST' : 'PUT';
 
-    switch (activeTab) {
+    switch (effectiveTab) {
       case 'companies':
         url = modalMode === 'create' ? '/api/master/companies' : `/api/master/companies/${submittedData.id}`;
         break;
@@ -512,7 +533,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
 
       showNotification('success', 'Central master record saved successfully');
       setIsModalOpen(false);
-      fetchTabData(activeTab);
+      fetchTabData(effectiveTab);
     } catch (err: any) {
       showNotification('error', err.message);
     } finally {
@@ -525,7 +546,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     { id: 'companies' as MasterTab, label: 'Companies', icon: Building2, count: companies.length },
     { id: 'departments' as MasterTab, label: 'Departments', icon: Layers, count: departments.length },
     { id: 'designations' as MasterTab, label: 'Designations', icon: Briefcase, count: designations.length },
-    { id: 'locations' as MasterTab, label: 'Locations & Geofences', icon: MapPin, count: locations.length },
+    { id: 'projects' as MasterTab, label: 'Projects', icon: FolderGit2, count: projects.length },
     { id: 'pay-grades' as MasterTab, label: 'Pay-Grades', icon: BadgePercent, count: payGrades.length },
     { id: 'leave-types' as MasterTab, label: 'Leave Types', icon: Calendar, count: leaveTypes.length },
     { id: 'trades' as MasterTab, label: 'Trades & Skills', icon: Wrench, count: trades.length }
@@ -545,7 +566,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
             </div>
             <h1 className="text-2xl font-bold text-slate-900 mt-1">Master Data Management</h1>
             <p className="text-sm text-slate-600 mt-0.5">
-              Authoritative management for Departments, Designations, Locations, Pay-Grades, Leave-Types, Companies, and Trades.
+              Authoritative management for Departments, Designations, Projects &amp; Geofences, Pay-Grades, Leave-Types, Companies, and Trades.
             </p>
           </div>
 
@@ -557,12 +578,14 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
             </button>
-            <button
-              onClick={openCreateModal}
-              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 shadow-sm transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Add Record
-            </button>
+            {!isProjectDirectory && (
+              <button
+                onClick={openCreateModal}
+                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 shadow-sm transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Record
+              </button>
+            )}
           </div>
         </div>
 
@@ -594,6 +617,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
                 onClick={() => {
                   setActiveTab(tab.id);
                   setSearchTerm('');
+                  if (tab.id === 'projects') setProjectsSubView('directory');
                 }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors cursor-pointer relative ${
                   isActive
@@ -630,6 +654,40 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
           })}
         </div>
       </div>
+
+      {/* Projects sub-navigation: Geofence Zones live under Project master data */}
+      {activeTab === 'projects' && (
+        <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-fit">
+          <button
+            onClick={() => setProjectsSubView('directory')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              projectsSubView === 'directory'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <FolderGit2 className="w-3.5 h-3.5" />
+            Project Directory
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${projectsSubView === 'directory' ? 'bg-indigo-500' : 'bg-slate-100'}`}>
+              {projects.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setProjectsSubView('geofences')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              projectsSubView === 'geofences'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            Geofence Zones
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${projectsSubView === 'geofences' ? 'bg-indigo-500' : 'bg-slate-100'}`}>
+              {locations.length}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Per-Tab Error Notification Banner */}
       {errorStates[activeTab] && (
@@ -677,40 +735,42 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       )}
 
       {/* Filter / Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder={`Search ${activeTab.replace('-', ' ')} by code, name, or keywords...`}
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-
-        {activeTab === 'locations' && (
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs font-semibold text-slate-600">Filter Project:</span>
-            <select
-              value={selectedProjectId}
-              onChange={e => setSelectedProjectId(e.target.value)}
-              className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">All Projects ({projects.length})</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.projectCode} - {p.projectName}
-                </option>
-              ))}
-            </select>
+      {!isProjectDirectory && (
+        <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder={`Search ${effectiveTab.replace('-', ' ')} by code, name, or keywords...`}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
-        )}
 
-        <div className="text-xs text-slate-500 font-medium">
-          Full CRUD, search, and instant status toggle active
+          {activeTab === 'projects' && projectsSubView === 'geofences' && (
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-xs font-semibold text-slate-600">Filter Project:</span>
+              <select
+                value={selectedProjectId}
+                onChange={e => setSelectedProjectId(e.target.value)}
+                className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">All Projects ({projects.length})</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.projectCode} - {p.projectName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="text-xs text-slate-500 font-medium">
+            Full CRUD, search, and instant status toggle active
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ========================================================= */}
       {/* 1. DEPARTMENTS VIEW */}
@@ -913,9 +973,16 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* 3. LOCATIONS & GEOFENCES VIEW */}
+      {/* 3a. PROJECT DIRECTORY VIEW (nested under Projects) */}
       {/* ========================================================= */}
-      {activeTab === 'locations' && (
+      {activeTab === 'projects' && projectsSubView === 'directory' && (
+        <ProjectMasterView />
+      )}
+
+      {/* ========================================================= */}
+      {/* 3b. GEOFENCE ZONES VIEW (nested under Projects) */}
+      {/* ========================================================= */}
+      {activeTab === 'projects' && projectsSubView === 'geofences' && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600">
@@ -1472,7 +1539,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         modalMode={modalMode}
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         initialData={formData}
         departments={departments}
         projects={projects}
