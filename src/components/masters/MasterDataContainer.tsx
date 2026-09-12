@@ -655,20 +655,22 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
         </div>
       </div>
 
-      {/* Projects sub-navigation: Geofence Zones live under Project master data */}
+      {/* Projects sub-navigation: Geofence Zones live under Project master data.
+          Kept deliberately lighter than the main tab bar above (which uses a
+          filled/bordered indigo style) so this nested level reads as secondary. */}
       {activeTab === 'projects' && (
         <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-fit">
           <button
             onClick={() => setProjectsSubView('directory')}
             className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
               projectsSubView === 'directory'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                : 'text-slate-500 border border-transparent hover:bg-slate-50'
             }`}
           >
             <FolderGit2 className="w-3.5 h-3.5" />
             Project Directory
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${projectsSubView === 'directory' ? 'bg-indigo-500' : 'bg-slate-100'}`}>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${projectsSubView === 'directory' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100'}`}>
               {projects.length}
             </span>
           </button>
@@ -676,13 +678,13 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
             onClick={() => setProjectsSubView('geofences')}
             className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
               projectsSubView === 'geofences'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                : 'text-slate-500 border border-transparent hover:bg-slate-50'
             }`}
           >
             <MapPin className="w-3.5 h-3.5" />
             Geofence Zones
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${projectsSubView === 'geofences' ? 'bg-indigo-500' : 'bg-slate-100'}`}>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${projectsSubView === 'geofences' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100'}`}>
               {locations.length}
             </span>
           </button>

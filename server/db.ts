@@ -26,6 +26,7 @@ import type {
   LoanRecoveryTransaction,
   LoanStatus,
   LeaveType,
+  PublicHoliday,
   Department,
   Designation,
   LeaveRequest,
@@ -266,6 +267,7 @@ interface DatabaseSchema {
   loanRecoveries: LoanRecoveryTransaction[];
   leaveTypes: LeaveType[];
   leaveRequests: LeaveRequest[];
+  publicHolidays: PublicHoliday[];
   // Organisation master data. Designations were free text on every employee record,
   // so the same role existed under several spellings and could not be reported on.
   departments: Department[];
@@ -385,6 +387,7 @@ class DatabaseManager {
     loanRecoveries: [],
     leaveTypes: [],
     leaveRequests: [],
+    publicHolidays: [],
     departments: [],
     designations: [],
     auditLogs: [],
@@ -749,6 +752,7 @@ class DatabaseManager {
       loanRecoveries: parsed.loanRecoveries || [],
       leaveTypes: parsed.leaveTypes || [],
       leaveRequests: parsed.leaveRequests || [],
+      publicHolidays: parsed.publicHolidays || [],
       departments: parsed.departments || [],
       designations: parsed.designations || [],
       auditLogs: parsed.auditLogs || [],
@@ -2110,6 +2114,39 @@ class DatabaseManager {
           const idx = this.inMemoryData.leaveTypes.findIndex(t => t.id === id);
           if (idx === -1) return { changed: false, value: false };
           this.inMemoryData.leaveTypes.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
+    };
+  }
+
+  public get publicHolidays() {
+    return {
+      getAll: () => [...this.inMemoryData.publicHolidays],
+      getByYear: (year: number) => this.inMemoryData.publicHolidays.filter(h => h.year === year),
+      findById: (id: string) => this.inMemoryData.publicHolidays.find(h => h.id === id),
+      create: async (holiday: PublicHoliday) => {
+        this.inMemoryData.publicHolidays.push(holiday);
+        await this.persist();
+        return holiday;
+      },
+      update: async (id: string, updates: Partial<PublicHoliday>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.publicHolidays.findIndex(h => h.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.publicHolidays[idx] = {
+            ...this.inMemoryData.publicHolidays[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.publicHolidays[idx] };
+        });
+      },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.publicHolidays.findIndex(h => h.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.publicHolidays.splice(idx, 1);
           return { changed: true, value: true };
         });
       },

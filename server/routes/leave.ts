@@ -10,7 +10,7 @@ import {
   companyScopeOf,
   canSeeCompany,
 } from '../auth.js';
-import type { LeaveType, LeaveRequest, LeaveBalance, LeaveRequestStatus } from '../../src/types/index';
+import type { LeaveType, LeaveRequest, LeaveBalance, LeaveRequestStatus, PublicHoliday } from '../../src/types/index';
 
 const router = Router();
 
@@ -123,6 +123,136 @@ router.put('/types/:id', verifyAuth, requireRoles('Administrator', 'Payroll Mana
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update leave type.' });
+  }
+});
+
+// ==================== Public holidays ====================
+
+// GET /api/leave/public-holidays?year=YYYY
+router.get('/public-holidays', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const holidays = db.publicHolidays
+      .getAll()
+      .filter(h => h.year === year || h.isRecurringAnnually)
+      .map(h => (h.isRecurringAnnually && h.year !== year ? { ...h, date: `${year}${h.date.slice(4)}`, year } : h))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    res.json(holidays);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch public holidays.' });
+  }
+});
+
+// POST /api/leave/public-holidays (Administrator / Payroll Manager)
+router.post('/public-holidays', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, date, isRecurringAnnually, remarks } = req.body;
+    if (!name || !date) {
+      return res.status(400).json({ error: 'Holiday name and date are required.' });
+    }
+    if (!isValidDate(date)) {
+      return res.status(400).json({ error: 'Date must be a real calendar date (YYYY-MM-DD).' });
+    }
+    const year = Number(String(date).slice(0, 4));
+
+    const duplicate = db.publicHolidays.getAll().find(h => h.date === date);
+    if (duplicate) {
+      return res.status(400).json({ error: `A holiday (${duplicate.name}) is already recorded on ${date}.` });
+    }
+
+    const timestamp = new Date().toISOString();
+    const holiday: PublicHoliday = {
+      id: crypto.randomUUID(),
+      name: String(name).trim(),
+      date,
+      year,
+      isRecurringAnnually: Boolean(isRecurringAnnually),
+      remarks: remarks ? String(remarks).trim() : '',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    await db.publicHolidays.create(holiday);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'PUBLIC_HOLIDAY_CREATED',
+      module: 'Leave',
+      recordId: holiday.id,
+      description: `Added public holiday ${holiday.name} on ${holiday.date}.`,
+    });
+
+    res.status(201).json(holiday);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create the public holiday.' });
+  }
+});
+
+// PUT /api/leave/public-holidays/:id
+router.put('/public-holidays/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = db.publicHolidays.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Public holiday not found.' });
+
+    const { name, date, isRecurringAnnually, remarks } = req.body;
+    const updates: Partial<PublicHoliday> = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (remarks !== undefined) updates.remarks = String(remarks).trim();
+    if (isRecurringAnnually !== undefined) updates.isRecurringAnnually = Boolean(isRecurringAnnually);
+    if (date !== undefined) {
+      if (!isValidDate(date)) {
+        return res.status(400).json({ error: 'Date must be a real calendar date (YYYY-MM-DD).' });
+      }
+      const duplicate = db.publicHolidays.getAll().find(h => h.date === date && h.id !== existing.id);
+      if (duplicate) {
+        return res.status(400).json({ error: `A holiday (${duplicate.name}) is already recorded on ${date}.` });
+      }
+      updates.date = date;
+      updates.year = Number(String(date).slice(0, 4));
+    }
+
+    const updated = await db.publicHolidays.update(req.params.id, updates);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'PUBLIC_HOLIDAY_UPDATED',
+      module: 'Leave',
+      recordId: req.params.id,
+      description: `Updated public holiday ${existing.name}.`,
+      previousValue: { name: existing.name, date: existing.date },
+      newValue: updates,
+    });
+
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update the public holiday.' });
+  }
+});
+
+// DELETE /api/leave/public-holidays/:id
+router.delete('/public-holidays/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = db.publicHolidays.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Public holiday not found.' });
+
+    await db.publicHolidays.delete(req.params.id);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'PUBLIC_HOLIDAY_DELETED',
+      module: 'Leave',
+      recordId: req.params.id,
+      description: `Removed public holiday ${existing.name} on ${existing.date}.`,
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete the public holiday.' });
   }
 });
 

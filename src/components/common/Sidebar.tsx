@@ -12,7 +12,6 @@ import {
   Landmark,
   Scale,
   Building2,
-  SlidersHorizontal,
   FileBarChart,
   FileSpreadsheet,
   History,
@@ -119,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             label: 'Leave Management',
             icon: CalendarDays,
             targetView: 'leave',
-            keywords: ['vacation', 'annual', 'sick', 'holiday', 'absence'],
+            keywords: ['vacation', 'annual', 'sick', 'holiday', 'absence', 'leave types', 'leave policy', 'entitlement rules', 'public holidays'],
           },
           {
             id: 'compliance',
@@ -152,16 +151,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             badge: 'Overview',
             kind: 'master',
             keywords: ['masters', 'hub', 'configuration', 'setup'],
-          },
-          {
-            id: 'master-leave-types',
-            label: 'Leave Types Master',
-            icon: SlidersHorizontal,
-            targetView: 'leave',
-            targetParams: { initialTab: 'types' },
-            badge: 'Rules',
-            kind: 'master',
-            keywords: ['leave types', 'leave policy', 'entitlement rules', 'annual leave rules'],
           },
         ],
       },
@@ -360,9 +349,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (!item.targetParams || Object.keys(item.targetParams).length === 0) {
       // If currentView is 'master-data' and currentViewParams has a tab, don't highlight the master hub
       if (currentView === 'master-data' && currentViewParams?.tab) {
-        return false;
-      }
-      if (currentView === 'leave' && currentViewParams?.initialTab === 'types') {
         return false;
       }
       return true;

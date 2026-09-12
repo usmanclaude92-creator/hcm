@@ -41,6 +41,21 @@ export interface LeaveType {
   updatedAt: string;
 }
 
+// A fixed public/national holiday for a given calendar year. Recorded so payroll and
+// attendance can treat the date as non-working without an employee having to file leave.
+export interface PublicHoliday {
+  id: string;
+  name: string;
+  // ISO date (YYYY-MM-DD) the holiday falls on.
+  date: string;
+  year: number;
+  // True for a holiday that lands on the same calendar date every year (e.g. National Day).
+  isRecurringAnnually?: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LeaveRequest {
   id: string;
   employeeId: string;
