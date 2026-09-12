@@ -1009,3 +1009,95 @@ export interface NotificationSummary {
   birthdayCount: number;
   urgentCount: number;
 }
+
+// ==========================================
+// CENTRAL MASTER DATA ARCHITECTURE TYPES
+// ==========================================
+
+export interface CompanyMaster {
+  id: string;
+  companyCode: string;
+  companyName: string;
+  legalName?: string;
+  crNumber?: string;
+  country: string;
+  currency: string;
+  taxId?: string;
+  address?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayByEntityMaster {
+  id: string;
+  entityCode: string;
+  entityName: string;
+  entityType: 'Company' | 'Project' | 'Client' | 'Third Party' | 'Other';
+  linkedCompanyId?: string;
+  linkedProjectId?: string;
+  isActive: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TradeMaster {
+  id: string;
+  tradeCode: string;
+  tradeName: string;
+  category: 'Civil' | 'Electrical' | 'Mechanical' | 'Logistics' | 'General';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShiftMaster {
+  id: string;
+  shiftCode: string;
+  shiftName: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  workHours: number;
+  isNightShift: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectGeofenceLocation {
+  id: string;
+  projectId: string;
+  locationCode: string;
+  locationName: string;
+  locationType: 'Main Gate' | 'Work Zone' | 'Office' | 'Camp' | 'Checkpoint';
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  isPrimary: boolean;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeProjectAssignment {
+  id: string;
+  employeeId: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  roleOnProject?: string;
+  startDate: string;
+  endDate?: string;
+  isPrimary: boolean;
+  allocationPercentage: number;
+  assignmentStatus: 'Active' | 'Completed' | 'Transferred' | 'Planned';
+  assignedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}

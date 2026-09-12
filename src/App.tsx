@@ -19,6 +19,7 @@ import { LoanManagementView } from './components/loans/LoanManagementView';
 import { LeaveManagementView } from './components/leave/LeaveManagementView';
 import { EndOfServiceView } from './components/gratuity/EndOfServiceView';
 import { MasterDataView } from './components/masters/MasterDataView';
+import { MasterDataContainer } from './components/masters/MasterDataContainer';
 import { ReportsView } from './components/reports/ReportsView';
 import { SalaryPayrollReportView } from './components/reports/SalaryPayrollReportView';
 import { AuditLogsView } from './components/audit/AuditLogsView';
@@ -121,6 +122,8 @@ const MainApp: React.FC = () => {
       case 'gratuity':
         return <EndOfServiceView />;
       case 'master-data':
+        return <MasterDataContainer />;
+      case 'master-data-legacy':
         return <MasterDataView />;
       case 'reports':
         return <ReportsView />;
