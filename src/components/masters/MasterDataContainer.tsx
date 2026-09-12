@@ -34,7 +34,7 @@ import {
   PayGrade,
   LeaveType
 } from '../../types';
-import { getStoredToken } from '../../api/client';
+import { apiRequest } from '../../api/client';
 import { MasterDataEntryModal } from './MasterDataEntryModal';
 import { ProjectMasterView } from '../projects/ProjectMasterView';
 
@@ -141,62 +141,36 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     setErrorStates(prev => ({ ...prev, [tab]: null }));
   };
 
-  const getAuthHeaders = (): Record<string, string> => {
-    const token = getStoredToken();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return headers;
-  };
-
   // Fetch a single tab's data with dedicated loading and error states
   const fetchTabData = async (tab: MasterTab) => {
     setLoadingStates(prev => ({ ...prev, [tab]: true }));
     setErrorStates(prev => ({ ...prev, [tab]: null }));
-    const headers = getAuthHeaders();
 
     try {
       if (tab === 'companies') {
-        const res = await fetch('/api/master/companies', { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load companies`);
-        const data = await res.json();
+        const data = await apiRequest('/api/master/companies');
         setCompanies(Array.isArray(data) ? data : []);
       } else if (tab === 'departments') {
-        const res = await fetch('/api/master/departments', { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load departments`);
-        const data = await res.json();
+        const data = await apiRequest('/api/master/departments');
         setDepartments(Array.isArray(data) ? data : []);
       } else if (tab === 'designations') {
-        const res = await fetch('/api/master/designations', { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load designations`);
-        const data = await res.json();
+        const data = await apiRequest('/api/master/designations');
         setDesignations(Array.isArray(data) ? data : []);
       } else if (tab === 'trades') {
-        const res = await fetch('/api/master/trades', { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load trades`);
-        const data = await res.json();
+        const data = await apiRequest('/api/master/trades');
         setTrades(Array.isArray(data) ? data : []);
       } else if (tab === 'locations') {
-        const [resLoc, resProj] = await Promise.all([
-          fetch('/api/master/geofences', { headers }),
-          fetch('/api/projects', { headers })
+        const [dataLoc, dataProj] = await Promise.all([
+          apiRequest('/api/master/geofences'),
+          apiRequest('/api/projects').catch(() => null),
         ]);
-        if (!resLoc.ok) throw new Error(`HTTP ${resLoc.status}: Failed to load geofence locations`);
-        const dataLoc = await resLoc.json();
         setLocations(Array.isArray(dataLoc) ? dataLoc : []);
-
-        if (resProj.ok) {
-          const dataProj = await resProj.json();
-          setProjects(Array.isArray(dataProj) ? dataProj : []);
-        }
+        if (Array.isArray(dataProj)) setProjects(dataProj);
       } else if (tab === 'pay-grades') {
-        const res = await fetch('/api/master/pay-grades?includeInactive=true', { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load pay grades`);
-        const data = await res.json();
+        const data = await apiRequest('/api/master/pay-grades?includeInactive=true');
         setPayGrades(Array.isArray(data) ? data : []);
       } else if (tab === 'leave-types') {
-        const res = await fetch('/api/master/leave-types', { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to load leave types`);
-        const data = await res.json();
+        const data = await apiRequest('/api/master/leave-types');
         setLeaveTypes(Array.isArray(data) ? data : []);
       }
     } catch (err: any) {
@@ -231,14 +205,10 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       trades: null,
     });
 
-    const headers = getAuthHeaders();
-
     const tasks = [
       (async () => {
         try {
-          const res = await fetch('/api/master/companies', { headers });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await apiRequest('/api/master/companies');
           setCompanies(Array.isArray(data) ? data : []);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, companies: err.message || 'Error fetching companies' }));
@@ -248,9 +218,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       })(),
       (async () => {
         try {
-          const res = await fetch('/api/master/departments', { headers });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await apiRequest('/api/master/departments');
           setDepartments(Array.isArray(data) ? data : []);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, departments: err.message || 'Error fetching departments' }));
@@ -260,9 +228,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       })(),
       (async () => {
         try {
-          const res = await fetch('/api/master/designations', { headers });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await apiRequest('/api/master/designations');
           setDesignations(Array.isArray(data) ? data : []);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, designations: err.message || 'Error fetching designations' }));
@@ -272,9 +238,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       })(),
       (async () => {
         try {
-          const res = await fetch('/api/master/trades', { headers });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await apiRequest('/api/master/trades');
           setTrades(Array.isArray(data) ? data : []);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, trades: err.message || 'Error fetching trades' }));
@@ -284,17 +248,12 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       })(),
       (async () => {
         try {
-          const [resLoc, resProj] = await Promise.all([
-            fetch('/api/master/geofences', { headers }),
-            fetch('/api/projects', { headers })
+          const [dataLoc, dataProj] = await Promise.all([
+            apiRequest('/api/master/geofences'),
+            apiRequest('/api/projects').catch(() => null),
           ]);
-          if (!resLoc.ok) throw new Error(`HTTP ${resLoc.status}`);
-          const dataLoc = await resLoc.json();
           setLocations(Array.isArray(dataLoc) ? dataLoc : []);
-          if (resProj.ok) {
-            const dataProj = await resProj.json();
-            setProjects(Array.isArray(dataProj) ? dataProj : []);
-          }
+          if (Array.isArray(dataProj)) setProjects(dataProj);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, locations: err.message || 'Error fetching geofence locations' }));
         } finally {
@@ -303,9 +262,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       })(),
       (async () => {
         try {
-          const res = await fetch('/api/master/pay-grades?includeInactive=true', { headers });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await apiRequest('/api/master/pay-grades?includeInactive=true');
           setPayGrades(Array.isArray(data) ? data : []);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, 'pay-grades': err.message || 'Error fetching pay grades' }));
@@ -315,9 +272,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       })(),
       (async () => {
         try {
-          const res = await fetch('/api/master/leave-types', { headers });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
+          const data = await apiRequest('/api/master/leave-types');
           setLeaveTypes(Array.isArray(data) ? data : []);
         } catch (err: any) {
           setErrorStates(prev => ({ ...prev, 'leave-types': err.message || 'Error fetching leave types' }));
@@ -399,7 +354,6 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
   // Status toggle handler with optimistic update
   const handleToggleStatus = async (tab: MasterTab, id: string, currentStatus: boolean, label?: string) => {
     const newStatus = !currentStatus;
-    const headers = getAuthHeaders();
 
     // Map tab to endpoint
     const endpointMap: Record<MasterTab, string> = {
@@ -425,11 +379,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     if (tab === 'trades') setTrades(prev => prev.map(x => x.id === id ? { ...x, isActive: newStatus } : x));
 
     try {
-      const res = await fetch(`/api/master/${endpoint}/${id}/toggle-status`, {
-        method: 'PATCH',
-        headers
-      });
-      if (!res.ok) throw new Error('Status update failed');
+      await apiRequest(`/api/master/${endpoint}/${id}/toggle-status`, { method: 'PATCH' });
       showNotification('success', `${label || 'Record'} status updated to ${newStatus ? 'Active' : 'Inactive'}`);
     } catch (err: any) {
       // Revert optimistic update
@@ -460,18 +410,9 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     };
 
     const endpoint = endpointMap[tab];
-    const headers = getAuthHeaders();
 
     try {
-      const res = await fetch(`/api/master/${endpoint}/${id}`, {
-        method: 'DELETE',
-        headers
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Failed to delete record`);
-      }
+      await apiRequest(`/api/master/${endpoint}/${id}`, { method: 'DELETE' });
 
       // Remove from local state
       if (tab === 'companies') setCompanies(prev => prev.filter(x => x.id !== id));
@@ -519,17 +460,10 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     }
 
     try {
-      const headers = getAuthHeaders();
-      const response = await fetch(url, {
+      await apiRequest(url, {
         method,
-        headers,
-        body: JSON.stringify(submittedData)
+        body: JSON.stringify(submittedData),
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save master record');
-      }
 
       showNotification('success', 'Central master record saved successfully');
       setIsModalOpen(false);

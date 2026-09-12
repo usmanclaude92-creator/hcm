@@ -17,7 +17,6 @@ import { WPSRecoveryView } from './components/wps/WPSRecoveryView';
 import { LoanManagementView } from './components/loans/LoanManagementView';
 import { LeaveManagementView } from './components/leave/LeaveManagementView';
 import { EndOfServiceView } from './components/gratuity/EndOfServiceView';
-import { MasterDataView } from './components/masters/MasterDataView';
 import { MasterDataContainer } from './components/masters/MasterDataContainer';
 import { ReportsView } from './components/reports/ReportsView';
 import { SalaryPayrollReportView } from './components/reports/SalaryPayrollReportView';
@@ -133,8 +132,6 @@ const MainApp: React.FC = () => {
             openCreateModal={viewParams?.openCreateModal}
           />
         );
-      case 'master-data-legacy':
-        return <MasterDataView />;
       case 'reports':
         return <ReportsView />;
       case 'salary-payroll-report':

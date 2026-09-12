@@ -10,7 +10,14 @@ import {
   companyScopeOf,
   canSeeCompany,
 } from '../auth.js';
-import type { LeaveType, LeaveRequest, LeaveBalance, LeaveRequestStatus, PublicHoliday } from '../../src/types/index';
+import type { LeaveRequest, LeaveBalance, LeaveRequestStatus, PublicHoliday } from '../../src/types/index';
+import {
+  listLeaveTypes,
+  createLeaveType,
+  updateLeaveType,
+  deleteLeaveType,
+  toggleLeaveTypeStatus,
+} from '../services/leaveTypes.js';
 
 const router = Router();
 
@@ -26,15 +33,15 @@ function isValidDate(value: any): boolean {
 }
 
 // ==================== Leave types ====================
+// Shared with /api/master(s)/leave-types (server/routes/masters.ts) via
+// server/services/leaveTypes.ts -- both screens edit the same db.leaveTypes
+// records, so validation and audit logging live in one place.
 
 // GET /api/leave/types
 router.get('/types', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const includeInactive = String(req.query.includeInactive || '') === 'true';
-    const types = db.leaveTypes.getAll()
-      .filter(t => includeInactive || t.isActive)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    res.json(types);
+    res.json(listLeaveTypes(includeInactive));
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch leave types.' });
   }
@@ -43,86 +50,40 @@ router.get('/types', verifyAuth, (req: AuthRequest, res: Response) => {
 // POST /api/leave/types (Administrator / Payroll Manager)
 router.post('/types', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const { code, name, isPaid, annualEntitlementDays, remarks } = req.body;
-    if (!code || !name) {
-      return res.status(400).json({ error: 'Leave type code and name are required.' });
-    }
-    const cleanCode = String(code).trim().toUpperCase();
-    if (db.leaveTypes.findByCode(cleanCode)) {
-      return res.status(400).json({ error: `A leave type with code '${cleanCode}' already exists.` });
-    }
-    const days = Number(annualEntitlementDays ?? 0);
-    if (!Number.isFinite(days) || days < 0) {
-      return res.status(400).json({ error: 'Annual entitlement must be a number of days, and cannot be negative.' });
-    }
-
-    const timestamp = new Date().toISOString();
-    const type: LeaveType = {
-      id: crypto.randomUUID(),
-      code: cleanCode,
-      name: String(name).trim(),
-      isPaid: isPaid !== false,
-      annualEntitlementDays: Math.round(days),
-      isActive: true,
-      remarks: remarks ? String(remarks).trim() : '',
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-    await db.leaveTypes.create(type);
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'User',
-      userRole: req.user?.role || 'Payroll User',
-      action: 'LEAVE_TYPE_CREATED',
-      module: 'Leave',
-      recordId: type.id,
-      description: `Created leave type ${type.code} — ${type.name} (${type.isPaid ? 'paid' : 'unpaid'}, ${type.annualEntitlementDays} days/year).`,
-    });
-
+    const type = await createLeaveType(req.body, req.user!);
     res.status(201).json(type);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to create leave type.' });
+    res.status(err.status || 500).json({ error: err.message || 'Failed to create leave type.' });
   }
 });
 
 // PUT /api/leave/types/:id
 router.put('/types/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.leaveTypes.findById(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Leave type not found.' });
-
-    const { name, isPaid, annualEntitlementDays, remarks, isActive } = req.body;
-    const updates: Partial<LeaveType> = {};
-    if (name !== undefined) updates.name = String(name).trim();
-    if (isPaid !== undefined) updates.isPaid = Boolean(isPaid);
-    if (remarks !== undefined) updates.remarks = String(remarks).trim();
-    if (isActive !== undefined) updates.isActive = Boolean(isActive);
-    if (annualEntitlementDays !== undefined) {
-      const days = Number(annualEntitlementDays);
-      if (!Number.isFinite(days) || days < 0) {
-        return res.status(400).json({ error: 'Annual entitlement must be a number of days, and cannot be negative.' });
-      }
-      updates.annualEntitlementDays = Math.round(days);
-    }
-
-    const updated = await db.leaveTypes.update(req.params.id, updates);
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'User',
-      userRole: req.user?.role || 'Payroll User',
-      action: 'LEAVE_TYPE_UPDATED',
-      module: 'Leave',
-      recordId: req.params.id,
-      description: `Updated leave type ${existing.code} — ${existing.name}.`,
-      previousValue: { isPaid: existing.isPaid, annualEntitlementDays: existing.annualEntitlementDays, isActive: existing.isActive },
-      newValue: updates,
-    });
-
+    const updated = await updateLeaveType(req.params.id, req.body, req.user!);
     res.json(updated);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update leave type.' });
+    res.status(err.status || 500).json({ error: err.message || 'Failed to update leave type.' });
+  }
+});
+
+// DELETE /api/leave/types/:id
+router.delete('/types/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { name } = await deleteLeaveType(req.params.id, req.user!);
+    res.json({ success: true, message: `Leave type '${name}' deleted successfully.` });
+  } catch (err: any) {
+    res.status(err.status || 500).json({ error: err.message || 'Failed to delete leave type.' });
+  }
+});
+
+// PATCH /api/leave/types/:id/toggle-status
+router.patch('/types/:id/toggle-status', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const updated = await toggleLeaveTypeStatus(req.params.id, req.user!);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(err.status || 500).json({ error: err.message || 'Failed to toggle leave type status.' });
   }
 });
 

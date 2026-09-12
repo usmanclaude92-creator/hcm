@@ -267,7 +267,9 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     title: 'Civil ID Document History',
   });
 
-  // Category Quick-Add
+  // Category Quick-Add — seeded with the server defaults, then replaced with the
+  // real persisted list from /api/compliance/driving-licence-categories on mount
+  // so additions made by any user are shared instead of being local-only.
   const [licenceCategories, setLicenceCategories] = useState<string[]>([
     'Light Vehicle',
     'Heavy Equipment',
@@ -279,6 +281,21 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
   ]);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiRequest('/api/compliance/driving-licence-categories');
+        if (!cancelled && Array.isArray(res?.categories) && res.categories.length > 0) {
+          setLicenceCategories(res.categories);
+        }
+      } catch {
+        // Keep the local default list if the endpoint is unreachable (e.g. demo mode).
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Unsaved Changes Tracking & Discard Confirmation
   const serializeForms = useCallback(
@@ -2104,10 +2121,20 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (newCategoryName.trim() && !licenceCategories.includes(newCategoryName.trim())) {
-                    setLicenceCategories([...licenceCategories, newCategoryName.trim()]);
-                    setDlForm({ ...dlForm, category: newCategoryName.trim() as any });
+                onClick={async () => {
+                  const trimmed = newCategoryName.trim();
+                  if (trimmed && !licenceCategories.includes(trimmed)) {
+                    setLicenceCategories([...licenceCategories, trimmed]);
+                    setDlForm({ ...dlForm, category: trimmed as any });
+                    try {
+                      await apiRequest('/api/compliance/driving-licence-categories', {
+                        method: 'POST',
+                        body: JSON.stringify({ category: trimmed }),
+                      });
+                    } catch {
+                      // Non-fatal: category is still usable for this session even if
+                      // persistence failed (e.g. demo mode, or a transient API error).
+                    }
                   }
                   setIsAddCategoryOpen(false);
                   setNewCategoryName('');

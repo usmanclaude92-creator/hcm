@@ -12,6 +12,7 @@ import {
   Landmark,
   Scale,
   Building2,
+  HardHat,
   FileBarChart,
   FileSpreadsheet,
   History,
@@ -104,6 +105,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             icon: IdCard,
             targetView: 'employee-ledger',
             keywords: ['ledger', 'profile', 'card', 'statement', 'history'],
+          },
+          {
+            id: 'workforce-deployment',
+            label: 'Workforce Deployment',
+            icon: HardHat,
+            targetView: 'workforce',
+            badge: 'Shifts',
+            keywords: ['deployment', 'site', 'assignments', 'allocation', 'roster', 'mobile', 'shift status', 'eligibility sync'],
           },
           {
             id: 'attendance',
