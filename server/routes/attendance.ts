@@ -953,6 +953,33 @@ const DEFAULT_GEOFENCE = {
   radiusMeters: 1500, // 1.5 km
 };
 
+function getMonthWorkingDates(month: string, targetCount: number): string[] {
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const dates: string[] = [];
+
+  // Working days (skip Friday, weekly rest in Oman)
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (dates.length >= targetCount) break;
+    const dateObj = new Date(y, m - 1, d);
+    const dayOfWeek = dateObj.getDay(); // 5 = Friday
+    if (dayOfWeek !== 5) {
+      dates.push(`${month}-${String(d).padStart(2, '0')}`);
+    }
+  }
+
+  // Fill remaining days if targetCount is larger than non-Fridays
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (dates.length >= targetCount) break;
+    const dateStr = `${month}-${String(d).padStart(2, '0')}`;
+    if (!dates.includes(dateStr)) {
+      dates.push(dateStr);
+    }
+  }
+
+  return dates.sort();
+}
+
 // GET /api/attendance/employee/:employeeId
 // Returns monthly attendance report & punches for a single employee
 router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Response) => {
@@ -965,12 +992,53 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
 
     const month = String(req.query.month || new Date().toISOString().slice(0, 7)).trim();
     const records = db.attendance.getByEmployeeAndMonth(emp.employeeId, month);
-    const punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+    let punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
     const monthStatus = db.attendanceMonths.getByMonth(month)?.status || 'Draft';
 
     const personal = db.personalDetails.get(emp.employeeId);
     const projectCode = emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
     const proj = db.projects.findByCode(projectCode) || db.projects.findById(projectCode);
+
+    // If attendance record exists for month but punches were not created yet, populate daily punches
+    if (records.length > 0 && punches.length === 0) {
+      const isStaff = emp.employeeType === 'Staff';
+      const daysCount = records.reduce((s, r) => s + (Number(r.daysWorked) || 0), 0);
+      const hoursCount = records.reduce((s, r) => s + (Number(r.hoursWorked) || 0), 0);
+      const targetDays = isStaff ? (daysCount || 25) : Math.max(1, Math.round((hoursCount || 200) / 8));
+      const workingDates = getMonthWorkingDates(month, targetDays);
+      const isApprovedMonth = monthStatus === 'Approved' || monthStatus === 'Finalized';
+
+      for (const d of workingDates) {
+        const p: AttendancePunch = {
+          id: `punch-${emp.employeeId}-${d}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          punchDate: d,
+          checkInTime: `${d}T08:00:00.000Z`,
+          checkOutTime: `${d}T17:00:00.000Z`,
+          hoursWorked: isStaff ? 0 : 8,
+          overtimeHours: 0,
+          projectId: proj?.id || 'proj-ho',
+          projectCode,
+          projectName: proj?.projectName || 'Head Office',
+          isGeofenceException: false,
+          status: 'Checked Out',
+          createdAt: `${d}T08:00:00.000Z`,
+          updatedAt: `${d}T17:00:00.000Z`,
+        };
+        (p as any).supervisorApproved = isApprovedMonth;
+        await db.attendancePunches.create(p);
+      }
+      punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+    }
+
+    // Ensure approval state aligns if month is Approved or Finalized
+    if (monthStatus === 'Approved' || monthStatus === 'Finalized') {
+      punches = punches.map(p => ({
+        ...p,
+        supervisorApproved: true,
+      }));
+    }
 
     res.json({
       employee: {
@@ -1000,6 +1068,59 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch employee attendance report.' });
+  }
+});
+
+// POST /api/attendance/punch/:id/toggle-approval
+// Toggles supervisor approval on a single daily attendance punch
+router.post('/punch/:id/toggle-approval', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const punchId = req.params.id;
+    const all = db.attendancePunches.getAll();
+    const punch = all.find(p => p.id === punchId);
+    if (!punch) {
+      return res.status(404).json({ error: 'Attendance punch record not found.' });
+    }
+
+    const currentApproved = (punch as any).supervisorApproved === true;
+    const newApproved = !currentApproved;
+    const approver = req.user?.username || 'Supervisor';
+
+    const updated = await db.attendancePunches.update(punch.id, {
+      ...punch,
+      supervisorApproved: newApproved,
+      approvedBy: newApproved ? approver : null,
+      approvedAt: newApproved ? new Date().toISOString() : null,
+    } as any);
+
+    res.json({ success: true, punch: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle punch approval.' });
+  }
+});
+
+// POST /api/attendance/employee/:employeeId/approve-all-punches
+// Marks all daily attendance punches for an employee for the month as approved by supervisor
+router.post('/employee/:employeeId/approve-all-punches', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const rawId = req.params.employeeId;
+    const month = String(req.body.month || new Date().toISOString().slice(0, 7)).trim();
+    const punches = db.attendancePunches.getByEmployee(rawId, month);
+    const approver = req.user?.username || 'Supervisor';
+    const nowIso = new Date().toISOString();
+
+    for (const p of punches) {
+      await db.attendancePunches.update(p.id, {
+        ...p,
+        supervisorApproved: true,
+        approvedBy: approver,
+        approvedAt: nowIso,
+      } as any);
+    }
+
+    res.json({ success: true, count: punches.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to approve punches.' });
   }
 });
 
