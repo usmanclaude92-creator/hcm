@@ -1065,6 +1065,86 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
       }));
     }
 
+    // Blend in any REAL, GPS/selfie-verified shifts the Workforce-App mobile clock-in/out
+    // feature captured this month (attendance_shifts -- the same Postgres database as this
+    // app's own employees table, see db.workforceShifts). This is what actually connects a
+    // real mobile clock-in/out to what shows up in this report -- previously this endpoint
+    // only ever showed manually entered/imported data or a fabricated placeholder, so a
+    // real event captured in the app was invisible here no matter what. These are persisted
+    // (not just returned once) so that Make-Report's day/hour calculation and the punch
+    // approval routes, both of which read from db.attendancePunches, see them too -- an
+    // ephemeral response-only blend would look right in this modal while silently breaking
+    // both of those. A date that already has a manual, imported, or synthesized punch is
+    // never overwritten by real data, to avoid disturbing anything already entered/approved;
+    // a real shift already recorded here gets refreshed in place (e.g. once a clock-out
+    // lands for a shift that was still open the last time this was read).
+    const realShifts = await db.workforceShifts.getForEmployeeAndMonth(emp.id, month);
+    if (realShifts.length > 0) {
+      const isApprovedMonth = monthStatus === 'Approved' || monthStatus === 'Finalized';
+      let changed = false;
+      for (const shift of realShifts) {
+        const wfId = `wfshift-${shift.id}`;
+        const existingForDate = punches.find(p => p.punchDate === shift.shiftDate);
+        const hoursWorked = shift.totalWorkedMinutes != null
+          ? Number((shift.totalWorkedMinutes / 60).toFixed(2))
+          : (shift.clockInTime && shift.clockOutTime
+              ? Math.max(0, Number(((new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime()) / 3600000).toFixed(2)))
+              : 0);
+        const checkInTime = shift.clockInTime || `${shift.shiftDate}T00:00:00.000Z`;
+        const checkOutTime = shift.clockOutTime ?? null;
+        // A real shift only carries a meaningful geofence result once compliance_flag has
+        // actually been evaluated -- 'VERIFIED' means inside, anything else recorded means
+        // an exception. Never fabricated: this comes straight from the mobile app's own GPS
+        // check at clock-in/out.
+        const isGeofenceException = shift.complianceFlag ? shift.complianceFlag !== 'VERIFIED' : undefined;
+        const status: AttendancePunch['status'] = checkOutTime ? 'Checked Out' : 'Checked In';
+
+        if (!existingForDate) {
+          await db.attendancePunches.create({
+            id: wfId,
+            employeeId: emp.employeeId,
+            employeeName: emp.employeeName,
+            punchDate: shift.shiftDate,
+            checkInTime,
+            checkOutTime,
+            hoursWorked,
+            overtimeHours: hoursWorked > 8 ? Number((hoursWorked - 8).toFixed(2)) : 0,
+            projectId: proj?.id || 'proj-ho',
+            projectCode,
+            projectName: proj?.projectName || 'Head Office',
+            selfieUrl: shift.selfieUrl,
+            startSelfieUrl: shift.selfieUrl,
+            endSelfieUrl: shift.endSelfieUrl,
+            isGeofenceException,
+            status,
+            supervisorApproved: isApprovedMonth,
+            createdAt: checkInTime,
+            updatedAt: checkOutTime || checkInTime,
+          });
+          changed = true;
+        } else if (existingForDate.id === wfId) {
+          const needsUpdate = existingForDate.checkOutTime !== checkOutTime
+            || existingForDate.status !== status
+            || existingForDate.hoursWorked !== hoursWorked;
+          if (needsUpdate) {
+            await db.attendancePunches.update(wfId, {
+              checkOutTime, hoursWorked, isGeofenceException, status,
+              overtimeHours: hoursWorked > 8 ? Number((hoursWorked - 8).toFixed(2)) : 0,
+              endSelfieUrl: shift.endSelfieUrl,
+            });
+            changed = true;
+          }
+        }
+        // else: a manual/imported/synthesized punch already covers this date -- leave it.
+      }
+      if (changed) {
+        punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+        if (isApprovedMonth) {
+          punches = punches.map(p => ({ ...p, supervisorApproved: true }));
+        }
+      }
+    }
+
     res.json({
       employee: {
         employeeId: emp.employeeId,

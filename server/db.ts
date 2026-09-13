@@ -485,6 +485,20 @@ function rowToGeofence(row: any): ProjectGeofenceLocation {
   };
 }
 
+// A real, GPS/selfie-verified shift captured by the Workforce-App mobile clock-in/out
+// feature -- read-only from this app's side (see `db.workforceShifts` below).
+export interface WorkforceShiftRecord {
+  id: string;
+  shiftDate: string; // YYYY-MM-DD
+  status: string;
+  complianceFlag: string | null;
+  clockInTime: string | null; // ISO
+  clockOutTime: string | null; // ISO
+  selfieUrl: string | null;
+  endSelfieUrl: string | null;
+  totalWorkedMinutes: number | null;
+}
+
 interface DatabaseSchema {
   users: User[];
   employees: Employee[];
@@ -3043,6 +3057,55 @@ class DatabaseManager {
           this.inMemoryData.geofences.splice(idx, 1);
           return { changed: true, value: true };
         });
+      },
+    };
+  }
+
+  // --- Workforce-App shift data (read-only) ---------------------------------------
+  //
+  // The Workforce-App mobile clock-in/out feature and this app's own SQL-backed
+  // `employees` table (see `employees` above) live in the SAME Supabase Postgres
+  // database -- `attendance_shifts.employee_id` is literally the same uuid as this
+  // database's `employees.id`. That means real GPS/selfie-verified shifts can be read
+  // directly through this same pgPool, with no Edge Function round trip and no
+  // civil-id lookup needed. Read-only: nothing here ever writes to attendance_shifts --
+  // that table is owned exclusively by the mobile app's Edge Functions.
+  public get workforceShifts() {
+    const sql = this.isPostgresConnected && this.pgPool;
+    return {
+      // All shifts for one employee whose shift_date falls in `month` (YYYY-MM),
+      // oldest first. Always an array, never a thrown error: Postgres not being
+      // connected, the employee having no shifts that month, or attendance_shifts
+      // itself having a problem should all just mean "no real shift data available
+      // this month" to the caller, which already has a manual/synthesized fallback --
+      // this table lives outside this app's own migration/backup story, so it must
+      // never be allowed to break attendance reporting for everyone else.
+      getForEmployeeAndMonth: async (employeeUuid: string, month: string): Promise<WorkforceShiftRecord[]> => {
+        if (!sql || !looksLikeUuid(employeeUuid)) return [];
+        try {
+          const res = await this.pgPool!.query(
+            `SELECT id, shift_date, status, compliance_flag, clock_in_time, clock_out_time,
+                    selfie_url, end_selfie_url, total_worked_minutes
+             FROM attendance_shifts
+             WHERE employee_id = $1 AND to_char(shift_date, 'YYYY-MM') = $2
+             ORDER BY shift_date ASC, clock_in_time ASC NULLS LAST`,
+            [employeeUuid, month]
+          );
+          return res.rows.map((row): WorkforceShiftRecord => ({
+            id: row.id,
+            shiftDate: row.shift_date instanceof Date ? row.shift_date.toISOString().slice(0, 10) : String(row.shift_date),
+            status: row.status,
+            complianceFlag: row.compliance_flag ?? null,
+            clockInTime: row.clock_in_time ? new Date(row.clock_in_time).toISOString() : null,
+            clockOutTime: row.clock_out_time ? new Date(row.clock_out_time).toISOString() : null,
+            selfieUrl: row.selfie_url ?? null,
+            endSelfieUrl: row.end_selfie_url ?? null,
+            totalWorkedMinutes: row.total_worked_minutes ?? null,
+          }));
+        } catch (err) {
+          console.error('[db.workforceShifts] Failed to read attendance_shifts:', err);
+          return [];
+        }
       },
     };
   }

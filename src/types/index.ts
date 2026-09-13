@@ -586,6 +586,11 @@ export interface AttendancePunch {
   status: 'Checked In' | 'Checked Out' | 'Exception';
   notes?: string | null;
   idempotencyKey?: string | null;
+  // Selfie captures (from a real mobile clock-in/out, or a legacy check-in/out photo)
+  selfieUrl?: string | null;
+  startSelfieUrl?: string | null;
+  endSelfieUrl?: string | null;
+  supervisorApproved?: boolean;
   createdAt: string;
   updatedAt: string;
 }
