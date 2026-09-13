@@ -20,140 +20,11 @@ import {
 
 const router = Router();
 
-// In-memory pay grades master store
-let payGradesStore: PayGrade[] = [
-  {
-    id: 'grd-01',
-    gradeCode: 'GRD-EXEC',
-    gradeName: 'Executive & C-Suite',
-    minimumSalary: 1800,
-    maximumSalary: 3500,
-    currency: 'OMR',
-    standardAllowance: 500,
-    description: 'Executive leadership, Project Directors, and General Managers',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'grd-02',
-    gradeCode: 'GRD-SNR-ENG',
-    gradeName: 'Senior Engineer / Section Head',
-    minimumSalary: 1100,
-    maximumSalary: 1800,
-    currency: 'OMR',
-    standardAllowance: 300,
-    description: 'Lead Project Engineers, Commercial Managers, and HSE Leads',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'grd-03',
-    gradeCode: 'GRD-MID-STAFF',
-    gradeName: 'Mid-Level Staff & Site Engineers',
-    minimumSalary: 650,
-    maximumSalary: 1100,
-    currency: 'OMR',
-    standardAllowance: 180,
-    description: 'Site Engineers, Quantity Surveyors, Accountants, HR Officers',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'grd-04',
-    gradeCode: 'GRD-TECH-SUPER',
-    gradeName: 'Technical Foremen & Supervisors',
-    minimumSalary: 380,
-    maximumSalary: 650,
-    currency: 'OMR',
-    standardAllowance: 90,
-    description: 'General Foremen, Chargehands, Heavy Plant Operators, QA Inspectors',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'grd-05',
-    gradeCode: 'GRD-SKILLED-WRK',
-    gradeName: 'Skilled Trades & Artisans',
-    minimumSalary: 200,
-    maximumSalary: 380,
-    currency: 'OMR',
-    standardAllowance: 50,
-    description: '6G Welders, Industrial Electricians, Masons, Carpenters, Steel Fixers',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'grd-06',
-    gradeCode: 'GRD-GENERAL-LABOR',
-    gradeName: 'General Site Labor / Helpers',
-    minimumSalary: 140,
-    maximumSalary: 200,
-    currency: 'OMR',
-    standardAllowance: 30,
-    description: 'Site helpers, riggers, logistics assistants, and cleaners',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  }
-];
-
-// Companies and Trades used to be in-memory arrays here (companiesStore/tradesStore)
-// that reset to seed data on every deploy or cold start -- unlike every other master
-// below, which is durable. They now live in the same app_state-backed store as
-// Departments/Designations/Leave Types, via db.companies / db.trades (see server/db.ts).
-
-let geofencesStore: ProjectGeofenceLocation[] = [
-  {
-    id: 'geo-01',
-    projectId: 'PRJ-001',
-    locationCode: 'GATE-01',
-    locationName: 'Muscat Airport Expansion - Main Gate 1',
-    locationType: 'Main Gate',
-    latitude: 23.5933,
-    longitude: 58.2844,
-    radiusMeters: 350,
-    isPrimary: true,
-    isActive: true,
-    effectiveFrom: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'geo-02',
-    projectId: 'PRJ-001',
-    locationCode: 'GATE-02',
-    locationName: 'Muscat Airport Expansion - Batching Plant Gate',
-    locationType: 'Work Zone',
-    latitude: 23.5901,
-    longitude: 58.2810,
-    radiusMeters: 250,
-    isPrimary: false,
-    isActive: true,
-    effectiveFrom: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'geo-03',
-    projectId: 'PRJ-002',
-    locationCode: 'SOHAR-HQ',
-    locationName: 'Sohar Port Infrastructure - Site Office & Gate',
-    locationType: 'Main Gate',
-    latitude: 24.4981,
-    longitude: 56.6315,
-    radiusMeters: 400,
-    isPrimary: true,
-    isActive: true,
-    effectiveFrom: '2024-01-01',
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  }
-];
+// Pay Grades, Companies, Trades, and Geofences used to be in-memory arrays here
+// (payGradesStore/companiesStore/tradesStore/geofencesStore) that reset to seed data on
+// every deploy or cold start -- unlike every other master below, which is durable. They
+// now all live in the same app_state-backed store as Departments/Designations/Leave
+// Types, via db.payGrades / db.companies / db.trades / db.geofences (see server/db.ts).
 
 // Organisation master data: departments and designations. Designation used to be typed
 // free-hand on every employee record, so "Site Engineer", "site engineer" and "Snr Site
@@ -636,13 +507,14 @@ router.patch('/trades/:id/toggle-status', async (req, res) => {
 // =================================================================
 router.get('/geofences', (req, res) => {
   const { projectId } = req.query;
+  const all = db.geofences.getAll();
   if (projectId) {
-    return res.json(geofencesStore.filter(g => g.projectId === projectId));
+    return res.json(all.filter(g => g.projectId === projectId));
   }
-  res.json(geofencesStore);
+  res.json(all);
 });
 
-router.post('/geofences', (req, res) => {
+router.post('/geofences', async (req, res) => {
   try {
     const { projectId, locationCode, locationName, locationType, latitude, longitude, radiusMeters, isPrimary, isActive, effectiveFrom } = req.body;
     if (!projectId || !locationCode || !locationName) {
@@ -665,72 +537,52 @@ router.post('/geofences', (req, res) => {
       createdAt: now,
       updatedAt: now
     };
-    // If set as primary, unmark other primary gates for this project
-    if (newLocation.isPrimary) {
-      geofencesStore.forEach(g => {
-        if (g.projectId === newLocation.projectId) g.isPrimary = false;
-      });
-    }
-    geofencesStore.push(newLocation);
+    // db.geofences.create() unmarks other primary gates for this project internally.
+    await db.geofences.create(newLocation);
     res.status(201).json(newLocation);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create geofence location.' });
   }
 });
 
-router.put('/geofences/:id', (req, res) => {
+router.put('/geofences/:id', async (req, res) => {
   try {
-    const idx = geofencesStore.findIndex(g => g.id === req.params.id);
-    if (idx === -1) {
+    const existing = db.geofences.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Geofence location not found.' });
     }
-    const existing = geofencesStore[idx];
-    const isPrimary = req.body.isPrimary !== undefined ? !!req.body.isPrimary : existing.isPrimary;
-    const projectId = req.body.projectId || existing.projectId;
-
-    if (isPrimary) {
-      geofencesStore.forEach(g => {
-        if (g.projectId === projectId && g.id !== existing.id) g.isPrimary = false;
-      });
-    }
-
-    const updated: ProjectGeofenceLocation = {
-      ...existing,
-      ...req.body,
-      id: existing.id,
-      projectId,
-      isPrimary,
-      updatedAt: new Date().toISOString()
-    };
-    geofencesStore[idx] = updated;
+    const updated = await db.geofences.update(existing.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Geofence location not found.' });
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update geofence location.' });
   }
 });
 
-router.delete('/geofences/:id', (req, res) => {
-  const idx = geofencesStore.findIndex(g => g.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Geofence location not found.' });
-  const [removed] = geofencesStore.splice(idx, 1);
-  res.json({ success: true, message: `Geofence location '${removed.locationName}' removed successfully.` });
+router.delete('/geofences/:id', async (req, res) => {
+  const existing = db.geofences.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Geofence location not found.' });
+  const removed = await db.geofences.delete(existing.id);
+  if (!removed) return res.status(404).json({ error: 'Geofence location not found.' });
+  res.json({ success: true, message: `Geofence location '${existing.locationName}' removed successfully.` });
 });
 
-router.patch('/geofences/:id/toggle-status', (req, res) => {
-  const item = geofencesStore.find(g => g.id === req.params.id);
-  if (!item) return res.status(404).json({ error: 'Geofence location not found.' });
-  item.isActive = !item.isActive;
-  item.updatedAt = new Date().toISOString();
-  res.json(item);
+router.patch('/geofences/:id/toggle-status', async (req, res) => {
+  const existing = db.geofences.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Geofence location not found.' });
+  const updated = await db.geofences.update(existing.id, { isActive: !existing.isActive });
+  if (!updated) return res.status(404).json({ error: 'Geofence location not found.' });
+  res.json(updated);
 });
 
 // Aliases for /locations -> /geofences
 router.get('/locations', (req, res) => {
   const { projectId } = req.query;
+  const all = db.geofences.getAll();
   if (projectId) {
-    return res.json(geofencesStore.filter(g => g.projectId === projectId));
+    return res.json(all.filter(g => g.projectId === projectId));
   }
-  res.json(geofencesStore);
+  res.json(all);
 });
 router.post('/locations', (req, res, next) => {
   req.url = '/geofences';
@@ -754,20 +606,20 @@ router.patch('/locations/:id/toggle-status', (req, res, next) => {
 // =================================================================
 router.get('/pay-grades', (req, res) => {
   const includeInactive = String(req.query.includeInactive || '') === 'true';
-  const list = payGradesStore
+  const list = db.payGrades.getAll()
     .filter(g => includeInactive || g.isActive)
     .sort((a, b) => b.minimumSalary - a.minimumSalary);
   res.json(list);
 });
 
-router.post('/pay-grades', (req, res) => {
+router.post('/pay-grades', async (req, res) => {
   try {
     const { gradeCode, gradeName, minimumSalary, maximumSalary, currency, standardAllowance, description, isActive } = req.body;
     if (!gradeCode || !gradeName) {
       return res.status(400).json({ error: 'Grade Code and Grade Name are required.' });
     }
     const code = String(gradeCode).trim().toUpperCase();
-    if (payGradesStore.some(g => g.gradeCode.toUpperCase() === code)) {
+    if (db.payGrades.findByCode(code)) {
       return res.status(400).json({ error: `Pay Grade with code '${code}' already exists.` });
     }
     const min = Number(minimumSalary) || 0;
@@ -790,51 +642,50 @@ router.post('/pay-grades', (req, res) => {
       createdAt: now,
       updatedAt: now
     };
-    payGradesStore.push(newGrade);
+    await db.payGrades.create(newGrade);
     res.status(201).json(newGrade);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create pay grade.' });
   }
 });
 
-router.put('/pay-grades/:id', (req, res) => {
+router.put('/pay-grades/:id', async (req, res) => {
   try {
-    const idx = payGradesStore.findIndex(g => g.id === req.params.id);
-    if (idx === -1) {
+    const existing = db.payGrades.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Pay grade not found.' });
     }
-    const existing = payGradesStore[idx];
-    const updated: PayGrade = {
-      ...existing,
+    const updates: Partial<PayGrade> = {
       ...req.body,
-      id: existing.id,
       gradeCode: req.body.gradeCode ? String(req.body.gradeCode).trim().toUpperCase() : existing.gradeCode,
       gradeName: req.body.gradeName ? String(req.body.gradeName).trim() : existing.gradeName,
       minimumSalary: req.body.minimumSalary !== undefined ? Number(req.body.minimumSalary) : existing.minimumSalary,
       maximumSalary: req.body.maximumSalary !== undefined ? Number(req.body.maximumSalary) : existing.maximumSalary,
       standardAllowance: req.body.standardAllowance !== undefined ? Number(req.body.standardAllowance) : existing.standardAllowance,
-      updatedAt: new Date().toISOString()
     };
-    payGradesStore[idx] = updated;
+    delete (updates as any).id;
+    const updated = await db.payGrades.update(existing.id, updates);
+    if (!updated) return res.status(404).json({ error: 'Pay grade not found.' });
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update pay grade.' });
   }
 });
 
-router.delete('/pay-grades/:id', (req, res) => {
-  const idx = payGradesStore.findIndex(g => g.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Pay grade not found.' });
-  const [removed] = payGradesStore.splice(idx, 1);
-  res.json({ success: true, message: `Pay grade '${removed.gradeName}' removed successfully.` });
+router.delete('/pay-grades/:id', async (req, res) => {
+  const existing = db.payGrades.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Pay grade not found.' });
+  const removed = await db.payGrades.delete(existing.id);
+  if (!removed) return res.status(404).json({ error: 'Pay grade not found.' });
+  res.json({ success: true, message: `Pay grade '${existing.gradeName}' removed successfully.` });
 });
 
-router.patch('/pay-grades/:id/toggle-status', (req, res) => {
-  const grade = payGradesStore.find(g => g.id === req.params.id);
-  if (!grade) return res.status(404).json({ error: 'Pay grade not found.' });
-  grade.isActive = !grade.isActive;
-  grade.updatedAt = new Date().toISOString();
-  res.json(grade);
+router.patch('/pay-grades/:id/toggle-status', async (req, res) => {
+  const existing = db.payGrades.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Pay grade not found.' });
+  const updated = await db.payGrades.update(existing.id, { isActive: !existing.isActive });
+  if (!updated) return res.status(404).json({ error: 'Pay grade not found.' });
+  res.json(updated);
 });
 
 // =================================================================

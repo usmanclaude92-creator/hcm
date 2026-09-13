@@ -31,6 +31,8 @@ import type {
   Designation,
   CompanyMaster,
   TradeMaster,
+  PayGrade,
+  ProjectGeofenceLocation,
   LeaveRequest,
   AuditLog,
   EmployeeCivilId,
@@ -289,6 +291,24 @@ const DEFAULT_TRADES: TradeMaster[] = [
   { id: 'trd-08', tradeCode: 'SFTY', tradeName: 'Site Safety Marshall', category: 'General', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
 ];
 
+// Pay-Grades and Geofence Zones had the exact same bug as Companies/Trades: plain
+// in-memory arrays in masters.ts with no persistence. Seeds carried over unchanged so
+// nothing disappears for existing users on this upgrade.
+const DEFAULT_PAY_GRADES: PayGrade[] = [
+  { id: 'grd-01', gradeCode: 'GRD-EXEC', gradeName: 'Executive & C-Suite', minimumSalary: 1800, maximumSalary: 3500, currency: 'OMR', standardAllowance: 500, description: 'Executive leadership, Project Directors, and General Managers', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'grd-02', gradeCode: 'GRD-SNR-ENG', gradeName: 'Senior Engineer / Section Head', minimumSalary: 1100, maximumSalary: 1800, currency: 'OMR', standardAllowance: 300, description: 'Lead Project Engineers, Commercial Managers, and HSE Leads', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'grd-03', gradeCode: 'GRD-MID-STAFF', gradeName: 'Mid-Level Staff & Site Engineers', minimumSalary: 650, maximumSalary: 1100, currency: 'OMR', standardAllowance: 180, description: 'Site Engineers, Quantity Surveyors, Accountants, HR Officers', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'grd-04', gradeCode: 'GRD-TECH-SUPER', gradeName: 'Technical Foremen & Supervisors', minimumSalary: 380, maximumSalary: 650, currency: 'OMR', standardAllowance: 90, description: 'General Foremen, Chargehands, Heavy Plant Operators, QA Inspectors', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'grd-05', gradeCode: 'GRD-SKILLED-WRK', gradeName: 'Skilled Trades & Artisans', minimumSalary: 200, maximumSalary: 380, currency: 'OMR', standardAllowance: 50, description: '6G Welders, Industrial Electricians, Masons, Carpenters, Steel Fixers', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'grd-06', gradeCode: 'GRD-GENERAL-LABOR', gradeName: 'General Site Labor / Helpers', minimumSalary: 140, maximumSalary: 200, currency: 'OMR', standardAllowance: 30, description: 'Site helpers, riggers, logistics assistants, and cleaners', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+];
+
+const DEFAULT_GEOFENCES: ProjectGeofenceLocation[] = [
+  { id: 'geo-01', projectId: 'PRJ-001', locationCode: 'GATE-01', locationName: 'Muscat Airport Expansion - Main Gate 1', locationType: 'Main Gate', latitude: 23.5933, longitude: 58.2844, radiusMeters: 350, isPrimary: true, isActive: true, effectiveFrom: '2024-01-01', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'geo-02', projectId: 'PRJ-001', locationCode: 'GATE-02', locationName: 'Muscat Airport Expansion - Batching Plant Gate', locationType: 'Work Zone', latitude: 23.5901, longitude: 58.2810, radiusMeters: 250, isPrimary: false, isActive: true, effectiveFrom: '2024-01-01', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'geo-03', projectId: 'PRJ-002', locationCode: 'SOHAR-HQ', locationName: 'Sohar Port Infrastructure - Site Office & Gate', locationType: 'Main Gate', latitude: 24.4981, longitude: 56.6315, radiusMeters: 400, isPrimary: true, isActive: true, effectiveFrom: '2024-01-01', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+];
+
 interface DatabaseSchema {
   users: User[];
   employees: Employee[];
@@ -323,6 +343,8 @@ interface DatabaseSchema {
   // is durable here. Moved into the same durable app_state document for consistency.
   companies: CompanyMaster[];
   trades: TradeMaster[];
+  payGrades: PayGrade[];
+  geofences: ProjectGeofenceLocation[];
   auditLogs: AuditLog[];
   // Oman HR Compliance Architecture
   civilIds: EmployeeCivilId[];
@@ -443,6 +465,8 @@ class DatabaseManager {
     designations: [],
     companies: [...DEFAULT_COMPANIES],
     trades: [...DEFAULT_TRADES],
+    payGrades: [...DEFAULT_PAY_GRADES],
+    geofences: [...DEFAULT_GEOFENCES],
     auditLogs: [],
     civilIds: [],
     drivingLicences: [],
@@ -810,6 +834,8 @@ class DatabaseManager {
       designations: parsed.designations || [],
       companies: parsed.companies || [...DEFAULT_COMPANIES],
       trades: parsed.trades || [...DEFAULT_TRADES],
+      payGrades: parsed.payGrades || [...DEFAULT_PAY_GRADES],
+      geofences: parsed.geofences || [...DEFAULT_GEOFENCES],
       auditLogs: parsed.auditLogs || [],
       civilIds: parsed.civilIds || [],
       drivingLicences: parsed.drivingLicences || [],
@@ -2205,6 +2231,95 @@ class DatabaseManager {
           const idx = this.inMemoryData.trades.findIndex(t => t.id === id);
           if (idx === -1) return { changed: false, value: false };
           this.inMemoryData.trades.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
+    };
+  }
+
+  public get payGrades() {
+    return {
+      getAll: () => [...this.inMemoryData.payGrades],
+      findById: (id: string) => this.inMemoryData.payGrades.find(g => g.id === id),
+      findByCode: (code: string) =>
+        this.inMemoryData.payGrades.find(
+          g => g.gradeCode.trim().toUpperCase() === String(code).trim().toUpperCase()
+        ),
+      create: async (grade: PayGrade) => {
+        this.inMemoryData.payGrades.push(grade);
+        await this.persist();
+        return grade;
+      },
+      update: async (id: string, updates: Partial<PayGrade>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.payGrades.findIndex(g => g.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.payGrades[idx] = {
+            ...this.inMemoryData.payGrades[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.payGrades[idx] };
+        });
+      },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.payGrades.findIndex(g => g.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.payGrades.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
+    };
+  }
+
+  // Geofence create/update deliberately mirror each other's "unmark other primary
+  // gates for this project" behavior (previously done by mutating geofencesStore
+  // directly in the route handler) so that invariant survives both the concurrency
+  // retry loop and a single persist() call, instead of racing a separate mutation
+  // against it.
+  public get geofences() {
+    return {
+      getAll: () => [...this.inMemoryData.geofences],
+      findById: (id: string) => this.inMemoryData.geofences.find(g => g.id === id),
+      create: async (location: ProjectGeofenceLocation) => {
+        if (location.isPrimary) {
+          this.inMemoryData.geofences.forEach(g => {
+            if (g.projectId === location.projectId) g.isPrimary = false;
+          });
+        }
+        this.inMemoryData.geofences.push(location);
+        await this.persist();
+        return location;
+      },
+      update: async (id: string, updates: Partial<ProjectGeofenceLocation>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.geofences.findIndex(g => g.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          const existing = this.inMemoryData.geofences[idx];
+          const isPrimary = updates.isPrimary !== undefined ? !!updates.isPrimary : existing.isPrimary;
+          const projectId = updates.projectId !== undefined ? updates.projectId : existing.projectId;
+          if (isPrimary) {
+            this.inMemoryData.geofences.forEach(g => {
+              if (g.projectId === projectId && g.id !== id) g.isPrimary = false;
+            });
+          }
+          this.inMemoryData.geofences[idx] = {
+            ...existing,
+            ...updates,
+            id: existing.id,
+            projectId,
+            isPrimary,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.geofences[idx] };
+        });
+      },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.geofences.findIndex(g => g.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.geofences.splice(idx, 1);
           return { changed: true, value: true };
         });
       },
