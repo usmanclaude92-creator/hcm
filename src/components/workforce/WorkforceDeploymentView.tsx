@@ -322,6 +322,19 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     });
   }, [allEntries, search, companyFilter, employeeTypeFilter, geofenceFilter, mobilityFilter, projectFilter]);
 
+  // True as soon as any toolbar filter narrows the roster below its "All ..." default --
+  // used to hide empty project sections only while filtering, not on the default view.
+  const hasActiveFilters = useMemo(
+    () =>
+      search.trim() !== '' ||
+      companyFilter.length !== COMPANY_OPTIONS.length ||
+      employeeTypeFilter.length !== EMPLOYEE_TYPE_OPTIONS.length ||
+      geofenceFilter.length !== GEOFENCE_OPTIONS.length ||
+      mobilityFilter.length !== MOBILITY_OPTIONS.length ||
+      projectFilter.length !== projectOptions.length,
+    [search, companyFilter, employeeTypeFilter, geofenceFilter, mobilityFilter, projectFilter, projectOptions]
+  );
+
   // Projects rendered strictly from Project Master (e.g. HO0001 — Head Office).
   const sections = useMemo(() => {
     const byKey = new Map<string, DeploymentEntry[]>();
@@ -348,8 +361,11 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
         employees: sortByName(byKey.get(p.projectCode) || []),
       });
     });
-    return result;
-  }, [filteredEntries, activeProjects]);
+    // Once any filter is actively narrowing the roster, a project with nothing left in
+    // it is filter noise, not useful context -- drop it. With no filters applied, every
+    // project still shows (including empty ones) as before.
+    return hasActiveFilters ? result.filter(s => s.employees.length > 0) : result;
+  }, [filteredEntries, activeProjects, hasActiveFilters]);
 
   // Human Resource summary widget: total active roster, present today, and on leave --
   // each split by Staff/Worker. Built from `grouped` (the deduplicated per-employee
