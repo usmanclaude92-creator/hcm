@@ -309,6 +309,110 @@ const DEFAULT_GEOFENCES: ProjectGeofenceLocation[] = [
   { id: 'geo-03', projectId: 'PRJ-002', locationCode: 'SOHAR-HQ', locationName: 'Sohar Port Infrastructure - Site Office & Gate', locationType: 'Main Gate', latitude: 24.4981, longitude: 56.6315, radiusMeters: 400, isPrimary: true, isActive: true, effectiveFrom: '2024-01-01', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
 ];
 
+// --- Row <-> app-object mappers for the six masters backed directly by their own SQL
+// tables (companies, trades, departments, designations, pay_grades,
+// project_geofence_locations) instead of the app_state JSON blob. These tables are
+// shared with the Workforce-App mobile backend's Supabase project, so this is also
+// where hcm stops keeping a second, disconnected copy of the same master data.
+function isoOrUndefined(v: any): string | undefined {
+  if (v === null || v === undefined) return undefined;
+  return v instanceof Date ? v.toISOString() : String(v);
+}
+function isoOrNow(v: any): string {
+  return isoOrUndefined(v) ?? new Date().toISOString();
+}
+
+function rowToDepartment(row: any): Department {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code ?? undefined,
+    isActive: row.is_active,
+    remarks: row.remarks ?? undefined,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToDesignation(row: any): Designation {
+  return {
+    id: row.id,
+    title: row.title,
+    departmentId: row.department_id ?? null,
+    isActive: row.is_active,
+    remarks: row.remarks ?? undefined,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToCompany(row: any): CompanyMaster {
+  return {
+    id: row.id,
+    companyCode: row.code,
+    companyName: row.name,
+    legalName: row.legal_name ?? undefined,
+    crNumber: row.cr_number ?? undefined,
+    country: row.country,
+    currency: row.currency,
+    taxId: row.tax_id ?? undefined,
+    address: row.address ?? undefined,
+    contactEmail: row.contact_email ?? undefined,
+    contactPhone: row.contact_phone ?? undefined,
+    isActive: row.is_active,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToTrade(row: any): TradeMaster {
+  return {
+    id: row.id,
+    tradeCode: row.code,
+    tradeName: row.name,
+    category: row.trade_category ?? 'General',
+    isActive: row.is_active,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToPayGrade(row: any): PayGrade {
+  return {
+    id: row.id,
+    gradeCode: row.grade_code,
+    gradeName: row.grade_name,
+    minimumSalary: Number(row.minimum_salary),
+    maximumSalary: Number(row.maximum_salary),
+    currency: row.currency,
+    standardAllowance: Number(row.standard_allowance),
+    description: row.description ?? '',
+    isActive: row.is_active,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToGeofence(row: any): ProjectGeofenceLocation {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    locationCode: row.location_code,
+    locationName: row.location_name,
+    locationType: row.location_type,
+    latitude: Number(row.latitude),
+    longitude: Number(row.longitude),
+    radiusMeters: Number(row.radius_meters),
+    isPrimary: row.is_primary,
+    isActive: row.is_active,
+    effectiveFrom: row.effective_from instanceof Date
+      ? row.effective_from.toISOString().slice(0, 10)
+      : String(row.effective_from),
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
 interface DatabaseSchema {
   users: User[];
   employees: Employee[];
@@ -2093,20 +2197,68 @@ class DatabaseManager {
 
   // --- Organisation master data -------------------------------------------------------
 
+  // Companies, Trades, Departments, Designations, Pay-Grades and Geofence Zones are all
+  // backed directly by their own SQL tables in the shared Supabase project (the same
+  // tables the Workforce-App mobile backend reads) whenever Postgres is connected --
+  // there is exactly one copy of each, no app_state duplication. The in-memory
+  // inMemoryData arrays only serve the local-JSON-file fallback path (no Postgres
+  // configured at all, e.g. a laptop running this without a database), so nothing
+  // regresses for that dev workflow.
+
   public get departments() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.departments],
-      findById: (id: string) => this.inMemoryData.departments.find(d => d.id === id),
-      findByName: (name: string) =>
-        this.inMemoryData.departments.find(
+      getAll: async (): Promise<Department[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM departments ORDER BY name');
+          return res.rows.map(rowToDepartment);
+        }
+        return [...this.inMemoryData.departments];
+      },
+      findById: async (id: string): Promise<Department | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM departments WHERE id = $1', [id]);
+          return res.rows[0] ? rowToDepartment(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.departments.find(d => d.id === id);
+      },
+      findByName: async (name: string): Promise<Department | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            'SELECT * FROM departments WHERE lower(trim(name)) = lower(trim($1))', [name]
+          );
+          return res.rows[0] ? rowToDepartment(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.departments.find(
           d => d.name.trim().toLowerCase() === String(name).trim().toLowerCase()
-        ),
-      create: async (department: Department) => {
+        );
+      },
+      create: async (department: Department): Promise<Department> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `INSERT INTO departments (id, name, code, is_active, remarks, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [department.id, department.name, department.code ?? null, department.isActive,
+             department.remarks ?? null, department.createdAt, department.updatedAt]
+          );
+          return rowToDepartment(res.rows[0]);
+        }
         this.inMemoryData.departments.push(department);
         await this.persist();
         return department;
       },
-      update: async (id: string, updates: Partial<Department>) => {
+      update: async (id: string, updates: Partial<Department>): Promise<Department | null> => {
+        if (sql) {
+          const existingRes = await this.pgPool!.query('SELECT * FROM departments WHERE id = $1', [id]);
+          if (!existingRes.rows[0]) return null;
+          const merged = { ...rowToDepartment(existingRes.rows[0]), ...updates };
+          const res = await this.pgPool!.query(
+            `UPDATE departments SET name=$2, code=$3, is_active=$4, remarks=$5, updated_at=now()
+             WHERE id=$1 RETURNING *`,
+            [id, merged.name, merged.code ?? null, merged.isActive, merged.remarks ?? null]
+          );
+          return rowToDepartment(res.rows[0]);
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.departments.findIndex(d => d.id === id);
           if (idx === -1) return { changed: false, value: null };
@@ -2118,7 +2270,11 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.departments[idx] };
         });
       },
-      delete: async (id: string) => {
+      delete: async (id: string): Promise<boolean> => {
+        if (sql) {
+          const res = await this.pgPool!.query('DELETE FROM departments WHERE id = $1', [id]);
+          return (res.rowCount ?? 0) > 0;
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.departments.findIndex(d => d.id === id);
           if (idx === -1) return { changed: false, value: false };
@@ -2130,19 +2286,59 @@ class DatabaseManager {
   }
 
   public get designations() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.designations],
-      findById: (id: string) => this.inMemoryData.designations.find(d => d.id === id),
-      findByTitle: (title: string) =>
-        this.inMemoryData.designations.find(
+      getAll: async (): Promise<Designation[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM designations ORDER BY title');
+          return res.rows.map(rowToDesignation);
+        }
+        return [...this.inMemoryData.designations];
+      },
+      findById: async (id: string): Promise<Designation | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM designations WHERE id = $1', [id]);
+          return res.rows[0] ? rowToDesignation(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.designations.find(d => d.id === id);
+      },
+      findByTitle: async (title: string): Promise<Designation | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            'SELECT * FROM designations WHERE lower(trim(title)) = lower(trim($1))', [title]
+          );
+          return res.rows[0] ? rowToDesignation(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.designations.find(
           d => d.title.trim().toLowerCase() === String(title).trim().toLowerCase()
-        ),
-      create: async (designation: Designation) => {
+        );
+      },
+      create: async (designation: Designation): Promise<Designation> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `INSERT INTO designations (id, title, department_id, is_active, remarks, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [designation.id, designation.title, designation.departmentId, designation.isActive,
+             designation.remarks ?? null, designation.createdAt, designation.updatedAt]
+          );
+          return rowToDesignation(res.rows[0]);
+        }
         this.inMemoryData.designations.push(designation);
         await this.persist();
         return designation;
       },
-      update: async (id: string, updates: Partial<Designation>) => {
+      update: async (id: string, updates: Partial<Designation>): Promise<Designation | null> => {
+        if (sql) {
+          const existingRes = await this.pgPool!.query('SELECT * FROM designations WHERE id = $1', [id]);
+          if (!existingRes.rows[0]) return null;
+          const merged = { ...rowToDesignation(existingRes.rows[0]), ...updates };
+          const res = await this.pgPool!.query(
+            `UPDATE designations SET title=$2, department_id=$3, is_active=$4, remarks=$5, updated_at=now()
+             WHERE id=$1 RETURNING *`,
+            [id, merged.title, merged.departmentId, merged.isActive, merged.remarks ?? null]
+          );
+          return rowToDesignation(res.rows[0]);
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.designations.findIndex(d => d.id === id);
           if (idx === -1) return { changed: false, value: null };
@@ -2154,7 +2350,11 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.designations[idx] };
         });
       },
-      delete: async (id: string) => {
+      delete: async (id: string): Promise<boolean> => {
+        if (sql) {
+          const res = await this.pgPool!.query('DELETE FROM designations WHERE id = $1', [id]);
+          return (res.rowCount ?? 0) > 0;
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.designations.findIndex(d => d.id === id);
           if (idx === -1) return { changed: false, value: false };
@@ -2165,20 +2365,72 @@ class DatabaseManager {
     };
   }
 
+  // CompanyMaster.id maps to companies.id (an added unique column -- see the
+  // extend_companies_for_hcm_master_screen migration); companyCode maps to companies.code,
+  // the pre-existing primary key that employees.employee_company / salary_paid_by,
+  // project_allowed_companies and user_company_scope all already FK against. Adding id
+  // rather than repointing those FKs at a new key keeps this additive and low-risk.
   public get companies() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.companies],
-      findById: (id: string) => this.inMemoryData.companies.find(c => c.id === id),
-      findByCode: (code: string) =>
-        this.inMemoryData.companies.find(
+      getAll: async (): Promise<CompanyMaster[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM companies ORDER BY name');
+          return res.rows.map(rowToCompany);
+        }
+        return [...this.inMemoryData.companies];
+      },
+      findById: async (id: string): Promise<CompanyMaster | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM companies WHERE id = $1', [id]);
+          return res.rows[0] ? rowToCompany(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.companies.find(c => c.id === id);
+      },
+      findByCode: async (code: string): Promise<CompanyMaster | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            'SELECT * FROM companies WHERE upper(trim(code)) = upper(trim($1))', [code]
+          );
+          return res.rows[0] ? rowToCompany(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.companies.find(
           c => c.companyCode.trim().toUpperCase() === String(code).trim().toUpperCase()
-        ),
-      create: async (company: CompanyMaster) => {
+        );
+      },
+      create: async (company: CompanyMaster): Promise<CompanyMaster> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `INSERT INTO companies (id, code, name, legal_name, cr_number, country, currency, tax_id,
+                                     address, contact_email, contact_phone, is_active, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+            [company.id, company.companyCode, company.companyName, company.legalName ?? null,
+             company.crNumber ?? null, company.country, company.currency, company.taxId ?? null,
+             company.address ?? null, company.contactEmail ?? null, company.contactPhone ?? null,
+             company.isActive, company.createdAt, company.updatedAt]
+          );
+          return rowToCompany(res.rows[0]);
+        }
         this.inMemoryData.companies.push(company);
         await this.persist();
         return company;
       },
-      update: async (id: string, updates: Partial<CompanyMaster>) => {
+      update: async (id: string, updates: Partial<CompanyMaster>): Promise<CompanyMaster | null> => {
+        if (sql) {
+          const existingRes = await this.pgPool!.query('SELECT * FROM companies WHERE id = $1', [id]);
+          if (!existingRes.rows[0]) return null;
+          const merged = { ...rowToCompany(existingRes.rows[0]), ...updates };
+          const res = await this.pgPool!.query(
+            `UPDATE companies SET code=$2, name=$3, legal_name=$4, cr_number=$5, country=$6, currency=$7,
+                                   tax_id=$8, address=$9, contact_email=$10, contact_phone=$11, is_active=$12,
+                                   updated_at=now()
+             WHERE id=$1 RETURNING *`,
+            [id, merged.companyCode, merged.companyName, merged.legalName ?? null, merged.crNumber ?? null,
+             merged.country, merged.currency, merged.taxId ?? null, merged.address ?? null,
+             merged.contactEmail ?? null, merged.contactPhone ?? null, merged.isActive]
+          );
+          return rowToCompany(res.rows[0]);
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.companies.findIndex(c => c.id === id);
           if (idx === -1) return { changed: false, value: null };
@@ -2190,7 +2442,11 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.companies[idx] };
         });
       },
-      delete: async (id: string) => {
+      delete: async (id: string): Promise<boolean> => {
+        if (sql) {
+          const res = await this.pgPool!.query('DELETE FROM companies WHERE id = $1', [id]);
+          return (res.rowCount ?? 0) > 0;
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.companies.findIndex(c => c.id === id);
           if (idx === -1) return { changed: false, value: false };
@@ -2202,19 +2458,59 @@ class DatabaseManager {
   }
 
   public get trades() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.trades],
-      findById: (id: string) => this.inMemoryData.trades.find(t => t.id === id),
-      findByCode: (code: string) =>
-        this.inMemoryData.trades.find(
+      getAll: async (): Promise<TradeMaster[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM trades ORDER BY name');
+          return res.rows.map(rowToTrade);
+        }
+        return [...this.inMemoryData.trades];
+      },
+      findById: async (id: string): Promise<TradeMaster | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM trades WHERE id = $1', [id]);
+          return res.rows[0] ? rowToTrade(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.trades.find(t => t.id === id);
+      },
+      findByCode: async (code: string): Promise<TradeMaster | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            'SELECT * FROM trades WHERE upper(trim(code)) = upper(trim($1))', [code]
+          );
+          return res.rows[0] ? rowToTrade(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.trades.find(
           t => t.tradeCode.trim().toUpperCase() === String(code).trim().toUpperCase()
-        ),
-      create: async (trade: TradeMaster) => {
+        );
+      },
+      create: async (trade: TradeMaster): Promise<TradeMaster> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `INSERT INTO trades (id, code, name, trade_category, is_active, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+            [trade.id, trade.tradeCode, trade.tradeName, trade.category, trade.isActive,
+             trade.createdAt, trade.updatedAt]
+          );
+          return rowToTrade(res.rows[0]);
+        }
         this.inMemoryData.trades.push(trade);
         await this.persist();
         return trade;
       },
-      update: async (id: string, updates: Partial<TradeMaster>) => {
+      update: async (id: string, updates: Partial<TradeMaster>): Promise<TradeMaster | null> => {
+        if (sql) {
+          const existingRes = await this.pgPool!.query('SELECT * FROM trades WHERE id = $1', [id]);
+          if (!existingRes.rows[0]) return null;
+          const merged = { ...rowToTrade(existingRes.rows[0]), ...updates };
+          const res = await this.pgPool!.query(
+            `UPDATE trades SET code=$2, name=$3, trade_category=$4, is_active=$5, updated_at=now()
+             WHERE id=$1 RETURNING *`,
+            [id, merged.tradeCode, merged.tradeName, merged.category, merged.isActive]
+          );
+          return rowToTrade(res.rows[0]);
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.trades.findIndex(t => t.id === id);
           if (idx === -1) return { changed: false, value: null };
@@ -2226,7 +2522,11 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.trades[idx] };
         });
       },
-      delete: async (id: string) => {
+      delete: async (id: string): Promise<boolean> => {
+        if (sql) {
+          const res = await this.pgPool!.query('DELETE FROM trades WHERE id = $1', [id]);
+          return (res.rowCount ?? 0) > 0;
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.trades.findIndex(t => t.id === id);
           if (idx === -1) return { changed: false, value: false };
@@ -2238,19 +2538,63 @@ class DatabaseManager {
   }
 
   public get payGrades() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.payGrades],
-      findById: (id: string) => this.inMemoryData.payGrades.find(g => g.id === id),
-      findByCode: (code: string) =>
-        this.inMemoryData.payGrades.find(
+      getAll: async (): Promise<PayGrade[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM pay_grades ORDER BY minimum_salary DESC');
+          return res.rows.map(rowToPayGrade);
+        }
+        return [...this.inMemoryData.payGrades];
+      },
+      findById: async (id: string): Promise<PayGrade | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM pay_grades WHERE id = $1', [id]);
+          return res.rows[0] ? rowToPayGrade(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.payGrades.find(g => g.id === id);
+      },
+      findByCode: async (code: string): Promise<PayGrade | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            'SELECT * FROM pay_grades WHERE upper(trim(grade_code)) = upper(trim($1))', [code]
+          );
+          return res.rows[0] ? rowToPayGrade(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.payGrades.find(
           g => g.gradeCode.trim().toUpperCase() === String(code).trim().toUpperCase()
-        ),
-      create: async (grade: PayGrade) => {
+        );
+      },
+      create: async (grade: PayGrade): Promise<PayGrade> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `INSERT INTO pay_grades (id, grade_code, grade_name, minimum_salary, maximum_salary, currency,
+                                      standard_allowance, description, is_active, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+            [grade.id, grade.gradeCode, grade.gradeName, grade.minimumSalary, grade.maximumSalary,
+             grade.currency, grade.standardAllowance, grade.description ?? null, grade.isActive,
+             grade.createdAt, grade.updatedAt]
+          );
+          return rowToPayGrade(res.rows[0]);
+        }
         this.inMemoryData.payGrades.push(grade);
         await this.persist();
         return grade;
       },
-      update: async (id: string, updates: Partial<PayGrade>) => {
+      update: async (id: string, updates: Partial<PayGrade>): Promise<PayGrade | null> => {
+        if (sql) {
+          const existingRes = await this.pgPool!.query('SELECT * FROM pay_grades WHERE id = $1', [id]);
+          if (!existingRes.rows[0]) return null;
+          const merged = { ...rowToPayGrade(existingRes.rows[0]), ...updates };
+          const res = await this.pgPool!.query(
+            `UPDATE pay_grades SET grade_code=$2, grade_name=$3, minimum_salary=$4, maximum_salary=$5,
+                                    currency=$6, standard_allowance=$7, description=$8, is_active=$9, updated_at=now()
+             WHERE id=$1 RETURNING *`,
+            [id, merged.gradeCode, merged.gradeName, merged.minimumSalary, merged.maximumSalary,
+             merged.currency, merged.standardAllowance, merged.description ?? null, merged.isActive]
+          );
+          return rowToPayGrade(res.rows[0]);
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.payGrades.findIndex(g => g.id === id);
           if (idx === -1) return { changed: false, value: null };
@@ -2262,7 +2606,11 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.payGrades[idx] };
         });
       },
-      delete: async (id: string) => {
+      delete: async (id: string): Promise<boolean> => {
+        if (sql) {
+          const res = await this.pgPool!.query('DELETE FROM pay_grades WHERE id = $1', [id]);
+          return (res.rowCount ?? 0) > 0;
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.payGrades.findIndex(g => g.id === id);
           if (idx === -1) return { changed: false, value: false };
@@ -2273,16 +2621,56 @@ class DatabaseManager {
     };
   }
 
-  // Geofence create/update deliberately mirror each other's "unmark other primary
-  // gates for this project" behavior (previously done by mutating geofencesStore
-  // directly in the route handler) so that invariant survives both the concurrency
-  // retry loop and a single persist() call, instead of racing a separate mutation
-  // against it.
+  // Geofence create/update enforce "only one primary gate per project" with a plain
+  // UPDATE ... WHERE project_id = $1 AND id <> $2 in the same round trip as the write,
+  // rather than reading-then-mutating siblings in application code.
   public get geofences() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.geofences],
-      findById: (id: string) => this.inMemoryData.geofences.find(g => g.id === id),
-      create: async (location: ProjectGeofenceLocation) => {
+      getAll: async (): Promise<ProjectGeofenceLocation[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM project_geofence_locations ORDER BY location_name');
+          return res.rows.map(rowToGeofence);
+        }
+        return [...this.inMemoryData.geofences];
+      },
+      findById: async (id: string): Promise<ProjectGeofenceLocation | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query('SELECT * FROM project_geofence_locations WHERE id = $1', [id]);
+          return res.rows[0] ? rowToGeofence(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.geofences.find(g => g.id === id);
+      },
+      create: async (location: ProjectGeofenceLocation): Promise<ProjectGeofenceLocation> => {
+        if (sql) {
+          const client = await this.pgPool!.connect();
+          try {
+            await client.query('BEGIN');
+            if (location.isPrimary) {
+              await client.query(
+                'UPDATE project_geofence_locations SET is_primary = false WHERE project_id = $1',
+                [location.projectId]
+              );
+            }
+            const res = await client.query(
+              `INSERT INTO project_geofence_locations
+                 (id, project_id, location_code, location_name, location_type, latitude, longitude,
+                  radius_meters, is_primary, is_active, effective_from, created_at, updated_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+              [location.id, location.projectId, location.locationCode, location.locationName,
+               location.locationType, location.latitude, location.longitude, location.radiusMeters,
+               location.isPrimary, location.isActive, location.effectiveFrom, location.createdAt,
+               location.updatedAt]
+            );
+            await client.query('COMMIT');
+            return rowToGeofence(res.rows[0]);
+          } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+          } finally {
+            client.release();
+          }
+        }
         if (location.isPrimary) {
           this.inMemoryData.geofences.forEach(g => {
             if (g.projectId === location.projectId) g.isPrimary = false;
@@ -2292,7 +2680,42 @@ class DatabaseManager {
         await this.persist();
         return location;
       },
-      update: async (id: string, updates: Partial<ProjectGeofenceLocation>) => {
+      update: async (id: string, updates: Partial<ProjectGeofenceLocation>): Promise<ProjectGeofenceLocation | null> => {
+        if (sql) {
+          const client = await this.pgPool!.connect();
+          try {
+            await client.query('BEGIN');
+            const existingRes = await client.query('SELECT * FROM project_geofence_locations WHERE id = $1', [id]);
+            if (!existingRes.rows[0]) {
+              await client.query('ROLLBACK');
+              return null;
+            }
+            const merged = { ...rowToGeofence(existingRes.rows[0]), ...updates };
+            if (merged.isPrimary) {
+              await client.query(
+                'UPDATE project_geofence_locations SET is_primary = false WHERE project_id = $1 AND id <> $2',
+                [merged.projectId, id]
+              );
+            }
+            const res = await client.query(
+              `UPDATE project_geofence_locations
+               SET project_id=$2, location_code=$3, location_name=$4, location_type=$5, latitude=$6,
+                   longitude=$7, radius_meters=$8, is_primary=$9, is_active=$10, effective_from=$11,
+                   updated_at=now()
+               WHERE id=$1 RETURNING *`,
+              [id, merged.projectId, merged.locationCode, merged.locationName, merged.locationType,
+               merged.latitude, merged.longitude, merged.radiusMeters, merged.isPrimary, merged.isActive,
+               merged.effectiveFrom]
+            );
+            await client.query('COMMIT');
+            return rowToGeofence(res.rows[0]);
+          } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+          } finally {
+            client.release();
+          }
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.geofences.findIndex(g => g.id === id);
           if (idx === -1) return { changed: false, value: null };
@@ -2315,7 +2738,11 @@ class DatabaseManager {
           return { changed: true, value: this.inMemoryData.geofences[idx] };
         });
       },
-      delete: async (id: string) => {
+      delete: async (id: string): Promise<boolean> => {
+        if (sql) {
+          const res = await this.pgPool!.query('DELETE FROM project_geofence_locations WHERE id = $1', [id]);
+          return (res.rowCount ?? 0) > 0;
+        }
         return this.withOptimisticRetry(() => {
           const idx = this.inMemoryData.geofences.findIndex(g => g.id === id);
           if (idx === -1) return { changed: false, value: false };

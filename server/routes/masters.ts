@@ -23,8 +23,10 @@ const router = Router();
 // Pay Grades, Companies, Trades, and Geofences used to be in-memory arrays here
 // (payGradesStore/companiesStore/tradesStore/geofencesStore) that reset to seed data on
 // every deploy or cold start -- unlike every other master below, which is durable. They
-// now all live in the same app_state-backed store as Departments/Designations/Leave
-// Types, via db.payGrades / db.companies / db.trades / db.geofences (see server/db.ts).
+// now all live directly in the normalized Postgres tables (companies, trades, pay_grades,
+// project_geofence_locations) when connected, via db.payGrades / db.companies / db.trades
+// / db.geofences (see server/db.ts), with the app_state-backed in-memory store kept only
+// as an offline/local-dev fallback.
 
 // Organisation master data: departments and designations. Designation used to be typed
 // free-hand on every employee record, so "Site Engineer", "site engineer" and "Snr Site
@@ -38,11 +40,10 @@ function usageCount(title: string): number {
 }
 
 // GET /api/masters/departments
-router.get('/departments', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/departments', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const includeInactive = String(req.query.includeInactive || '') === 'true';
-    const departments = db.departments
-      .getAll()
+    const departments = (await db.departments.getAll())
       .filter(d => includeInactive || d.isActive)
       .sort((a, b) => a.name.localeCompare(b.name));
     res.json(departments);
@@ -56,7 +57,7 @@ router.post('/departments', verifyAuth, requireRoles('Administrator', 'Payroll M
   try {
     const name = String(req.body.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Department name is required.' });
-    if (db.departments.findByName(name)) {
+    if (await db.departments.findByName(name)) {
       return res.status(400).json({ error: `A department named '${name}' already exists.` });
     }
 
@@ -89,14 +90,14 @@ router.post('/departments', verifyAuth, requireRoles('Administrator', 'Payroll M
 // PUT /api/masters/departments/:id
 router.put('/departments/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.departments.findById(req.params.id);
+    const existing = await db.departments.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Department not found.' });
 
     const updates: Partial<Department> = {};
     if (req.body.name !== undefined) {
       const name = String(req.body.name).trim();
       if (!name) return res.status(400).json({ error: 'Department name cannot be empty.' });
-      const clash = db.departments.findByName(name);
+      const clash = await db.departments.findByName(name);
       if (clash && clash.id !== existing.id) {
         return res.status(400).json({ error: `A department named '${name}' already exists.` });
       }
@@ -125,10 +126,10 @@ router.put('/departments/:id', verifyAuth, requireRoles('Administrator', 'Payrol
 // DELETE /api/masters/departments/:id
 router.delete('/departments/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.departments.findById(req.params.id);
+    const existing = await db.departments.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Department not found.' });
 
-    const designations = db.designations.getAll().filter(d => d.departmentId === existing.id);
+    const designations = (await db.designations.getAll()).filter(d => d.departmentId === existing.id);
     if (designations.length > 0) {
       return res.status(400).json({
         error: `Cannot delete department '${existing.name}': it has ${designations.length} linked designation(s). Reassign them first.`
@@ -154,7 +155,7 @@ router.delete('/departments/:id', verifyAuth, requireRoles('Administrator', 'Pay
 // PATCH /api/masters/departments/:id/toggle-status
 router.patch('/departments/:id/toggle-status', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.departments.findById(req.params.id);
+    const existing = await db.departments.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Department not found.' });
 
     const newStatus = !existing.isActive;
@@ -175,12 +176,11 @@ router.patch('/departments/:id/toggle-status', verifyAuth, requireRoles('Adminis
 });
 
 // GET /api/masters/designations
-router.get('/designations', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/designations', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const includeInactive = String(req.query.includeInactive || '') === 'true';
-    const departments = db.departments.getAll();
-    const designations = db.designations
-      .getAll()
+    const departments = await db.departments.getAll();
+    const designations = (await db.designations.getAll())
       .filter(d => includeInactive || d.isActive)
       .map(d => ({
         ...d,
@@ -201,11 +201,11 @@ router.post('/designations', verifyAuth, requireRoles('Administrator', 'Payroll 
   try {
     const title = String(req.body.title || '').trim();
     if (!title) return res.status(400).json({ error: 'Designation title is required.' });
-    if (db.designations.findByTitle(title)) {
+    if (await db.designations.findByTitle(title)) {
       return res.status(400).json({ error: `A designation titled '${title}' already exists.` });
     }
     const departmentId = req.body.departmentId ? String(req.body.departmentId) : null;
-    if (departmentId && !db.departments.findById(departmentId)) {
+    if (departmentId && !(await db.departments.findById(departmentId))) {
       return res.status(400).json({ error: 'The selected department does not exist.' });
     }
 
@@ -238,14 +238,14 @@ router.post('/designations', verifyAuth, requireRoles('Administrator', 'Payroll 
 // PUT /api/masters/designations/:id
 router.put('/designations/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.designations.findById(req.params.id);
+    const existing = await db.designations.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Designation not found.' });
 
     const updates: Partial<Designation> = {};
     if (req.body.title !== undefined) {
       const title = String(req.body.title).trim();
       if (!title) return res.status(400).json({ error: 'Designation title cannot be empty.' });
-      const clash = db.designations.findByTitle(title);
+      const clash = await db.designations.findByTitle(title);
       if (clash && clash.id !== existing.id) {
         return res.status(400).json({ error: `A designation titled '${title}' already exists.` });
       }
@@ -253,7 +253,7 @@ router.put('/designations/:id', verifyAuth, requireRoles('Administrator', 'Payro
     }
     if (req.body.departmentId !== undefined) {
       const departmentId = req.body.departmentId ? String(req.body.departmentId) : null;
-      if (departmentId && !db.departments.findById(departmentId)) {
+      if (departmentId && !(await db.departments.findById(departmentId))) {
         return res.status(400).json({ error: 'The selected department does not exist.' });
       }
       updates.departmentId = departmentId;
@@ -294,7 +294,7 @@ router.put('/designations/:id', verifyAuth, requireRoles('Administrator', 'Payro
 // DELETE /api/masters/designations/:id
 router.delete('/designations/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.designations.findById(req.params.id);
+    const existing = await db.designations.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Designation not found.' });
 
     const inUse = usageCount(existing.title);
@@ -323,7 +323,7 @@ router.delete('/designations/:id', verifyAuth, requireRoles('Administrator', 'Pa
 // PATCH /api/masters/designations/:id/toggle-status
 router.patch('/designations/:id/toggle-status', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.designations.findById(req.params.id);
+    const existing = await db.designations.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Designation not found.' });
 
     const newStatus = !existing.isActive;
@@ -353,11 +353,15 @@ router.patch('/designations/:id/toggle-status', verifyAuth, requireRoles('Admini
 
 // =================================================================
 // CENTRAL MASTER DATA API: COMPANIES
-// Backed by db.companies (the durable app_state store) -- previously an in-memory
-// array that reset to fake demo companies on every deploy. See server/db.ts.
+// Backed by db.companies -- the normalized `companies` Postgres table (previously an
+// in-memory array that reset to fake demo companies on every deploy). See server/db.ts.
 // =================================================================
-router.get('/companies', (req, res) => {
-  res.json(db.companies.getAll());
+router.get('/companies', async (req, res) => {
+  try {
+    res.json(await db.companies.getAll());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch companies.' });
+  }
 });
 
 router.post('/companies', async (req, res) => {
@@ -367,12 +371,12 @@ router.post('/companies', async (req, res) => {
       return res.status(400).json({ error: 'Company Code and Company Name are required.' });
     }
     const code = String(companyCode).trim().toUpperCase();
-    if (db.companies.findByCode(code)) {
+    if (await db.companies.findByCode(code)) {
       return res.status(400).json({ error: `Company with code '${code}' already exists.` });
     }
     const now = new Date().toISOString();
     const newCompany: CompanyMaster = {
-      id: `comp-${crypto.randomUUID().slice(0, 8)}`,
+      id: crypto.randomUUID(),
       companyCode: code,
       companyName: String(companyName).trim(),
       legalName: legalName ? String(legalName).trim() : undefined,
@@ -396,7 +400,7 @@ router.post('/companies', async (req, res) => {
 
 router.put('/companies/:id', async (req, res) => {
   try {
-    const existing = db.companies.findById(req.params.id);
+    const existing = await db.companies.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Company not found.' });
     }
@@ -415,28 +419,40 @@ router.put('/companies/:id', async (req, res) => {
 });
 
 router.delete('/companies/:id', async (req, res) => {
-  const existing = db.companies.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Company not found.' });
-  const removed = await db.companies.delete(existing.id);
-  if (!removed) return res.status(404).json({ error: 'Company not found.' });
-  res.json({ success: true, message: `Company '${existing.companyName}' removed successfully.` });
+  try {
+    const existing = await db.companies.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Company not found.' });
+    const removed = await db.companies.delete(existing.id);
+    if (!removed) return res.status(404).json({ error: 'Company not found.' });
+    res.json({ success: true, message: `Company '${existing.companyName}' removed successfully.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete company.' });
+  }
 });
 
 router.patch('/companies/:id/toggle-status', async (req, res) => {
-  const existing = db.companies.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Company not found.' });
-  const updated = await db.companies.update(existing.id, { isActive: !existing.isActive });
-  if (!updated) return res.status(404).json({ error: 'Company not found.' });
-  res.json(updated);
+  try {
+    const existing = await db.companies.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Company not found.' });
+    const updated = await db.companies.update(existing.id, { isActive: !existing.isActive });
+    if (!updated) return res.status(404).json({ error: 'Company not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle company status.' });
+  }
 });
 
 // =================================================================
 // CENTRAL MASTER DATA API: TRADES
-// Backed by db.trades (the durable app_state store) -- previously an in-memory
-// array with no persistence at all. See server/db.ts.
+// Backed by db.trades -- the normalized `trades` Postgres table (previously an in-memory
+// array with no persistence at all). See server/db.ts.
 // =================================================================
-router.get('/trades', (req, res) => {
-  res.json(db.trades.getAll());
+router.get('/trades', async (req, res) => {
+  try {
+    res.json(await db.trades.getAll());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch trades.' });
+  }
 });
 
 router.post('/trades', async (req, res) => {
@@ -446,12 +462,12 @@ router.post('/trades', async (req, res) => {
       return res.status(400).json({ error: 'Trade Code and Trade Name are required.' });
     }
     const code = String(tradeCode).trim().toUpperCase();
-    if (db.trades.findByCode(code)) {
+    if (await db.trades.findByCode(code)) {
       return res.status(400).json({ error: `Trade with code '${code}' already exists.` });
     }
     const now = new Date().toISOString();
     const newTrade: TradeMaster = {
-      id: `trd-${crypto.randomUUID().slice(0, 8)}`,
+      id: crypto.randomUUID(),
       tradeCode: code,
       tradeName: String(tradeName).trim(),
       category: category || 'Civil',
@@ -468,7 +484,7 @@ router.post('/trades', async (req, res) => {
 
 router.put('/trades/:id', async (req, res) => {
   try {
-    const existing = db.trades.findById(req.params.id);
+    const existing = await db.trades.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Trade not found.' });
     }
@@ -487,31 +503,44 @@ router.put('/trades/:id', async (req, res) => {
 });
 
 router.delete('/trades/:id', async (req, res) => {
-  const existing = db.trades.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Trade not found.' });
-  const removed = await db.trades.delete(existing.id);
-  if (!removed) return res.status(404).json({ error: 'Trade not found.' });
-  res.json({ success: true, message: `Trade '${existing.tradeName}' removed successfully.` });
+  try {
+    const existing = await db.trades.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Trade not found.' });
+    const removed = await db.trades.delete(existing.id);
+    if (!removed) return res.status(404).json({ error: 'Trade not found.' });
+    res.json({ success: true, message: `Trade '${existing.tradeName}' removed successfully.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete trade.' });
+  }
 });
 
 router.patch('/trades/:id/toggle-status', async (req, res) => {
-  const existing = db.trades.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Trade not found.' });
-  const updated = await db.trades.update(existing.id, { isActive: !existing.isActive });
-  if (!updated) return res.status(404).json({ error: 'Trade not found.' });
-  res.json(updated);
+  try {
+    const existing = await db.trades.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Trade not found.' });
+    const updated = await db.trades.update(existing.id, { isActive: !existing.isActive });
+    if (!updated) return res.status(404).json({ error: 'Trade not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle trade status.' });
+  }
 });
 
 // =================================================================
 // CENTRAL MASTER DATA API: GEOFENCES / PROJECT LOCATIONS
+// Backed by db.geofences -- the normalized `project_geofence_locations` Postgres table.
 // =================================================================
-router.get('/geofences', (req, res) => {
-  const { projectId } = req.query;
-  const all = db.geofences.getAll();
-  if (projectId) {
-    return res.json(all.filter(g => g.projectId === projectId));
+router.get('/geofences', async (req, res) => {
+  try {
+    const { projectId } = req.query;
+    const all = await db.geofences.getAll();
+    if (projectId) {
+      return res.json(all.filter(g => g.projectId === projectId));
+    }
+    res.json(all);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch geofence locations.' });
   }
-  res.json(all);
 });
 
 router.post('/geofences', async (req, res) => {
@@ -523,7 +552,7 @@ router.post('/geofences', async (req, res) => {
     const code = String(locationCode).trim().toUpperCase();
     const now = new Date().toISOString();
     const newLocation: ProjectGeofenceLocation = {
-      id: `geo-${crypto.randomUUID().slice(0, 8)}`,
+      id: crypto.randomUUID(),
       projectId: String(projectId),
       locationCode: code,
       locationName: String(locationName).trim(),
@@ -547,7 +576,7 @@ router.post('/geofences', async (req, res) => {
 
 router.put('/geofences/:id', async (req, res) => {
   try {
-    const existing = db.geofences.findById(req.params.id);
+    const existing = await db.geofences.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Geofence location not found.' });
     }
@@ -560,29 +589,41 @@ router.put('/geofences/:id', async (req, res) => {
 });
 
 router.delete('/geofences/:id', async (req, res) => {
-  const existing = db.geofences.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Geofence location not found.' });
-  const removed = await db.geofences.delete(existing.id);
-  if (!removed) return res.status(404).json({ error: 'Geofence location not found.' });
-  res.json({ success: true, message: `Geofence location '${existing.locationName}' removed successfully.` });
+  try {
+    const existing = await db.geofences.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Geofence location not found.' });
+    const removed = await db.geofences.delete(existing.id);
+    if (!removed) return res.status(404).json({ error: 'Geofence location not found.' });
+    res.json({ success: true, message: `Geofence location '${existing.locationName}' removed successfully.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete geofence location.' });
+  }
 });
 
 router.patch('/geofences/:id/toggle-status', async (req, res) => {
-  const existing = db.geofences.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Geofence location not found.' });
-  const updated = await db.geofences.update(existing.id, { isActive: !existing.isActive });
-  if (!updated) return res.status(404).json({ error: 'Geofence location not found.' });
-  res.json(updated);
+  try {
+    const existing = await db.geofences.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Geofence location not found.' });
+    const updated = await db.geofences.update(existing.id, { isActive: !existing.isActive });
+    if (!updated) return res.status(404).json({ error: 'Geofence location not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle geofence location status.' });
+  }
 });
 
 // Aliases for /locations -> /geofences
-router.get('/locations', (req, res) => {
-  const { projectId } = req.query;
-  const all = db.geofences.getAll();
-  if (projectId) {
-    return res.json(all.filter(g => g.projectId === projectId));
+router.get('/locations', async (req, res) => {
+  try {
+    const { projectId } = req.query;
+    const all = await db.geofences.getAll();
+    if (projectId) {
+      return res.json(all.filter(g => g.projectId === projectId));
+    }
+    res.json(all);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch locations.' });
   }
-  res.json(all);
 });
 router.post('/locations', (req, res, next) => {
   req.url = '/geofences';
@@ -603,13 +644,18 @@ router.patch('/locations/:id/toggle-status', (req, res, next) => {
 
 // =================================================================
 // CENTRAL MASTER DATA API: PAY-GRADES
+// Backed by db.payGrades -- the normalized `pay_grades` Postgres table.
 // =================================================================
-router.get('/pay-grades', (req, res) => {
-  const includeInactive = String(req.query.includeInactive || '') === 'true';
-  const list = db.payGrades.getAll()
-    .filter(g => includeInactive || g.isActive)
-    .sort((a, b) => b.minimumSalary - a.minimumSalary);
-  res.json(list);
+router.get('/pay-grades', async (req, res) => {
+  try {
+    const includeInactive = String(req.query.includeInactive || '') === 'true';
+    const list = (await db.payGrades.getAll())
+      .filter(g => includeInactive || g.isActive)
+      .sort((a, b) => b.minimumSalary - a.minimumSalary);
+    res.json(list);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch pay grades.' });
+  }
 });
 
 router.post('/pay-grades', async (req, res) => {
@@ -619,7 +665,7 @@ router.post('/pay-grades', async (req, res) => {
       return res.status(400).json({ error: 'Grade Code and Grade Name are required.' });
     }
     const code = String(gradeCode).trim().toUpperCase();
-    if (db.payGrades.findByCode(code)) {
+    if (await db.payGrades.findByCode(code)) {
       return res.status(400).json({ error: `Pay Grade with code '${code}' already exists.` });
     }
     const min = Number(minimumSalary) || 0;
@@ -630,7 +676,7 @@ router.post('/pay-grades', async (req, res) => {
 
     const now = new Date().toISOString();
     const newGrade: PayGrade = {
-      id: `grd-${crypto.randomUUID().slice(0, 8)}`,
+      id: crypto.randomUUID(),
       gradeCode: code,
       gradeName: String(gradeName).trim(),
       minimumSalary: min,
@@ -651,7 +697,7 @@ router.post('/pay-grades', async (req, res) => {
 
 router.put('/pay-grades/:id', async (req, res) => {
   try {
-    const existing = db.payGrades.findById(req.params.id);
+    const existing = await db.payGrades.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Pay grade not found.' });
     }
@@ -673,19 +719,27 @@ router.put('/pay-grades/:id', async (req, res) => {
 });
 
 router.delete('/pay-grades/:id', async (req, res) => {
-  const existing = db.payGrades.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Pay grade not found.' });
-  const removed = await db.payGrades.delete(existing.id);
-  if (!removed) return res.status(404).json({ error: 'Pay grade not found.' });
-  res.json({ success: true, message: `Pay grade '${existing.gradeName}' removed successfully.` });
+  try {
+    const existing = await db.payGrades.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Pay grade not found.' });
+    const removed = await db.payGrades.delete(existing.id);
+    if (!removed) return res.status(404).json({ error: 'Pay grade not found.' });
+    res.json({ success: true, message: `Pay grade '${existing.gradeName}' removed successfully.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete pay grade.' });
+  }
 });
 
 router.patch('/pay-grades/:id/toggle-status', async (req, res) => {
-  const existing = db.payGrades.findById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'Pay grade not found.' });
-  const updated = await db.payGrades.update(existing.id, { isActive: !existing.isActive });
-  if (!updated) return res.status(404).json({ error: 'Pay grade not found.' });
-  res.json(updated);
+  try {
+    const existing = await db.payGrades.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Pay grade not found.' });
+    const updated = await db.payGrades.update(existing.id, { isActive: !existing.isActive });
+    if (!updated) return res.status(404).json({ error: 'Pay grade not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle pay grade status.' });
+  }
 });
 
 // =================================================================
