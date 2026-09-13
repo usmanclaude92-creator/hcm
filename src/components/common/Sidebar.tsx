@@ -12,7 +12,6 @@ import {
   Landmark,
   Scale,
   Building2,
-  HardHat,
   FileBarChart,
   FileSpreadsheet,
   History,
@@ -105,14 +104,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             icon: IdCard,
             targetView: 'employee-ledger',
             keywords: ['ledger', 'profile', 'card', 'statement', 'history'],
-          },
-          {
-            id: 'workforce-deployment',
-            label: 'Workforce Deployment',
-            icon: HardHat,
-            targetView: 'workforce',
-            badge: 'Shifts',
-            keywords: ['deployment', 'site', 'assignments', 'allocation', 'roster', 'mobile', 'shift status', 'eligibility sync'],
           },
           {
             id: 'attendance',
@@ -521,17 +512,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             return (
               <div key={category.id} className="rounded-xl overflow-hidden transition-colors">
-                {/* Category Header (Expandable/Collapsible Accordion Trigger) */}
+                {/* Category Header (Expandable/Collapsible Accordion Trigger) -- the
+                    "Main tab": a consistently dark surface (darker than the sidebar's own
+                    background) whether expanded or collapsed, so it always reads as the
+                    parent of whatever sits below it. */}
                 <button
                   type="button"
                   id={`category-btn-${category.id}`}
                   aria-expanded={isExpanded}
                   aria-controls={`category-panel-${category.id}`}
                   onClick={() => toggleCategory(category.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer group select-none ${
-                    hasActiveItem && !isExpanded
-                      ? 'bg-blue-950/40 text-blue-300 border border-blue-800/50'
-                      : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer group select-none border ${
+                    hasActiveItem
+                      ? 'bg-slate-950/80 border-blue-800/50 text-blue-300'
+                      : 'bg-slate-950/60 border-slate-800/60 text-slate-300 hover:bg-slate-950/80 hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -558,13 +552,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                 </button>
 
-                {/* Collapsible Menu Items List */}
+                {/* Collapsible Menu Items List -- the "Sub-tabs": nested/indented under the
+                    Main tab above, on a lighter panel background so the parent/child
+                    relationship is visually obvious rather than blending into the sidebar. */}
                 {isExpanded && (
                   <div
                     id={`category-panel-${category.id}`}
                     role="region"
                     aria-labelledby={`category-btn-${category.id}`}
-                    className="space-y-0.5 mt-1 pl-1 pr-0.5"
+                    className="space-y-0.5 mt-1.5 ml-2 pl-1.5 pr-1 py-1.5 rounded-lg bg-slate-800/40 border border-slate-800/60"
                   >
                     {category.visibleItems.map((item) => {
                       const Icon = item.icon;

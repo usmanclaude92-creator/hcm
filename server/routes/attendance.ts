@@ -65,6 +65,10 @@ router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
         employeeType: emp.employeeType,
         designation: emp.designation,
         employeeCompany: emp.employeeCompany,
+        // Employee Master's "home site" (see Employee.assignedProjectCode) -- lets the
+        // Workforce Deployment dashboard place a card under the employee's real project
+        // even before any hours are logged against them this month.
+        assignedProjectCode: emp.assignedProjectCode || null,
         salaryPaidBy: emp.salaryPaidBy,
         monthlySalaryOrRate: emp.monthlySalaryOrRate,
         wageType: emp.wageType,

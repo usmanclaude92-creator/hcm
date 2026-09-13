@@ -24,6 +24,11 @@ interface AttendanceGroupRow {
   employeeName: string;
   employeeType: 'Staff' | 'Worker';
   employeeCompany: string;
+  // Employee Master's "home site" assignment (Employee.assignedProjectCode) -- distinct
+  // from `records`, which only reflects hours actually logged this month. Used so a
+  // newly-assigned employee with zero attendance logged yet still shows under their real
+  // project instead of falling back to Head Office.
+  assignedProjectCode?: string | null;
   totalOvertimeHours: number;
   totalDays: number;
   totalHours: number;
@@ -93,10 +98,6 @@ const GEOFENCE_OPTIONS: MultiSelectOption[] = [
 const MOBILITY_OPTIONS: MultiSelectOption[] = [
   { value: 'Not Configured', label: 'Not Configured' },
 ];
-const ATTENDANCE_STATUS_OPTIONS: MultiSelectOption[] = [
-  { value: 'Deployed', label: 'Deployed' },
-  { value: 'Head Office', label: 'Head Office' },
-];
 
 export interface WorkforceDeploymentViewHandle {
   refresh: () => void;
@@ -119,33 +120,19 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const [shiftStatusByEmployee, setShiftStatusByEmployee] = useState<Record<string, WorkforceShiftStatus>>({});
   const [onLeaveIds, setOnLeaveIds] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Auto-dismiss the sync result banner instead of leaving it on screen indefinitely --
-  // it also gets cleared the next time data is refreshed (fetchData below), whichever
-  // comes first.
-  useEffect(() => {
-    if (!syncMessage) return;
-    const timer = setTimeout(() => setSyncMessage(null), 8000);
-    return () => clearTimeout(timer);
-  }, [syncMessage]);
 
   // Pushes active employees (by Civil ID) into the Artify Workforce app's eligibility
   // list so they can register there. Administrator only -- see server/routes/workforce.ts.
+  // No confirmation banner is shown on success (by design) -- a genuine failure still
+  // surfaces via the page's existing error banner so it isn't silently swallowed.
   const handleSyncEligibility = async () => {
     setSyncing(true);
-    setSyncMessage(null);
     try {
-      const data = await apiRequest('/api/workforce/sync-eligibility', { method: 'POST' });
-      const s = data?.summary;
-      setSyncMessage(
-        s
-          ? `Synced ${data.synced} employee(s): ${s.lookupUpserted} eligibility record(s) upserted, ${s.employeesRefreshed} already-registered profile(s) refreshed${s.projectsCreated ? `, ${s.projectsCreated} new site(s) created (set their real coordinates in Workforce)` : ''}.`
-          : 'Sync completed.'
-      );
+      await apiRequest('/api/workforce/sync-eligibility', { method: 'POST' });
+      handleManualRefresh();
     } catch (err: any) {
-      setSyncMessage(err.message || 'Sync with Workforce failed.');
+      setError(err.message || 'Sync with Workforce failed.');
     } finally {
       setSyncing(false);
     }
@@ -156,7 +143,6 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const [employeeTypeFilter, setEmployeeTypeFilter] = useState<string[]>(EMPLOYEE_TYPE_OPTIONS.map(o => o.value));
   const [geofenceFilter, setGeofenceFilter] = useState<string[]>(GEOFENCE_OPTIONS.map(o => o.value));
   const [mobilityFilter, setMobilityFilter] = useState<string[]>(MOBILITY_OPTIONS.map(o => o.value));
-  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState<string[]>(ATTENDANCE_STATUS_OPTIONS.map(o => o.value));
   // Seeded once real project data first arrives (empty = "Select All" not yet resolved).
   // Guarded by a ref, not projectOptions.length -- the "Head Office" pseudo-option makes
   // that length non-zero even before allProjects has loaded, which would otherwise lock
@@ -168,10 +154,6 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
   const fetchData = async () => {
-    // A stale sync banner should not survive a data refresh (manual "Refresh" click or
-    // the 60s auto-poll below), on top of the 8s auto-dismiss timer above.
-    setSyncMessage(null);
-
     try {
       setError(null);
       const data = await apiRequest(`/api/attendance?month=${currentMonth}`);
@@ -254,9 +236,13 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     }
   }, [allProjects, projectOptions]);
 
-  // Build one DeploymentEntry per (employee, section) appearance. Hours logged
-  // against a project that has since gone Inactive don't count toward that
-  // (now-hidden) section -- such an employee falls back to HO0001 (Head Office).
+  // Build one DeploymentEntry per (employee, section) appearance. An employee's real
+  // Employee Master assignment (assignedProjectCode) always gets a card under that
+  // project -- even with zero hours logged yet this month -- so a newly-synced or
+  // newly-assigned employee shows up where they actually work, not under Head Office
+  // just because nothing has been logged against them yet. Hours logged against a
+  // second active project this month (or against a project that has since gone
+  // Inactive) still surface as additional/fallback sections as before.
   const allEntries: DeploymentEntry[] = useMemo(() => {
     const entries: DeploymentEntry[] = [];
     for (const emp of grouped) {
@@ -264,7 +250,21 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       const activeRecords = emp.records.filter(
         r => activeProjectCodes.has(r.projectCode) && ((Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0)
       );
-      if (activeRecords.length === 0) {
+
+      const overtimeByProject = new Map<string, number>();
+      activeRecords.forEach(r => {
+        overtimeByProject.set(r.projectCode, (overtimeByProject.get(r.projectCode) || 0) + (Number(r.overtimeHours) || 0));
+      });
+
+      // Always include the employee's current Employee Master assignment as a section,
+      // defaulting to 0 overtime if no hours have been logged there yet this month.
+      if (emp.assignedProjectCode && activeProjectCodes.has(emp.assignedProjectCode) && !overtimeByProject.has(emp.assignedProjectCode)) {
+        overtimeByProject.set(emp.assignedProjectCode, 0);
+      }
+
+      if (overtimeByProject.size === 0) {
+        // No real project assignment and no hours logged against any active project --
+        // the only remaining bucket is Head Office.
         entries.push({
           employeeId: emp.employeeId,
           employeeName: emp.employeeName,
@@ -275,11 +275,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
           hasAttendanceThisMonth,
         });
       } else {
-        const byProject = new Map<string, number>();
-        activeRecords.forEach(r => {
-          byProject.set(r.projectCode, (byProject.get(r.projectCode) || 0) + (Number(r.overtimeHours) || 0));
-        });
-        byProject.forEach((ot, projectCode) => {
+        overtimeByProject.forEach((ot, projectCode) => {
           entries.push({
             employeeId: emp.employeeId,
             employeeName: emp.employeeName,
@@ -317,12 +313,10 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
           : 'Not Available';
       if (!geofenceFilter.includes(geofenceVal)) return false;
       if (!mobilityFilter.includes('Not Configured')) return false;
-      const status = e.sectionKey === HO0001_CODE ? 'Head Office' : 'Deployed';
-      if (!attendanceStatusFilter.includes(status)) return false;
       if (!projectFilter.includes(e.sectionKey)) return false;
       return true;
     });
-  }, [allEntries, search, companyFilter, employeeTypeFilter, geofenceFilter, mobilityFilter, attendanceStatusFilter, projectFilter]);
+  }, [allEntries, search, companyFilter, employeeTypeFilter, geofenceFilter, mobilityFilter, projectFilter]);
 
   // Projects rendered strictly from Project Master (e.g. HO0001 — Head Office).
   const sections = useMemo(() => {
@@ -363,10 +357,15 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
         if (isStaff) presentStaff += 1; else presentWorkers += 1;
       }
     });
+    // Absent = Total - Present - Leave, per type -- classifyPresence's three states are
+    // mutually exclusive and exhaustive, so this is exact, not an estimate.
+    const absentStaff = totalStaff - presentStaff - leaveStaff;
+    const absentWorkers = totalWorkers - presentWorkers - leaveWorkers;
     return {
       totalStaff, totalWorkers, total: totalStaff + totalWorkers,
       presentStaff, presentWorkers, present: presentStaff + presentWorkers,
       leaveStaff, leaveWorkers, leave: leaveStaff + leaveWorkers,
+      absentStaff, absentWorkers, absent: absentStaff + absentWorkers,
     };
   }, [grouped, shiftStatusByEmployee, onLeaveIds]);
 
@@ -376,7 +375,6 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     setEmployeeTypeFilter(EMPLOYEE_TYPE_OPTIONS.map(o => o.value));
     setGeofenceFilter(GEOFENCE_OPTIONS.map(o => o.value));
     setMobilityFilter(MOBILITY_OPTIONS.map(o => o.value));
-    setAttendanceStatusFilter(ATTENDANCE_STATUS_OPTIONS.map(o => o.value));
     setProjectFilter(projectOptions.map(o => o.value));
   };
 
@@ -396,17 +394,16 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">{error}</div>
       )}
-      {syncMessage && (
-        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-700 text-xs">{syncMessage}</div>
-      )}
 
-      {/* Human Resource Summary Widget */}
+      {/* Human Resource Summary Widget -- each tile is 2 lines: label + total, then the
+          Staff/Workers breakdown. */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">Human Resource Summary</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Active Employees</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{overview.total}</p>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              Total Active Employees: <span className="text-base font-bold text-slate-900 normal-case">{overview.total}</span>
+            </p>
             <p className="text-[11px] mt-1">
               <span className="text-blue-700 font-semibold">Staff: {overview.totalStaff}</span>
               <span className="mx-1.5 text-slate-300">•</span>
@@ -414,17 +411,29 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
             </p>
           </div>
           <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
-            <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Total Present Employees</p>
-            <p className="text-2xl font-bold text-emerald-700 mt-1">{overview.present}</p>
+            <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">
+              Total Present Employees: <span className="text-base font-bold text-emerald-700 normal-case">{overview.present}</span>
+            </p>
             <p className="text-[11px] mt-1">
               <span className="text-emerald-700 font-semibold">Staff: {overview.presentStaff}</span>
               <span className="mx-1.5 text-emerald-300">•</span>
               <span className="text-emerald-700 font-semibold">Workers: {overview.presentWorkers}</span>
             </p>
           </div>
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+            <p className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">
+              Total Absent Employees: <span className="text-base font-bold text-rose-700 normal-case">{overview.absent}</span>
+            </p>
+            <p className="text-[11px] mt-1">
+              <span className="text-rose-700 font-semibold">Staff: {overview.absentStaff}</span>
+              <span className="mx-1.5 text-rose-300">•</span>
+              <span className="text-rose-700 font-semibold">Workers: {overview.absentWorkers}</span>
+            </p>
+          </div>
           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
-            <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Employees on Leave</p>
-            <p className="text-2xl font-bold text-amber-700 mt-1">{overview.leave}</p>
+            <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
+              Employees on Leave: <span className="text-base font-bold text-amber-700 normal-case">{overview.leave}</span>
+            </p>
             <p className="text-[11px] mt-1">
               <span className="text-amber-700 font-semibold">Staff: {overview.leaveStaff}</span>
               <span className="mx-1.5 text-amber-300">•</span>
@@ -434,27 +443,24 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
-        <div className="relative w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search employee by ID or name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
+      {/* Filter Bar -- search + all filters + actions in a single wrapping row. */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 flex-1 min-w-0">
-            <MultiSelectDropdown allLabel="All Companies" options={COMPANY_OPTIONS} selected={companyFilter} onChange={setCompanyFilter} />
-            <MultiSelectDropdown allLabel="All Projects" options={projectOptions} selected={projectFilter} onChange={setProjectFilter} />
-            <MultiSelectDropdown allLabel="All Employee Types" options={EMPLOYEE_TYPE_OPTIONS} selected={employeeTypeFilter} onChange={setEmployeeTypeFilter} />
-            <MultiSelectDropdown allLabel="All Geofence Statuses" options={GEOFENCE_OPTIONS} selected={geofenceFilter} onChange={setGeofenceFilter} />
-            <MultiSelectDropdown allLabel="All Mobility" options={MOBILITY_OPTIONS} selected={mobilityFilter} onChange={setMobilityFilter} />
-            <MultiSelectDropdown allLabel="All Attendance Statuses" options={ATTENDANCE_STATUS_OPTIONS} selected={attendanceStatusFilter} onChange={setAttendanceStatusFilter} />
+          <div className="relative w-full sm:w-52 shrink-0">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search employee by ID or name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+            />
           </div>
+          <MultiSelectDropdown allLabel="All Companies" options={COMPANY_OPTIONS} selected={companyFilter} onChange={setCompanyFilter} />
+          <MultiSelectDropdown allLabel="All Projects" options={projectOptions} selected={projectFilter} onChange={setProjectFilter} />
+          <MultiSelectDropdown allLabel="All Employee Types" options={EMPLOYEE_TYPE_OPTIONS} selected={employeeTypeFilter} onChange={setEmployeeTypeFilter} />
+          <MultiSelectDropdown allLabel="All Geofence Statuses" options={GEOFENCE_OPTIONS} selected={geofenceFilter} onChange={setGeofenceFilter} />
+          <MultiSelectDropdown allLabel="All Mobility" options={MOBILITY_OPTIONS} selected={mobilityFilter} onChange={setMobilityFilter} />
           <button
             type="button"
             onClick={handleResetFilters}
