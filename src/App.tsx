@@ -146,7 +146,7 @@ const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col lg:flex-row font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col lg:flex-row font-sans antialiased text-slate-800 dark:text-slate-200 transition-colors">
       {/* Sidebar Navigation */}
       <Sidebar
         currentView={currentView}

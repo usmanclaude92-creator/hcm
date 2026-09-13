@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Tailwind v4 defaults `dark:` to the OS-level `prefers-color-scheme` media query, which
+   ignores the app's own light/dark toggle (Header.tsx toggles a `.dark` class on
+   <html> and persists the choice to localStorage, but without this line every `dark:`
+   utility in the app was silently inert -- the toggle updated state and localStorage but
+   never changed anything on screen). Registering `dark` as a class-based variant makes
+   every existing and future `dark:` utility respond to that class instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Dark scrollbar matching the sidebar's own navy theme, instead of the browser default. */
 .custom-scrollbar {
   scrollbar-width: thin;

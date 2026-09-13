@@ -411,39 +411,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 print:hidden border-r border-slate-800 ${
+        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 flex flex-col transition-colors duration-200 ease-in-out lg:translate-x-0 print:hidden border-r border-slate-200 dark:border-slate-800 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-4 border-b border-slate-800/90 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800/90 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <img src="/logo.png" alt="HCMS Logo" className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-xs" />
             <div className="min-w-0">
-              <h2 className="font-bold text-white text-xs tracking-tight uppercase leading-tight truncate">
+              <h2 className="font-bold text-slate-900 dark:text-white text-xs tracking-tight uppercase leading-tight truncate">
                 Human Capital Management
               </h2>
-              <p className="text-[10px] text-slate-400 truncate">Enterprise Operations</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Enterprise Operations</p>
             </div>
           </div>
         </div>
 
-        {/* Quick Menu Search & Collapse Controls */}
-        <div className="px-3 pt-3 pb-2 border-b border-slate-800/80 space-y-2">
+        {/* Quick Menu Search */}
+        <div className="px-3 pt-3 pb-2 border-b border-slate-200 dark:border-slate-800/80 space-y-2">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search menus & forms..."
-              className="w-full bg-slate-950/60 border border-slate-800 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-lg pl-8 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-0.5"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white p-0.5"
                 title="Clear search"
               >
                 <X className="w-3 h-3" />
@@ -498,9 +498,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {hasActiveItem && !isExpanded && (
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" title="Active module inside" />
                     )}
-                    <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-full bg-slate-800/80 text-slate-400 group-hover:bg-slate-700">
-                      {category.visibleItems.length}
-                    </span>
                     {isExpanded ? (
                       <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform" />
                     ) : (
@@ -517,7 +514,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     id={`category-panel-${category.id}`}
                     role="region"
                     aria-labelledby={`category-btn-${category.id}`}
-                    className="space-y-0.5 mt-1.5 ml-2 pl-1.5 pr-1 py-1.5 rounded-lg bg-slate-800/40 border border-slate-800/60"
+                    className="space-y-0.5 mt-1.5 ml-2 pl-1.5 pr-1 py-1.5 rounded-lg bg-slate-100 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-800/60"
                   >
                     {category.visibleItems.map((item) => {
                       const Icon = item.icon;
@@ -536,10 +533,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             onSelectView(item.targetView, item.targetParams);
                             if (onClose) onClose();
                           }}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-all group cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
+                          className={`w-full flex items-center px-2.5 py-2 rounded-lg text-xs font-medium transition-all group cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
                             isActive
                               ? 'bg-blue-600 text-white shadow-xs font-semibold'
-                              : 'text-slate-300 hover:bg-slate-800/90 hover:text-white'
+                              : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/90 dark:hover:text-white'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -548,30 +545,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 isActive
                                   ? 'text-white'
                                   : isForm
-                                  ? 'text-emerald-400 group-hover:text-emerald-300'
+                                  ? 'text-emerald-600 group-hover:text-emerald-700 dark:text-emerald-400 dark:group-hover:text-emerald-300'
                                   : isMaster
-                                  ? 'text-indigo-400 group-hover:text-indigo-300'
-                                  : 'text-slate-400 group-hover:text-slate-200'
+                                  ? 'text-indigo-600 group-hover:text-indigo-700 dark:text-indigo-400 dark:group-hover:text-indigo-300'
+                                  : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200'
                               }`}
                             />
                             <span className="truncate">{item.label}</span>
                           </div>
-
-                          {item.badge && (
-                            <span
-                              className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium shrink-0 ml-1.5 transition-colors ${
-                                isActive
-                                  ? 'bg-blue-700/80 text-blue-100'
-                                  : isForm
-                                  ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-700/50'
-                                  : isMaster
-                                  ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-700/40'
-                                  : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
                         </button>
                       );
                     })}
@@ -583,15 +564,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Footer Info */}
-        <div className="p-3 border-t border-slate-800/90 bg-slate-950/60">
-          <div className="rounded-lg bg-slate-800/70 p-2.5 border border-slate-700/60">
-            <div className="flex items-center justify-between text-xs text-slate-300 mb-0.5">
-              <span className="text-[11px] text-slate-400">Jurisdiction</span>
-              <span className="font-semibold text-white">Sultanate of Oman</span>
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800/90 bg-slate-50 dark:bg-slate-950/60">
+          <div className="rounded-lg bg-white border border-slate-200 dark:bg-slate-800/70 dark:border-slate-700/60 p-2.5">
+            <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 mb-0.5">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Jurisdiction</span>
+              <span className="font-semibold text-slate-900 dark:text-white">Sultanate of Oman</span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300">
-              <span className="text-[11px] text-slate-400">Currency</span>
-              <span className="font-mono font-semibold text-emerald-400">OMR (0.000)</span>
+            <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Currency</span>
+              <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">OMR (0.000)</span>
             </div>
           </div>
         </div>

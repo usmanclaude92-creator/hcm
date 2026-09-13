@@ -42,16 +42,19 @@ interface ProjectRow {
   status: 'Active' | 'Inactive';
 }
 
-// One row per (employee, section) appearance -- an employee deployed to two
-// active projects this month appears once per project.
+// Exactly one row per employee -- one card per registered employee, full stop. An
+// earlier version could add a second row for an employee who had hours logged against
+// an active project other than their current Employee Master assignment, which showed
+// the same person's card twice (once per project). See `allEntries` below for how the
+// single section is chosen.
 interface DeploymentEntry {
   employeeId: string;
   employeeName: string;
   employeeType: string;
   employeeCompany: string;
   sectionKey: string; // projectCode (e.g. HO0001 or site code)
-  overtimeHours: number; // for this section only (summed if somehow >1 record for the same project)
-  hasAttendanceThisMonth: boolean; // across ALL of the employee's records, regardless of project
+  overtimeHours: number;
+  hasAttendanceThisMonth: boolean;
 }
 
 // Present/Absent/Leave classification shared by the HR summary widget, each project
@@ -247,46 +250,47 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     const entries: DeploymentEntry[] = [];
     for (const emp of grouped) {
       const hasAttendanceThisMonth = (Number(emp.totalDays) || 0) > 0 || (Number(emp.totalHours) || 0) > 0;
-      const activeRecords = emp.records.filter(
-        r => activeProjectCodes.has(r.projectCode) && ((Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0)
-      );
 
-      const overtimeByProject = new Map<string, number>();
-      activeRecords.forEach(r => {
-        overtimeByProject.set(r.projectCode, (overtimeByProject.get(r.projectCode) || 0) + (Number(r.overtimeHours) || 0));
-      });
-
-      // Always include the employee's current Employee Master assignment as a section,
-      // defaulting to 0 overtime if no hours have been logged there yet this month.
-      if (emp.assignedProjectCode && activeProjectCodes.has(emp.assignedProjectCode) && !overtimeByProject.has(emp.assignedProjectCode)) {
-        overtimeByProject.set(emp.assignedProjectCode, 0);
-      }
-
-      if (overtimeByProject.size === 0) {
-        // No real project assignment and no hours logged against any active project --
-        // the only remaining bucket is Head Office.
-        entries.push({
-          employeeId: emp.employeeId,
-          employeeName: emp.employeeName,
-          employeeType: emp.employeeType,
-          employeeCompany: emp.employeeCompany,
-          sectionKey: HO0001_CODE,
-          overtimeHours: emp.totalOvertimeHours || 0,
-          hasAttendanceThisMonth,
-        });
+      // Exactly one section per employee -- their current Employee Master assignment
+      // (assignedProjectCode) if it's an active project; otherwise the active project
+      // they logged the most hours against this month; otherwise Head Office. A prior
+      // version emitted one entry for the assigned project AND a separate entry for any
+      // active project with logged hours, which showed the same employee's card twice
+      // whenever those two projects differed (e.g. reassigned mid-month, or hours logged
+      // before the reassignment took effect).
+      let sectionKey: string = HO0001_CODE;
+      if (emp.assignedProjectCode && activeProjectCodes.has(emp.assignedProjectCode)) {
+        sectionKey = emp.assignedProjectCode;
       } else {
-        overtimeByProject.forEach((ot, projectCode) => {
-          entries.push({
-            employeeId: emp.employeeId,
-            employeeName: emp.employeeName,
-            employeeType: emp.employeeType,
-            employeeCompany: emp.employeeCompany,
-            sectionKey: projectCode,
-            overtimeHours: ot,
-            hasAttendanceThisMonth,
+        const activeRecords = emp.records.filter(
+          r => activeProjectCodes.has(r.projectCode) && ((Number(r.daysWorked) || 0) > 0 || (Number(r.hoursWorked) || 0) > 0)
+        );
+        if (activeRecords.length > 0) {
+          const hoursByProject = new Map<string, number>();
+          activeRecords.forEach(r => {
+            hoursByProject.set(r.projectCode, (hoursByProject.get(r.projectCode) || 0) + (Number(r.hoursWorked) || 0));
           });
-        });
+          let bestCode = activeRecords[0].projectCode;
+          let bestHours = -1;
+          hoursByProject.forEach((hrs, code) => {
+            if (hrs > bestHours) {
+              bestHours = hrs;
+              bestCode = code;
+            }
+          });
+          sectionKey = bestCode;
+        }
       }
+
+      entries.push({
+        employeeId: emp.employeeId,
+        employeeName: emp.employeeName,
+        employeeType: emp.employeeType,
+        employeeCompany: emp.employeeCompany,
+        sectionKey,
+        overtimeHours: emp.totalOvertimeHours || 0,
+        hasAttendanceThisMonth,
+      });
     }
     return entries;
   }, [grouped, activeProjectCodes]);
