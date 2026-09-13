@@ -29,10 +29,49 @@ import { useIdleTimer, IDLE_TIMEOUT_MS, WARNING_DURATION_MS } from './hooks/useI
 import { IdleTimeoutModal } from './components/common/IdleTimeoutModal';
 import { useTheme } from './hooks/useTheme';
 
+// Keeps the current screen (and its params) alive across a browser refresh -- navigation
+// here is in-memory React state with no URL routing, so without this a refresh always
+// dropped the user back to the dashboard regardless of what they were looking at.
+// sessionStorage (not localStorage) so it doesn't leak into a different tab/session, and
+// it's read defensively since private-browsing or a disabled-storage setting can throw.
+const NAV_STATE_KEY = 'hcms_nav_state';
+
+function loadStoredNavState(): { view: string; params: Record<string, any> } {
+  try {
+    const raw = sessionStorage.getItem(NAV_STATE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.view === 'string') {
+        return { view: parsed.view, params: parsed.params || {} };
+      }
+    }
+  } catch {
+    // Storage unavailable or corrupted -- fall through to the default view.
+  }
+  return { view: 'dashboard', params: {} };
+}
+
+function storeNavState(view: string, params: Record<string, any>) {
+  try {
+    sessionStorage.setItem(NAV_STATE_KEY, JSON.stringify({ view, params }));
+  } catch {
+    // Best-effort only -- losing this just means a refresh falls back to the dashboard.
+  }
+}
+
+function clearStoredNavState() {
+  try {
+    sessionStorage.removeItem(NAV_STATE_KEY);
+  } catch {
+    // Nothing to clean up if storage isn't available in the first place.
+  }
+}
+
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading, isDemoMode, mustChangePassword, logout } = useAuth();
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [viewParams, setViewParams] = useState<Record<string, any>>({});
+  const initialNavState = React.useMemo(loadStoredNavState, []);
+  const [currentView, setCurrentView] = useState(initialNavState.view);
+  const [viewParams, setViewParams] = useState<Record<string, any>>(initialNavState.params);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Single source of truth for the theme, applied here -- above every early return -- so
@@ -51,9 +90,20 @@ const MainApp: React.FC = () => {
   });
 
   const handleNavigate = (view: string, params?: Record<string, any>) => {
-    setViewParams(params || {});
+    const nextParams = params || {};
+    setViewParams(nextParams);
     setCurrentView(view);
+    storeNavState(view, nextParams);
   };
+
+  // Wipe the remembered screen on logout -- otherwise the next login (possibly a
+  // different user, on a shared machine) would land straight back on whatever screen
+  // the previous session was viewing instead of the dashboard.
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      clearStoredNavState();
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
