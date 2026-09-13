@@ -578,6 +578,11 @@ export interface AttendancePunch {
   // Geofence evaluation (non-blocking exception logging)
   isGeofenceException?: boolean;
   exceptionReason?: string | null;
+  // True when this punch was auto-generated to match a manually-entered monthly summary
+  // (days/hours worked) that has no real daily punch-level data behind it -- i.e. it was
+  // never a real GPS/selfie-verified check-in/out. Lets the UI label it honestly instead
+  // of presenting it as indistinguishable from a real captured punch.
+  isSynthesized?: boolean;
   status: 'Checked In' | 'Checked Out' | 'Exception';
   notes?: string | null;
   idempotencyKey?: string | null;

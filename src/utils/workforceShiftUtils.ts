@@ -46,6 +46,17 @@ export function formatBusinessTime(iso: string | null | undefined): string | nul
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: WORKFORCE_BUSINESS_TIMEZONE });
 }
 
+// Day/month/year date display (e.g. "13 Sep 2026"), pinned to the same business timezone
+// as every other workforce time/date helper here -- so a plain 'YYYY-MM-DD' punch date and
+// a full ISO timestamp both read as the correct Oman-local calendar date regardless of the
+// viewer's own timezone, instead of drifting a day depending on where the browser is.
+export function formatBusinessDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: WORKFORCE_BUSINESS_TIMEZONE });
+}
+
 export function formatBusinessDateTime(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);

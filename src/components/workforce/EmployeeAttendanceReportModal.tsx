@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../api/client';
+import { formatBusinessTime, formatBusinessDate } from '../../utils/workforceShiftUtils';
 
 interface AttendanceRecordItem {
   id: string;
@@ -55,6 +56,9 @@ interface AttendancePunchItem {
   projectCode?: string;
   projectName?: string;
   supervisorApproved?: boolean;
+  // Auto-generated to match a manually-entered monthly summary -- no real GPS/selfie
+  // check-in/out was ever captured for this row.
+  isSynthesized?: boolean;
 }
 
 interface EmployeeReportData {
@@ -93,18 +97,15 @@ interface Props {
   onNavigateToFullAttendance?: (employeeId: string, month: string) => void;
 }
 
+// Pinned to Asia/Muscat (see workforceShiftUtils) instead of the viewer's own browser
+// timezone, matching the Employee Card / shift-status feed elsewhere in this dashboard --
+// previously this modal alone showed times shifted by the viewer's own offset.
 function formatTime(iso: string | null | undefined): string {
-  if (!iso) return '-';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return formatBusinessTime(iso) ?? (iso || '-');
 }
 
 function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return formatBusinessDate(dateStr) ?? (dateStr || '-');
 }
 
 export const EmployeeAttendanceReportModal: React.FC<Props> = ({
@@ -126,6 +127,13 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+
+  // The "Daily Shifts & Selfie Logs" table below is specifically the real GPS/selfie
+  // capture log -- synthesized rows (generated only to match a manually-entered monthly
+  // summary, see server/routes/attendance.ts) have no real selfie or location behind
+  // them and don't belong there. The summary table above still shows every row,
+  // synthesized ones included, but visibly labeled.
+  const realPunches = data ? data.punches.filter(p => !p.isSynthesized) : [];
 
   useEffect(() => {
     if (initialMonth) setSelectedMonth(initialMonth);
@@ -419,7 +427,11 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                             // The backend records a single isGeofenceException flag per punch (not
                             // separately per selfie), so when an exception is flagged on a day with
                             // both a start and end selfie, one of the two is treated as the outlier.
-                            const totalSelfies = (punch.checkInTime ? 1 : 0) + (punch.checkOutTime ? 1 : 0);
+                            // A synthesized row never had a real selfie/GPS capture at all, so there
+                            // is nothing to score -- show "-" rather than a fabricated 100%.
+                            const totalSelfies = punch.isSynthesized
+                              ? 0
+                              : (punch.checkInTime ? 1 : 0) + (punch.checkOutTime ? 1 : 0);
                             const insideSelfies = punch.isGeofenceException
                               ? Math.max(totalSelfies - 1, 0)
                               : totalSelfies;
@@ -430,7 +442,17 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                             return (
                               <tr key={punch.id} className="hover:bg-slate-50/60 transition-colors">
                                 <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                                  {formatDate(punch.punchDate)}
+                                  <div className="flex items-center gap-1.5">
+                                    {formatDate(punch.punchDate)}
+                                    {punch.isSynthesized && (
+                                      <span
+                                        title="Auto-generated from the monthly summary -- no real check-in/out was captured for this day."
+                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
+                                      >
+                                        Est.
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                   {punch.projectName || punch.projectCode || data.employee.assignedProjectName || '-'}
@@ -480,12 +502,12 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                     <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     Daily Shifts &amp; Selfie Logs ({selectedMonth})
                   </h3>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{data.punches.length} Shift Punch(es)</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{realPunches.length} Shift Punch(es)</span>
                 </div>
 
-                {data.punches.length === 0 ? (
+                {realPunches.length === 0 ? (
                   <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/40">
-                    No camera shift punches recorded in Supabase Workforce or local mobile punch log for this month yet.
+                    No real GPS/selfie check-in or check-out was captured for this employee this month yet.
                   </div>
                 ) : (
                   <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
@@ -502,7 +524,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                          {data.punches.map((punch) => {
+                          {realPunches.map((punch) => {
                             const startImg = punch.startSelfieUrl || punch.selfieUrl;
                             const endImg = punch.endSelfieUrl;
                             const isInside = punch.isGeofenceException === false;

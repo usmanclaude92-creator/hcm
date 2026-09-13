@@ -950,12 +950,29 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
   return Math.round(R * c);
 }
 
-// Default Oman Project / HQ coordinates (Muscat Central)
-const DEFAULT_GEOFENCE = {
-  latitude: 23.5880,
-  longitude: 58.3829,
-  radiusMeters: 1500, // 1.5 km
-};
+// Each project can configure its own real gate/geofence (see db.geofences and the
+// /api/masters/geofences CRUD), keyed by that project's projectCode. Resolve the
+// specific project's active primary gate here instead of comparing every employee on
+// every project against one hardcoded Muscat-central point that has nothing to do with
+// most actual sites. When a project has no geofence configured yet, there is nothing
+// real to compare against, so the caller should skip the exception check entirely
+// rather than silently flag (or silently clear) against the wrong location.
+async function resolveProjectGeofence(
+  projectCode: string | null | undefined
+): Promise<{ latitude: number; longitude: number; radiusMeters: number } | null> {
+  if (!projectCode) return null;
+  const normalized = projectCode.trim().toUpperCase();
+  if (!normalized) return null;
+  const all = await db.geofences.getAll();
+  const forProject = all.filter(g => g.isActive && (g.projectId || '').trim().toUpperCase() === normalized);
+  if (forProject.length === 0) return null;
+  const primary = forProject.find(g => g.isPrimary) || forProject[0];
+  return {
+    latitude: Number(primary.latitude),
+    longitude: Number(primary.longitude),
+    radiusMeters: Number(primary.radiusMeters),
+  };
+}
 
 function getMonthWorkingDates(month: string, targetCount: number): string[] {
   const [y, m] = month.split('-').map(Number);
@@ -1025,7 +1042,11 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
           projectId: proj?.id || 'proj-ho',
           projectCode,
           projectName: proj?.projectName || 'Head Office',
-          isGeofenceException: false,
+          // Generated to match a manually-entered monthly summary, not a real captured
+          // check-in/out -- no GPS/selfie was ever taken, so there is nothing to evaluate
+          // a geofence exception against. Flagged via isSynthesized below so the UI can
+          // say so, instead of asserting a false "no exception" verification.
+          isSynthesized: true,
           status: 'Checked Out',
           createdAt: `${d}T08:00:00.000Z`,
           updatedAt: `${d}T17:00:00.000Z`,
@@ -1298,11 +1319,17 @@ router.post('/punches/check-in', verifyAuth, async (req: AuthRequest, res: Respo
     let exceptionReason: string | null = null;
 
     if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
-      const dist = computeDistanceMeters(lat, lon, DEFAULT_GEOFENCE.latitude, DEFAULT_GEOFENCE.longitude);
-      if (dist > DEFAULT_GEOFENCE.radiusMeters) {
-        isGeofenceException = true;
-        exceptionReason = `Check-in location is ${Math.round(dist)}m from designated site (boundary: ${DEFAULT_GEOFENCE.radiusMeters}m)`;
+      const geofence = await resolveProjectGeofence(req.body.projectCode || emp.assignedProjectCode);
+      if (geofence) {
+        const dist = computeDistanceMeters(lat, lon, geofence.latitude, geofence.longitude);
+        if (dist > geofence.radiusMeters) {
+          isGeofenceException = true;
+          exceptionReason = `Check-in location is ${Math.round(dist)}m from designated site (boundary: ${geofence.radiusMeters}m)`;
+        }
       }
+      // No geofence configured for this project yet -- nothing real to compare against,
+      // so no exception is raised (previously every project was compared against one
+      // hardcoded Muscat-central point, which was meaningless for sites elsewhere).
     }
 
     const projectId = req.body.projectId || 'proj-hq';
@@ -1381,12 +1408,15 @@ router.post('/punches/check-out', verifyAuth, async (req: AuthRequest, res: Resp
     let exceptionReason = punch.exceptionReason || null;
 
     if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
-      const dist = computeDistanceMeters(lat, lon, DEFAULT_GEOFENCE.latitude, DEFAULT_GEOFENCE.longitude);
-      if (dist > DEFAULT_GEOFENCE.radiusMeters) {
-        isGeofenceException = true;
-        exceptionReason = exceptionReason
-          ? `${exceptionReason}; Check-out location is ${Math.round(dist)}m from site`
-          : `Check-out location is ${Math.round(dist)}m from designated site`;
+      const geofence = await resolveProjectGeofence(punch.projectCode);
+      if (geofence) {
+        const dist = computeDistanceMeters(lat, lon, geofence.latitude, geofence.longitude);
+        if (dist > geofence.radiusMeters) {
+          isGeofenceException = true;
+          exceptionReason = exceptionReason
+            ? `${exceptionReason}; Check-out location is ${Math.round(dist)}m from site`
+            : `Check-out location is ${Math.round(dist)}m from designated site`;
+        }
       }
     }
 
