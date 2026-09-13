@@ -175,6 +175,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
   const startPhotoUrl = isToday ? (shiftStatus?.startSelfieUrl || shiftStatus?.selfieUrl || shiftStatus?.selfie_url) : undefined;
   const endPhotoUrl = isToday ? shiftStatus?.endSelfieUrl : undefined;
 
+  // Card face shows ONE photo at a time, replace semantics: the Shift Start selfie is
+  // shown and kept until a Shift End selfie exists, at which point the End selfie
+  // replaces it entirely (not shown side-by-side) until the next day's reset clears both.
+  // The zoom modal below still receives both start/end photos so a user can review the
+  // Start selfie even after it's been replaced on the card face.
+  const displayPhotoUrl = endPhotoUrl || startPhotoUrl;
+  const displayPhotoLabel: 'start' | 'end' = endPhotoUrl ? 'end' : 'start';
+
   return (
     <div
       role={onClick ? 'button' : undefined}
@@ -230,90 +238,36 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           />
         </div>
 
-        {/* 4. Photos: Show selfie taken at start and end of shift with click-to-zoom */}
-        {startPhotoUrl && endPhotoUrl ? (
-          <div className="w-full h-full grid grid-cols-2 divide-x divide-white/60 bg-slate-200">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={(e) => handleOpenZoom(e, 'start')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleOpenZoom(e as any, 'start');
-                }
-              }}
-              className="relative h-full w-full overflow-hidden cursor-zoom-in group/photo"
-              title="Click to zoom Shift Start Selfie"
-            >
-              <img
-                src={startPhotoUrl}
-                alt="Shift Start Selfie"
-                className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
-              />
-              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
-                Start
-              </span>
-              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
-                <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
-                  <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
-                </span>
-              </div>
-            </div>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={(e) => handleOpenZoom(e, 'end')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleOpenZoom(e as any, 'end');
-                }
-              }}
-              className="relative h-full w-full overflow-hidden cursor-zoom-in group/photo"
-              title="Click to zoom Shift End Selfie"
-            >
-              <img
-                src={endPhotoUrl}
-                alt="Shift End Selfie"
-                className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
-              />
-              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
-                End
-              </span>
-              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
-                <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
-                  <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : startPhotoUrl ? (
+        {/* 4. Photo: Shift Start selfie is shown and kept until the Shift End selfie is
+             taken, at which point the End selfie REPLACES it on the card face (not shown
+             side-by-side) until the card resets at the next day's rollover. Click-to-zoom
+             still opens both start/end photos for review via SelfieZoomModal. */}
+        {displayPhotoUrl ? (
           <div
             role="button"
             tabIndex={0}
-            onClick={(e) => handleOpenZoom(e, 'start')}
+            onClick={(e) => handleOpenZoom(e, displayPhotoLabel)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
-                handleOpenZoom(e as any, 'start');
+                handleOpenZoom(e as any, displayPhotoLabel);
               }
             }}
             className="relative w-full h-full cursor-zoom-in group/photo"
-            title="Click to zoom verification selfie"
+            title={displayPhotoLabel === 'end' ? 'Click to zoom Shift End Selfie' : 'Click to zoom Shift Start Selfie'}
           >
             <img
-              src={startPhotoUrl}
-              alt={employeeName}
+              src={displayPhotoUrl}
+              alt={displayPhotoLabel === 'end' ? 'Shift End Selfie' : 'Shift Start Selfie'}
               className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
             />
-            <div className="absolute inset-0 bg-slate-900/25 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/85 text-white text-[10px] font-medium shadow-md backdrop-blur-xs">
-                <ZoomIn className="w-3 h-3 text-blue-300" />
-                Click to Zoom
+            <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
+              {displayPhotoLabel === 'end' ? 'End' : 'Start'}
+            </span>
+            <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
+              <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
+                <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
               </span>
             </div>
           </div>
