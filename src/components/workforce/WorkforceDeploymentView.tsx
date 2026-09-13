@@ -331,8 +331,17 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     });
     const sortByName = (list: DeploymentEntry[]) => [...list].sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 
+    // Head Office is always pinned first; every other project keeps its existing
+    // (stable) order after it.
+    const orderedProjects = [...activeProjects].sort((a, b) => {
+      const aIsHO = a.projectCode === HO0001_CODE;
+      const bIsHO = b.projectCode === HO0001_CODE;
+      if (aIsHO === bIsHO) return 0;
+      return aIsHO ? -1 : 1;
+    });
+
     const result: { key: string; title: string; employees: DeploymentEntry[] }[] = [];
-    activeProjects.forEach(p => {
+    orderedProjects.forEach(p => {
       result.push({
         key: p.projectCode,
         title: `PROJECT: ${p.projectCode} — ${p.projectName}`,
@@ -526,7 +535,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
               </h3>
               <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 <span>Total: <span className="text-slate-900 dark:text-slate-100 font-bold">{section.employees.length}</span></span>
-                <span className="text-emerald-600 dark:text-emerald-400">Active: <span className="font-bold">{presentCount}</span></span>
+                <span className="text-emerald-600 dark:text-emerald-400">Present: <span className="font-bold">{presentCount}</span></span>
                 <span className="text-rose-600 dark:text-rose-400">Absent: <span className="font-bold">{absentCount}</span></span>
               </div>
             </div>
