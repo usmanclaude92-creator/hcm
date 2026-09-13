@@ -5,6 +5,7 @@ import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDro
 import { EmployeeDeploymentCard, type WorkforceShiftStatus } from './EmployeeDeploymentCard';
 import { EmployeeAttendanceReportModal } from './EmployeeAttendanceReportModal';
 import { Search, RotateCcw, Building, RefreshCw } from 'lucide-react';
+import { isShiftDateToday } from '../../utils/workforceShiftUtils';
 
 const HO0001_CODE = 'HO0001';
 const POLL_INTERVAL_MS = 60000;
@@ -299,11 +300,16 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       }
       if (!companyFilter.includes(e.employeeCompany)) return false;
       if (!employeeTypeFilter.includes(e.employeeType)) return false;
+      // A geofence result only counts for today's filter classification when it's
+      // actually today's shift -- otherwise a stale/prior-day value (or polling lag)
+      // would bucket the employee as Inside/Outside while their card itself correctly
+      // shows the "not captured" grey state. Keeps the filter and the card in sync.
       const shift = shiftStatusByEmployee[e.employeeId.toUpperCase()];
+      const shiftIsToday = isShiftDateToday(shift?.shiftDate);
       const geofenceVal =
-        shift?.isInsideGeofence === true
+        shiftIsToday && shift?.isInsideGeofence === true
           ? 'Inside Site Radius'
-          : shift?.isInsideGeofence === false
+          : shiftIsToday && shift?.isInsideGeofence === false
           ? 'Outside Site Radius'
           : 'Not Available';
       if (!geofenceFilter.includes(geofenceVal)) return false;

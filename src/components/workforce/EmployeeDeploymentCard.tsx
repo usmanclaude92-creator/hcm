@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserRound, MapPin, Clock, ZoomIn } from 'lucide-react';
 import { type AttendanceStatus } from '../common/AttendanceStatusBadge';
 import { SelfieZoomModal } from './SelfieZoomModal';
+import { isShiftDateToday, formatBusinessTime, formatBusinessDateTime } from '../../utils/workforceShiftUtils';
 
 export interface WorkforceShiftStatus {
   shiftDate?: string | null;
@@ -30,13 +31,6 @@ interface Props {
   onClick?: () => void;
 }
 
-function formatTimeOnly(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
 function formatMinutesToHours(minutes: number): string {
   if (minutes <= 0) return '0 mins';
   const h = Math.floor(minutes / 60);
@@ -46,33 +40,27 @@ function formatMinutesToHours(minutes: number): string {
   return `${h} hrs ${m} mins`;
 }
 
+// Resolves the ISO instant the selfie was actually taken at, falling back to the
+// clock-in time when the source didn't supply one, then formats it in the business's
+// local timezone (see formatBusinessDateTime).
 function formatSelfieDateTime(shiftStatus?: WorkforceShiftStatus): string | null {
   if (!shiftStatus) return null;
-  let d: Date | null = null;
-  if (shiftStatus.selfieTakenAt) {
-    const parsed = new Date(shiftStatus.selfieTakenAt);
-    if (!isNaN(parsed.getTime())) d = parsed;
+  let iso: string | null = null;
+  if (shiftStatus.selfieTakenAt && !isNaN(new Date(shiftStatus.selfieTakenAt).getTime())) {
+    iso = shiftStatus.selfieTakenAt;
   }
-  if (!d && shiftStatus.selfieUrl) {
+  if (!iso && shiftStatus.selfieUrl) {
     const match = shiftStatus.selfieUrl.match(/_(\d{12,14})\./);
     if (match) {
       const ts = Number(match[1]);
-      if (!isNaN(ts)) {
-        const parsed = new Date(ts);
-        if (!isNaN(parsed.getTime())) d = parsed;
-      }
+      if (!isNaN(ts) && !isNaN(new Date(ts).getTime())) iso = new Date(ts).toISOString();
     }
   }
-  if (!d && shiftStatus.clockInAt) {
-    const parsed = new Date(shiftStatus.clockInAt);
-    if (!isNaN(parsed.getTime())) d = parsed;
+  if (!iso && shiftStatus.clockInAt && !isNaN(new Date(shiftStatus.clockInAt).getTime())) {
+    iso = shiftStatus.clockInAt;
   }
-  if (!d) return null;
-
-  const day = d.getDate();
-  const month = d.toLocaleString('en-GB', { month: 'short' });
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  return `${day} ${month}, ${time}`;
+  if (!iso) return null;
+  return formatBusinessDateTime(iso);
 }
 
 export const EmployeeDeploymentCard: React.FC<Props> = ({
@@ -100,13 +88,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     setZoomModalOpen(true);
   };
 
-  // Check if shift belongs to today
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const isToday = !shiftStatus?.shiftDate || shiftStatus.shiftDate === todayStr;
+  // Check if shift belongs to today. shiftStatus.shiftDate is stamped by the Workforce
+  // Edge Functions using the UTC calendar date, not the viewer's browser-local date --
+  // comparing against a browser-local "today" caused a genuinely-active shift to read
+  // as "not today" for part of every night. See workforceShiftUtils.ts.
+  const isToday = isShiftDateToday(shiftStatus?.shiftDate);
 
   // 1. Start Time (time of start shift selfie taken time)
-  const startTime = isToday ? formatTimeOnly(shiftStatus?.clockInAt) : null;
+  const startTime = isToday ? formatBusinessTime(shiftStatus?.clockInAt) : null;
 
   // 2. End Time (time of end shift selfie taken, or auto-ends at 23:59:59 if unended after midnight)
   let endTimeDisplay: string | null = null;
@@ -114,7 +103,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
   if (isToday) {
     if (shiftStatus?.clockOutAt) {
-      endTimeDisplay = formatTimeOnly(shiftStatus.clockOutAt);
+      endTimeDisplay = formatBusinessTime(shiftStatus.clockOutAt);
     } else if (isOpen) {
       endTimeDisplay = 'On Shift';
     } else if (shiftStatus?.clockInAt) {
@@ -152,11 +141,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     hoursWorkedTodayStr = formatMinutesToHours(totalMinutes);
   }
 
-  // Geofence status: Inside Site Radius (Green) / Outside (Red)
-  const isInsideGeofence = shiftStatus?.isInsideGeofence;
+  // Geofence status: Inside Site Radius (Green) / Outside (Red). Gated by isToday so a
+  // previous day's geofence result (or a stale/cached shiftStatus) never paints today's
+  // card -- falls back to the "not captured" grey state instead, per the current-day
+  // reset rule.
+  const isInsideGeofence = isToday ? shiftStatus?.isInsideGeofence : undefined;
 
-  // Selfie timestamp display at top-left corner
-  const selfieDateTimeStr = formatSelfieDateTime(shiftStatus);
+  // Selfie timestamp display at top-left corner -- same current-day gate.
+  const selfieDateTimeStr = isToday ? formatSelfieDateTime(shiftStatus) : null;
 
   // Status Badge Label & Color at bottom-left of photo
   let badgeLabel = 'Absent';
@@ -166,7 +158,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
   if (isOnLeave) {
     badgeLabel = 'On Leave';
-    badgeStyle = 'bg-amber-500 text-white';
+    badgeStyle = 'bg-slate-500 text-white';
   } else if (isOpen) {
     badgeLabel = 'Shift Started';
     badgeStyle = 'bg-emerald-600 text-white';
@@ -178,8 +170,10 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     badgeStyle = 'bg-rose-600 text-white';
   }
 
-  const startPhotoUrl = shiftStatus?.startSelfieUrl || shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
-  const endPhotoUrl = shiftStatus?.endSelfieUrl;
+  // No Selfie Today must show the default avatar even if shiftStatus still carries a
+  // photo from a prior day (stale cache, polling lag) -- gated by isToday.
+  const startPhotoUrl = isToday ? (shiftStatus?.startSelfieUrl || shiftStatus?.selfieUrl || shiftStatus?.selfie_url) : undefined;
+  const endPhotoUrl = isToday ? shiftStatus?.endSelfieUrl : undefined;
 
   return (
     <div
@@ -402,7 +396,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         {/* 6. Mobility (will setup later) */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-600 font-medium shrink-0">Mobility:</span>
-          <span className="text-slate-400 italic truncate">Will setup later</span>
+          <span className="text-slate-400 italic truncate">Coming Soon</span>
         </div>
       </div>
 
