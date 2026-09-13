@@ -29,6 +29,8 @@ import type {
   PublicHoliday,
   Department,
   Designation,
+  CompanyMaster,
+  TradeMaster,
   LeaveRequest,
   AuditLog,
   EmployeeCivilId,
@@ -245,6 +247,48 @@ export class ConcurrencyConflictError extends Error {
   }
 }
 
+// Seed data for the Companies and Trades masters, used only the very first time the
+// app_state document is created (or for anyone upgrading from the old, non-persistent
+// in-memory stores, whose data was never real). Companies are seeded from the actual
+// company codes ('ARTIFY', 'DGO') that live employee records and the Workforce-App
+// mobile registration flow already reference in the shared Supabase `companies` table
+// -- not the previous placeholder demo companies (HO-OMAN/AL-TURKI/INFRA-TECH), which
+// no real employee or FK ever pointed at. Trades keep the same 8 entries the in-memory
+// store used to seed, so nothing visibly disappears for existing users on this upgrade.
+const DEFAULT_COMPANIES: CompanyMaster[] = [
+  {
+    id: 'comp-artify',
+    companyCode: 'ARTIFY',
+    companyName: 'Artify Solutions',
+    country: 'Oman',
+    currency: 'OMR',
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'comp-dgo',
+    companyCode: 'DGO',
+    companyName: 'DGO',
+    country: 'Oman',
+    currency: 'OMR',
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+];
+
+const DEFAULT_TRADES: TradeMaster[] = [
+  { id: 'trd-01', tradeCode: 'CARP', tradeName: 'Shuttering Carpenter', category: 'Civil', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-02', tradeCode: 'ST-FX', tradeName: 'Steel Fixer', category: 'Civil', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-03', tradeCode: 'MASON', tradeName: 'Block Mason / Plasterer', category: 'Civil', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-04', tradeCode: 'ELEC', tradeName: 'Industrial Electrician', category: 'Electrical', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-05', tradeCode: 'PIPE', tradeName: 'Pipe Fitter & Welder (6G)', category: 'Mechanical', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-06', tradeCode: 'HVAC', tradeName: 'HVAC Technician', category: 'Mechanical', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-07', tradeCode: 'OPER', tradeName: 'Heavy Equipment Operator', category: 'Logistics', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+  { id: 'trd-08', tradeCode: 'SFTY', tradeName: 'Site Safety Marshall', category: 'General', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+];
+
 interface DatabaseSchema {
   users: User[];
   employees: Employee[];
@@ -272,6 +316,13 @@ interface DatabaseSchema {
   // so the same role existed under several spellings and could not be reported on.
   departments: Department[];
   designations: Designation[];
+  // Central Master Data: Companies and Trades. Previously these two lived only as
+  // in-memory arrays inside server/routes/masters.ts (companiesStore/tradesStore) with
+  // no persistence at all -- every deploy or cold start silently reset them back to
+  // seed data, unlike every other master (departments, designations, leave types) which
+  // is durable here. Moved into the same durable app_state document for consistency.
+  companies: CompanyMaster[];
+  trades: TradeMaster[];
   auditLogs: AuditLog[];
   // Oman HR Compliance Architecture
   civilIds: EmployeeCivilId[];
@@ -390,6 +441,8 @@ class DatabaseManager {
     publicHolidays: [],
     departments: [],
     designations: [],
+    companies: [...DEFAULT_COMPANIES],
+    trades: [...DEFAULT_TRADES],
     auditLogs: [],
     civilIds: [],
     drivingLicences: [],
@@ -755,6 +808,8 @@ class DatabaseManager {
       publicHolidays: parsed.publicHolidays || [],
       departments: parsed.departments || [],
       designations: parsed.designations || [],
+      companies: parsed.companies || [...DEFAULT_COMPANIES],
+      trades: parsed.trades || [...DEFAULT_TRADES],
       auditLogs: parsed.auditLogs || [],
       civilIds: parsed.civilIds || [],
       drivingLicences: parsed.drivingLicences || [],
@@ -2078,6 +2133,78 @@ class DatabaseManager {
           const idx = this.inMemoryData.designations.findIndex(d => d.id === id);
           if (idx === -1) return { changed: false, value: false };
           this.inMemoryData.designations.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
+    };
+  }
+
+  public get companies() {
+    return {
+      getAll: () => [...this.inMemoryData.companies],
+      findById: (id: string) => this.inMemoryData.companies.find(c => c.id === id),
+      findByCode: (code: string) =>
+        this.inMemoryData.companies.find(
+          c => c.companyCode.trim().toUpperCase() === String(code).trim().toUpperCase()
+        ),
+      create: async (company: CompanyMaster) => {
+        this.inMemoryData.companies.push(company);
+        await this.persist();
+        return company;
+      },
+      update: async (id: string, updates: Partial<CompanyMaster>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.companies.findIndex(c => c.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.companies[idx] = {
+            ...this.inMemoryData.companies[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.companies[idx] };
+        });
+      },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.companies.findIndex(c => c.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.companies.splice(idx, 1);
+          return { changed: true, value: true };
+        });
+      },
+    };
+  }
+
+  public get trades() {
+    return {
+      getAll: () => [...this.inMemoryData.trades],
+      findById: (id: string) => this.inMemoryData.trades.find(t => t.id === id),
+      findByCode: (code: string) =>
+        this.inMemoryData.trades.find(
+          t => t.tradeCode.trim().toUpperCase() === String(code).trim().toUpperCase()
+        ),
+      create: async (trade: TradeMaster) => {
+        this.inMemoryData.trades.push(trade);
+        await this.persist();
+        return trade;
+      },
+      update: async (id: string, updates: Partial<TradeMaster>) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.trades.findIndex(t => t.id === id);
+          if (idx === -1) return { changed: false, value: null };
+          this.inMemoryData.trades[idx] = {
+            ...this.inMemoryData.trades[idx],
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          };
+          return { changed: true, value: this.inMemoryData.trades[idx] };
+        });
+      },
+      delete: async (id: string) => {
+        return this.withOptimisticRetry(() => {
+          const idx = this.inMemoryData.trades.findIndex(t => t.id === id);
+          if (idx === -1) return { changed: false, value: false };
+          this.inMemoryData.trades.splice(idx, 1);
           return { changed: true, value: true };
         });
       },

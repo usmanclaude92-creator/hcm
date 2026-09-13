@@ -102,68 +102,10 @@ let payGradesStore: PayGrade[] = [
   }
 ];
 
-// In-memory central master stores with standard initializations
-let companiesStore: CompanyMaster[] = [
-  {
-    id: 'comp-01',
-    companyCode: 'HO-OMAN',
-    companyName: 'Head Office Oman LLC',
-    legalName: 'Head Office Oman Construction LLC',
-    crNumber: 'CR-1029384',
-    country: 'Oman',
-    currency: 'OMR',
-    taxId: 'OM-TAX-998811',
-    address: 'Azaiba North, Muscat, Sultanate of Oman',
-    contactEmail: 'contact@headoffice-oman.com',
-    contactPhone: '+968 2412 3456',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'comp-02',
-    companyCode: 'AL-TURKI',
-    companyName: 'Al Turki Contracting LLC',
-    legalName: 'Al Turki Enterprises & Contracting LLC',
-    crNumber: 'CR-2049182',
-    country: 'Oman',
-    currency: 'OMR',
-    taxId: 'OM-TAX-554422',
-    address: 'Ghubrah, Muscat, Sultanate of Oman',
-    contactEmail: 'info@alturki.om',
-    contactPhone: '+968 2456 7890',
-    isActive: true,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z'
-  },
-  {
-    id: 'comp-03',
-    companyCode: 'INFRA-TECH',
-    companyName: 'InfraTech Oman Contracting',
-    legalName: 'InfraTech Engineering & Contracting LLC',
-    crNumber: 'CR-3392817',
-    country: 'Oman',
-    currency: 'OMR',
-    taxId: 'OM-TAX-776633',
-    address: 'Sohar Industrial Zone, Oman',
-    contactEmail: 'admin@infratech.om',
-    contactPhone: '+968 2684 1122',
-    isActive: true,
-    createdAt: '2024-02-01T00:00:00.000Z',
-    updatedAt: '2024-02-01T00:00:00.000Z'
-  }
-];
-
-let tradesStore: TradeMaster[] = [
-  { id: 'trd-01', tradeCode: 'CARP', tradeName: 'Shuttering Carpenter', category: 'Civil', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-02', tradeCode: 'ST-FX', tradeName: 'Steel Fixer', category: 'Civil', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-03', tradeCode: 'MASON', tradeName: 'Block Mason / Plasterer', category: 'Civil', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-04', tradeCode: 'ELEC', tradeName: 'Industrial Electrician', category: 'Electrical', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-05', tradeCode: 'PIPE', tradeName: 'Pipe Fitter & Welder (6G)', category: 'Mechanical', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-06', tradeCode: 'HVAC', tradeName: 'HVAC Technician', category: 'Mechanical', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-07', tradeCode: 'OPER', tradeName: 'Heavy Equipment Operator', category: 'Logistics', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
-  { id: 'trd-08', tradeCode: 'SFTY', tradeName: 'Site Safety Marshall', category: 'General', isActive: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }
-];
+// Companies and Trades used to be in-memory arrays here (companiesStore/tradesStore)
+// that reset to seed data on every deploy or cold start -- unlike every other master
+// below, which is durable. They now live in the same app_state-backed store as
+// Departments/Designations/Leave Types, via db.companies / db.trades (see server/db.ts).
 
 let geofencesStore: ProjectGeofenceLocation[] = [
   {
@@ -540,19 +482,21 @@ router.patch('/designations/:id/toggle-status', verifyAuth, requireRoles('Admini
 
 // =================================================================
 // CENTRAL MASTER DATA API: COMPANIES
+// Backed by db.companies (the durable app_state store) -- previously an in-memory
+// array that reset to fake demo companies on every deploy. See server/db.ts.
 // =================================================================
 router.get('/companies', (req, res) => {
-  res.json(companiesStore);
+  res.json(db.companies.getAll());
 });
 
-router.post('/companies', (req, res) => {
+router.post('/companies', async (req, res) => {
   try {
     const { companyCode, companyName, legalName, crNumber, country, currency, taxId, address, contactEmail, contactPhone, isActive } = req.body;
     if (!companyCode || !companyName) {
       return res.status(400).json({ error: 'Company Code and Company Name are required.' });
     }
     const code = String(companyCode).trim().toUpperCase();
-    if (companiesStore.some(c => c.companyCode.toUpperCase() === code)) {
+    if (db.companies.findByCode(code)) {
       return res.status(400).json({ error: `Company with code '${code}' already exists.` });
     }
     const now = new Date().toISOString();
@@ -572,65 +516,66 @@ router.post('/companies', (req, res) => {
       createdAt: now,
       updatedAt: now
     };
-    companiesStore.push(newCompany);
+    await db.companies.create(newCompany);
     res.status(201).json(newCompany);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create company.' });
   }
 });
 
-router.put('/companies/:id', (req, res) => {
+router.put('/companies/:id', async (req, res) => {
   try {
-    const idx = companiesStore.findIndex(c => c.id === req.params.id);
-    if (idx === -1) {
+    const existing = db.companies.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Company not found.' });
     }
-    const existing = companiesStore[idx];
-    const updated: CompanyMaster = {
-      ...existing,
+    const updates: Partial<CompanyMaster> = {
       ...req.body,
-      id: existing.id,
       companyCode: req.body.companyCode ? String(req.body.companyCode).trim().toUpperCase() : existing.companyCode,
       companyName: req.body.companyName ? String(req.body.companyName).trim() : existing.companyName,
-      updatedAt: new Date().toISOString()
     };
-    companiesStore[idx] = updated;
+    delete (updates as any).id;
+    const updated = await db.companies.update(existing.id, updates);
+    if (!updated) return res.status(404).json({ error: 'Company not found.' });
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update company.' });
   }
 });
 
-router.delete('/companies/:id', (req, res) => {
-  const idx = companiesStore.findIndex(c => c.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Company not found.' });
-  const [removed] = companiesStore.splice(idx, 1);
-  res.json({ success: true, message: `Company '${removed.companyName}' removed successfully.` });
+router.delete('/companies/:id', async (req, res) => {
+  const existing = db.companies.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Company not found.' });
+  const removed = await db.companies.delete(existing.id);
+  if (!removed) return res.status(404).json({ error: 'Company not found.' });
+  res.json({ success: true, message: `Company '${existing.companyName}' removed successfully.` });
 });
 
-router.patch('/companies/:id/toggle-status', (req, res) => {
-  const comp = companiesStore.find(c => c.id === req.params.id);
-  if (!comp) return res.status(404).json({ error: 'Company not found.' });
-  comp.isActive = !comp.isActive;
-  comp.updatedAt = new Date().toISOString();
-  res.json(comp);
+router.patch('/companies/:id/toggle-status', async (req, res) => {
+  const existing = db.companies.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Company not found.' });
+  const updated = await db.companies.update(existing.id, { isActive: !existing.isActive });
+  if (!updated) return res.status(404).json({ error: 'Company not found.' });
+  res.json(updated);
 });
 
 // =================================================================
 // CENTRAL MASTER DATA API: TRADES
+// Backed by db.trades (the durable app_state store) -- previously an in-memory
+// array with no persistence at all. See server/db.ts.
 // =================================================================
 router.get('/trades', (req, res) => {
-  res.json(tradesStore);
+  res.json(db.trades.getAll());
 });
 
-router.post('/trades', (req, res) => {
+router.post('/trades', async (req, res) => {
   try {
     const { tradeCode, tradeName, category, isActive } = req.body;
     if (!tradeCode || !tradeName) {
       return res.status(400).json({ error: 'Trade Code and Trade Name are required.' });
     }
     const code = String(tradeCode).trim().toUpperCase();
-    if (tradesStore.some(t => t.tradeCode.toUpperCase() === code)) {
+    if (db.trades.findByCode(code)) {
       return res.status(400).json({ error: `Trade with code '${code}' already exists.` });
     }
     const now = new Date().toISOString();
@@ -643,48 +588,47 @@ router.post('/trades', (req, res) => {
       createdAt: now,
       updatedAt: now
     };
-    tradesStore.push(newTrade);
+    await db.trades.create(newTrade);
     res.status(201).json(newTrade);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create trade.' });
   }
 });
 
-router.put('/trades/:id', (req, res) => {
+router.put('/trades/:id', async (req, res) => {
   try {
-    const idx = tradesStore.findIndex(t => t.id === req.params.id);
-    if (idx === -1) {
+    const existing = db.trades.findById(req.params.id);
+    if (!existing) {
       return res.status(404).json({ error: 'Trade not found.' });
     }
-    const existing = tradesStore[idx];
-    const updated: TradeMaster = {
-      ...existing,
+    const updates: Partial<TradeMaster> = {
       ...req.body,
-      id: existing.id,
       tradeCode: req.body.tradeCode ? String(req.body.tradeCode).trim().toUpperCase() : existing.tradeCode,
       tradeName: req.body.tradeName ? String(req.body.tradeName).trim() : existing.tradeName,
-      updatedAt: new Date().toISOString()
     };
-    tradesStore[idx] = updated;
+    delete (updates as any).id;
+    const updated = await db.trades.update(existing.id, updates);
+    if (!updated) return res.status(404).json({ error: 'Trade not found.' });
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to update trade.' });
   }
 });
 
-router.delete('/trades/:id', (req, res) => {
-  const idx = tradesStore.findIndex(t => t.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Trade not found.' });
-  const [removed] = tradesStore.splice(idx, 1);
-  res.json({ success: true, message: `Trade '${removed.tradeName}' removed successfully.` });
+router.delete('/trades/:id', async (req, res) => {
+  const existing = db.trades.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Trade not found.' });
+  const removed = await db.trades.delete(existing.id);
+  if (!removed) return res.status(404).json({ error: 'Trade not found.' });
+  res.json({ success: true, message: `Trade '${existing.tradeName}' removed successfully.` });
 });
 
-router.patch('/trades/:id/toggle-status', (req, res) => {
-  const item = tradesStore.find(t => t.id === req.params.id);
-  if (!item) return res.status(404).json({ error: 'Trade not found.' });
-  item.isActive = !item.isActive;
-  item.updatedAt = new Date().toISOString();
-  res.json(item);
+router.patch('/trades/:id/toggle-status', async (req, res) => {
+  const existing = db.trades.findById(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Trade not found.' });
+  const updated = await db.trades.update(existing.id, { isActive: !existing.isActive });
+  if (!updated) return res.status(404).json({ error: 'Trade not found.' });
+  res.json(updated);
 });
 
 // =================================================================
