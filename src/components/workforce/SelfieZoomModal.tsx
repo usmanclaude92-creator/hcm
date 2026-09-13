@@ -215,11 +215,11 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
                 {employeeType}
               </span>
             </div>
-            <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
+            <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 dark:text-slate-500 flex-wrap">
               <span className="text-slate-200 font-medium">{currentPhotoLabel}</span>
               {currentTimestamp && (
-                <span className="flex items-center gap-1 text-slate-400">
-                  <Clock className="w-3 h-3 text-slate-400" />
+                <span className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
+                  <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                   <span>{currentTimestamp}</span>
                 </span>
               )}
@@ -275,7 +275,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
             type="button"
             id="btn-close-selfie-zoom"
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
             title="Close (Esc)"
           >
             <X className="w-5 h-5" />
@@ -335,7 +335,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
             />
           </div>
         ) : (
-          <div className="text-center text-slate-400 p-8">
+          <div className="text-center text-slate-400 dark:text-slate-500 p-8">
             <p className="text-sm font-medium">No verification photo recorded for this shift.</p>
           </div>
         )}
@@ -412,7 +412,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
       </div>
 
       {/* Footer shortcut hints */}
-      <div className="shrink-0 py-2 px-4 bg-slate-950 text-center text-[11px] text-slate-500 border-t border-slate-900 flex items-center justify-center gap-4 flex-wrap">
+      <div className="shrink-0 py-2 px-4 bg-slate-950 text-center text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-900 flex items-center justify-center gap-4 flex-wrap">
         <span>Click or Drag to pan when zoomed</span>
         <span>•</span>
         <span>Double-click to toggle zoom</span>

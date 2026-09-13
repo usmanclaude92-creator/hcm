@@ -284,19 +284,19 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
     return (
       <div className="space-y-4 animate-in fade-in duration-200">
         {/* Breadcrumb Navigation */}
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <button
             onClick={() => {
               setIsModalOpen(false);
               setSelectedEmployee(null);
             }}
-            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600"
+            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600 dark:text-slate-400"
           >
             <ArrowLeft size={13} />
             <span>Compliance 360° Hub</span>
           </button>
           <span>/</span>
-          <span className="font-semibold text-slate-800">
+          <span className="font-semibold text-slate-800 dark:text-slate-200">
             {selectedEmployee.employeeName} ({selectedEmployee.employeeId})
           </span>
         </div>
@@ -320,21 +320,21 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner & Header */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
             <ShieldAlert size={26} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Oman HR Compliance & Documents 360°
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300">
                 MoL & ROP Rules
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Deterministic monitoring of Civil IDs, Expat Visas, Trade Professions, Driving Licences & Government Documents.
             </p>
           </div>
@@ -344,7 +344,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
           <button
             onClick={fetchData}
             disabled={loading}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             <span>Refresh</span>
@@ -370,80 +370,80 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Total Employees */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-            <div className="flex items-center justify-between text-slate-500 mb-1">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Total Active</span>
               <User size={15} />
             </div>
-            <div className="text-2xl font-bold text-slate-900">{summary.totalEmployees}</div>
-            <span className="text-[10px] text-slate-500">Tracked in Workforce</span>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{summary.totalEmployees}</div>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">Tracked in Workforce</span>
           </div>
 
           {/* Valid */}
-          <div className="bg-white rounded-xl border border-emerald-200 bg-emerald-50/20 p-4 shadow-xs">
-            <div className="flex items-center justify-between text-emerald-700 mb-1">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/20 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-1">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Fully Valid</span>
               <CheckCircle2 size={15} />
             </div>
-            <div className="text-2xl font-bold text-emerald-700">{summary.totalValid}</div>
-            <span className="text-[10px] text-emerald-600">All docs compliant</span>
+            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{summary.totalValid}</div>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">All docs compliant</span>
           </div>
 
           {/* Expiring Soon (30-60d) */}
-          <div className="bg-white rounded-xl border border-amber-200 bg-amber-50/20 p-4 shadow-xs">
-            <div className="flex items-center justify-between text-amber-700 mb-1">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/20 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 mb-1">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Expiring (30-60d)</span>
               <Clock size={15} />
             </div>
-            <div className="text-2xl font-bold text-amber-700">{summary.totalExpiringSoon}</div>
-            <span className="text-[10px] text-amber-600">Renewal scheduled</span>
+            <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">{summary.totalExpiringSoon}</div>
+            <span className="text-[10px] text-amber-600 dark:text-amber-400">Renewal scheduled</span>
           </div>
 
           {/* Urgent (<30d) */}
-          <div className="bg-white rounded-xl border border-orange-200 bg-orange-50/20 p-4 shadow-xs">
-            <div className="flex items-center justify-between text-orange-700 mb-1">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-orange-200 dark:border-orange-800/60 bg-orange-50/20 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-orange-700 dark:text-orange-300 mb-1">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Urgent (&lt;30d)</span>
               <AlertTriangle size={15} />
             </div>
-            <div className="text-2xl font-bold text-orange-800">{summary.totalUrgent}</div>
-            <span className="text-[10px] text-orange-700 font-medium">Critical attention</span>
+            <div className="text-2xl font-bold text-orange-800 dark:text-orange-300">{summary.totalUrgent}</div>
+            <span className="text-[10px] text-orange-700 dark:text-orange-300 font-medium">Critical attention</span>
           </div>
 
           {/* Expired */}
-          <div className="bg-white rounded-xl border border-rose-200 bg-rose-50/20 p-4 shadow-xs">
-            <div className="flex items-center justify-between text-rose-700 mb-1">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50/20 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-rose-700 dark:text-rose-300 mb-1">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Expired</span>
               <AlertOctagon size={15} />
             </div>
-            <div className="text-2xl font-bold text-rose-700">{summary.totalExpired}</div>
-            <span className="text-[10px] text-rose-600 font-semibold">Immediate penalty risk</span>
+            <div className="text-2xl font-bold text-rose-700 dark:text-rose-300">{summary.totalExpired}</div>
+            <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold">Immediate penalty risk</span>
           </div>
 
           {/* Trade Discrepancies */}
-          <div className="bg-white rounded-xl border border-purple-200 bg-purple-50/20 p-4 shadow-xs">
-            <div className="flex items-center justify-between text-purple-700 mb-1">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/20 p-4 shadow-xs">
+            <div className="flex items-center justify-between text-purple-700 dark:text-purple-300 mb-1">
               <span className="text-[11px] font-semibold uppercase tracking-wider">Trade Mismatch</span>
               <ShieldAlert size={15} />
             </div>
-            <div className="text-2xl font-bold text-purple-800">{summary.totalTradeDiscrepancies}</div>
-            <span className="text-[10px] text-purple-700">Visa vs Designation</span>
+            <div className="text-2xl font-bold text-purple-800 dark:text-purple-300">{summary.totalTradeDiscrepancies}</div>
+            <span className="text-[10px] text-purple-700 dark:text-purple-300">Visa vs Designation</span>
           </div>
         </div>
       )}
 
       {/* Main Tabs Navigation */}
-      <div className="flex items-center border-b border-slate-200 bg-white rounded-t-xl px-4 pt-2 gap-2 shadow-xs">
+      <div className="flex items-center border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-t-xl px-4 pt-2 gap-2 shadow-xs">
         <button
           onClick={() => setActiveTab('alerts')}
           className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'alerts'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <Clock size={16} />
           <span>Expiry Alert Feed & Records</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-semibold">
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
             {filteredExpiries.length}
           </span>
         </button>
@@ -452,8 +452,8 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
           onClick={() => setActiveTab('repository')}
           className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'repository'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <FolderOpen size={16} />
@@ -464,14 +464,14 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
           onClick={() => setActiveTab('trade-matrix')}
           className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'trade-matrix'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <FileCheck size={16} />
           <span>Visa Trade Discrepancy Matrix</span>
           {discrepancies.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-800 font-bold">
+            <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 font-bold">
               {discrepancies.length}
             </span>
           )}
@@ -481,13 +481,13 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
           onClick={() => setActiveTab('fleet')}
           className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'fleet'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <Truck size={16} />
           <span>Driving Licences & Plant Operators</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-semibold">
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">
             {drivingOperators.length}
           </span>
         </button>
@@ -496,8 +496,8 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
           onClick={() => setActiveTab('ai-assistant')}
           className={`px-4 py-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'ai-assistant'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <Sparkles size={16} className="text-amber-500" />
@@ -507,17 +507,17 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
 
       {/* TAB CONTENT 1: EXPIRY ALERTS FEED */}
       {activeTab === 'alerts' && (
-        <div className="bg-white rounded-b-xl border border-slate-200 border-t-0 p-5 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-b-xl border border-slate-200 dark:border-slate-700 border-t-0 p-5 shadow-xs space-y-4">
           {/* Search & Filter Toolbar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
             <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+              <Search className="absolute left-3 top-2.5 text-slate-400 dark:text-slate-500" size={15} />
               <input
                 type="text"
                 placeholder="Search employee, ID, designation, document number..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900"
               />
             </div>
 
@@ -525,7 +525,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               <select
                 value={docTypeFilter}
                 onChange={(e) => setDocTypeFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 font-medium"
               >
                 <option value="ALL">All Document Types</option>
                 <option value="Civil ID">Civil ID / Resident ID</option>
@@ -540,7 +540,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 font-medium"
               >
                 <option value="ALL">All Expiry Statuses</option>
                 <option value="Expired">Expired</option>
@@ -554,7 +554,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               <select
                 value={companyFilter}
                 onChange={(e) => setCompanyFilter(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 font-medium"
               >
                 <option value="ALL">All Companies</option>
                 <option value="Artify Solutions LLC">Artify Solutions LLC</option>
@@ -567,7 +567,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
           </div>
 
           {/* Records Table */}
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900 text-slate-200 uppercase tracking-wider font-semibold text-[11px]">
                 <tr>
@@ -581,10 +581,10 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {filteredExpiries.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-8 text-center text-slate-400 dark:text-slate-500">
                       No documents match your filter criteria.
                     </td>
                   </tr>
@@ -595,22 +595,22 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
                       className="hover:bg-slate-50/80 transition-colors"
                     >
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">{item.employeeName}</div>
-                        <div className="text-[10px] font-mono text-slate-500">{item.employeeId}</div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{item.employeeName}</div>
+                        <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{item.employeeId}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="font-medium text-slate-800">{item.company}</div>
-                        <div className="text-[10px] text-slate-500">{item.designation}</div>
+                        <div className="font-medium text-slate-800 dark:text-slate-200">{item.company}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{item.designation}</div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-semibold text-slate-700">{item.documentType}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">{item.documentType}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-mono text-xs font-semibold text-slate-900">
+                        <span className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">
                           {item.documentNumber || '—'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">
+                      <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
                         {formatDate(item.expiryDate)}
                       </td>
                       <td className="py-3 px-4">
@@ -618,12 +618,12 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
                           <span
                             className={`font-semibold ${
                               item.daysRemaining < 0
-                                ? 'text-rose-600'
+                                ? 'text-rose-600 dark:text-rose-400'
                                 : item.daysRemaining <= 30
-                                ? 'text-orange-600'
+                                ? 'text-orange-600 dark:text-orange-400'
                                 : item.daysRemaining <= 60
-                                ? 'text-amber-600'
-                                : 'text-emerald-600'
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-emerald-600 dark:text-emerald-400'
                             }`}
                           >
                             {item.daysRemaining < 0
@@ -640,7 +640,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => handleOpenInspect(item.employeeId, item.documentType)}
-                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md font-semibold text-xs inline-flex items-center gap-1 transition-colors border border-blue-200"
+                          className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md font-semibold text-xs inline-flex items-center gap-1 transition-colors border border-blue-200 dark:border-blue-800/60"
                         >
                           <span>Inspect / Renew</span>
                           <ChevronRight size={13} />
@@ -666,10 +666,10 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
 
       {/* TAB CONTENT 2: VISA TRADE DISCREPANCY MATRIX */}
       {activeTab === 'trade-matrix' && (
-        <div className="bg-white rounded-b-xl border border-slate-200 border-t-0 p-5 shadow-xs space-y-4">
-          <div className="p-4 bg-purple-50 rounded-xl border border-purple-200 flex items-start gap-3">
-            <ShieldAlert className="text-purple-600 shrink-0 mt-0.5" size={20} />
-            <div className="text-xs text-purple-900">
+        <div className="bg-white dark:bg-slate-900 rounded-b-xl border border-slate-200 dark:border-slate-700 border-t-0 p-5 shadow-xs space-y-4">
+          <div className="p-4 bg-purple-50 dark:bg-purple-900/30 rounded-xl border border-purple-200 dark:border-purple-800/60 flex items-start gap-3">
+            <ShieldAlert className="text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" size={20} />
+            <div className="text-xs text-purple-900 dark:text-purple-300">
               <h3 className="font-bold text-sm text-purple-950 mb-0.5">
                 Ministry of Labour (MoL) & Royal Oman Police Trade Discrepancy Matrix
               </h3>
@@ -681,7 +681,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900 text-slate-200 uppercase tracking-wider font-semibold text-[11px]">
                 <tr>
@@ -694,40 +694,40 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {discrepancies.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-slate-400 dark:text-slate-500">
                       <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
-                      <p className="text-xs font-semibold text-slate-700">No trade discrepancies detected.</p>
-                      <p className="text-[11px] text-slate-500">All expat designations match their registered visa trade records.</p>
+                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No trade discrepancies detected.</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">All expat designations match their registered visa trade records.</p>
                     </td>
                   </tr>
                 ) : (
                   discrepancies.map((disc) => (
-                    <tr key={disc.employeeId} className="hover:bg-slate-50 transition-colors">
+                    <tr key={disc.employeeId} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900">{disc.employeeName}</div>
-                        <div className="text-[10px] font-mono text-slate-500">{disc.employeeId}</div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{disc.employeeName}</div>
+                        <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{disc.employeeId}</div>
                       </td>
-                      <td className="py-3 px-4 font-medium text-slate-800">{disc.company}</td>
+                      <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">{disc.company}</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold border border-slate-300">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold border border-slate-300 dark:border-slate-600">
                           {disc.designation}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-bold border border-purple-300">
+                        <span className="px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-900 dark:text-purple-300 font-bold border border-purple-300 dark:border-purple-700">
                           {disc.tradeOnVisa}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-700">{disc.sponsor || disc.company}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{disc.sponsor || disc.company}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             disc.severity === 'High'
-                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+                              : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
                           }`}
                         >
                           {disc.severity} Risk
@@ -753,13 +753,13 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
 
       {/* TAB CONTENT 3: FLEET & PLANT OPERATORS */}
       {activeTab === 'fleet' && (
-        <div className="bg-white rounded-b-xl border border-slate-200 border-t-0 p-5 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-b-xl border border-slate-200 dark:border-slate-700 border-t-0 p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Oman Traffic ROP Driving Licences & Heavy Equipment Operators
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Verified operators for construction vehicles, mobile cranes, light fleets, and site machinery.
               </p>
             </div>
@@ -767,7 +767,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {drivingOperators.length === 0 ? (
-              <div className="col-span-full py-8 text-center text-slate-400">
+              <div className="col-span-full py-8 text-center text-slate-400 dark:text-slate-500">
                 <Car size={32} className="mx-auto text-slate-300 mb-2" />
                 <p className="text-xs">No registered driving licences found.</p>
               </div>
@@ -775,43 +775,43 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               drivingOperators.map((op) => (
                 <div
                   key={op.id}
-                  className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-100/80 transition-colors flex flex-col justify-between"
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 hover:bg-slate-100/80 transition-colors flex flex-col justify-between"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
                         {op.category}
                       </span>
                       <ComplianceBadge status={op.status} size="sm" />
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">{op.employeeName}</h4>
-                      <p className="text-[11px] text-slate-500">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{op.employeeName}</h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {op.designation} • {op.company}
                       </p>
                     </div>
 
-                    <div className="space-y-1 text-[11px] text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
+                    <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
                       <div className="flex justify-between">
                         <span>Licence No:</span>
-                        <span className="font-mono font-bold text-slate-800">{op.licenceNumber}</span>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{op.licenceNumber}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Vehicle Class:</span>
-                        <span className="font-medium text-slate-800">{op.vehicleClass || 'Light Vehicle'}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{op.vehicleClass || 'Light Vehicle'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Expires:</span>
-                        <span className="font-semibold text-slate-900">{formatDate(op.expiryDate)}</span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">{formatDate(op.expiryDate)}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-200 flex justify-end">
+                  <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                     <button
                       onClick={() => handleOpenInspect(op.employeeId, 'Driving Licence')}
-                      className="px-2 py-1 text-xs font-semibold text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                      className="px-2 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 inline-flex items-center gap-1"
                     >
                       <span>Inspect Operator Licence</span>
                       <ChevronRight size={13} />
@@ -826,7 +826,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
 
       {/* TAB CONTENT 4: AI COMPLIANCE ASSISTANT */}
       {activeTab === 'ai-assistant' && (
-        <div className="bg-white rounded-b-xl border border-slate-200 border-t-0 p-5 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-b-xl border border-slate-200 dark:border-slate-700 border-t-0 p-5 shadow-xs space-y-4">
           <div className="p-4 bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
@@ -847,7 +847,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               onClick={() =>
                 handleSendAiQuery('Which employee visas or Civil IDs are expiring in the next 45 days?')
               }
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors border border-slate-200"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700"
             >
               Expiries in next 45 days
             </button>
@@ -855,7 +855,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               onClick={() =>
                 handleSendAiQuery('Are there any trade discrepancies between visa titles and job roles?')
               }
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors border border-slate-200"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700"
             >
               Inspect trade discrepancies
             </button>
@@ -863,7 +863,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               onClick={() =>
                 handleSendAiQuery('Summarize all driving licences and equipment operators')
               }
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors border border-slate-200"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700"
             >
               Fleet & operator licences
             </button>
@@ -871,14 +871,14 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               onClick={() =>
                 handleSendAiQuery('What are the legal compliance steps for renewing an Omani resident card under ROP guidelines?')
               }
-              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors border border-slate-200"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700"
             >
               Resident Card Renewal Rules
             </button>
           </div>
 
           {/* Chat Messages */}
-          <div className="h-96 overflow-y-auto rounded-xl border border-slate-200 p-4 bg-slate-50/50 space-y-4">
+          <div className="h-96 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50/50 space-y-4">
             {aiMessages.map((msg) => (
               <div
                 key={msg.id}
@@ -893,13 +893,13 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
                   className={`max-w-2xl rounded-xl p-3.5 text-xs shadow-xs leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                      : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-none'
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.text}</p>
                   <span
                     className={`block text-[10px] mt-1.5 text-right ${
-                      msg.role === 'user' ? 'text-blue-200' : 'text-slate-400'
+                      msg.role === 'user' ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     {msg.timestamp}
@@ -909,11 +909,11 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
             ))}
 
             {aiLoading && (
-              <div className="flex gap-3 justify-start items-center text-xs text-slate-500">
+              <div className="flex gap-3 justify-start items-center text-xs text-slate-500 dark:text-slate-400">
                 <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
                   <Bot size={16} />
                 </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center gap-2">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-xs flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                   <span>Analyzing compliance records with Gemini...</span>
                 </div>
@@ -929,7 +929,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               value={aiQuery}
               onChange={(e) => setAiQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendAiQuery()}
-              className="flex-1 px-4 py-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="flex-1 px-4 py-2.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-900"
             />
             <button
               onClick={() => handleSendAiQuery()}

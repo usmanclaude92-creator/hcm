@@ -190,64 +190,64 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   if (!isOpen || !employeeId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-900 animate-in fade-in duration-150">
       <div className="w-full h-full flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/60 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Employee Attendance Report</p>
+              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Employee Attendance Report</p>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-extrabold text-slate-900 block">
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 block">
                   {data?.employee?.employeeName || employeeId}
                 </h2>
                 {data?.employee?.employeeType && (
                   <span
                     className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
                       data.employee.employeeType === 'Staff'
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60'
+                        : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60'
                     }`}
                   >
                     {data.employee.employeeType}
                   </span>
                 )}
                 {data?.monthStatus && (
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                     Status: {data.monthStatus}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {data?.employee?.designation || '—'}
                 <span className="mx-1.5 text-slate-300">•</span>
-                ID: <span className="font-mono font-bold text-slate-700">{employeeId}</span>
+                ID: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{employeeId}</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Month Navigator */}
-            <div className="flex items-center bg-white border border-slate-300 rounded-lg shadow-2xs overflow-hidden">
+            <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xs overflow-hidden">
               <button
                 type="button"
                 onClick={handlePrevMonth}
-                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 title="Previous Month"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <div className="px-2.5 py-1 text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-600" />
+              <div className="px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 {selectedMonth}
               </div>
               <button
                 type="button"
                 onClick={handleNextMonth}
-                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 title="Next Month"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -257,7 +257,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               title="Close"
             >
               <X className="w-5 h-5" />
@@ -268,42 +268,42 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+            <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
               <span>{error}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>{successMsg}</span>
             </div>
           )}
 
           {loading ? (
-            <div className="py-16 text-center text-slate-400 text-sm flex flex-col items-center justify-center gap-3">
+            <div className="py-16 text-center text-slate-400 dark:text-slate-500 text-sm flex flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
               <p>Loading attendance report for {selectedMonth}...</p>
             </div>
           ) : !data?.hasReport ? (
             /* Empty State: Prompt to Make Attendance Report */
-            <div className="py-12 px-6 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/60 text-center flex flex-col items-center justify-center max-w-lg mx-auto">
-              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mb-3 shadow-2xs">
+            <div className="py-12 px-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50/60 text-center flex flex-col items-center justify-center max-w-lg mx-auto">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 shadow-2xs">
                 <FileSpreadsheet className="w-7 h-7" />
               </div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 No Attendance Report for {selectedMonth}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
                 There is currently no attendance register record for{' '}
-                <span className="font-semibold text-slate-700">{data?.employee?.employeeName || employeeId}</span> for the month of{' '}
-                <span className="font-semibold text-slate-700">{selectedMonth}</span>.
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{data?.employee?.employeeName || employeeId}</span> for the month of{' '}
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedMonth}</span>.
               </p>
 
               {data && data.punches.length > 0 && (
-                <div className="mt-4 p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-800 text-left w-full flex items-start gap-2">
-                  <Clock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="mt-4 p-3 bg-blue-50/70 border border-blue-200 dark:border-blue-800/60 rounded-xl text-xs text-blue-800 dark:text-blue-300 text-left w-full flex items-start gap-2">
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold">Detected Shift Punches:</span> Found{' '}
                     <span className="font-bold">{data.punches.length} shift punch(es)</span> logged this month. Creating the report will
@@ -333,7 +333,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                     )}
                   </button>
                 ) : (
-                  <p className="text-xs text-slate-400 italic">You need write permissions to create attendance reports.</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">You need write permissions to create attendance reports.</p>
                 )}
               </div>
             </div>
@@ -342,39 +342,39 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
             <>
               {/* Metric Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Days Worked</p>
-                  <p className="text-xl font-bold text-slate-900 mt-0.5">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Days Worked</p>
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                     {data.summary.totalDays}{' '}
-                    <span className="text-xs font-normal text-slate-500">Days</span>
+                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Days</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-1">Staff / Worker monthly count</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Staff / Worker monthly count</p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Hours Worked</p>
-                  <p className="text-xl font-bold text-indigo-700 mt-0.5">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hours Worked</p>
+                  <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
                     {data.summary.totalHours}{' '}
-                    <span className="text-xs font-normal text-slate-500">Hrs</span>
+                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Hrs</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-1">Regular shift hours</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Regular shift hours</p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Overtime</p>
-                  <p className="text-xl font-bold text-amber-600 mt-0.5">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Overtime</p>
+                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
                     {data.summary.totalOvertimeHours}{' '}
-                    <span className="text-xs font-normal text-slate-500">Hrs</span>
+                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Hrs</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-1">Approved overtime hours</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Approved overtime hours</p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Project Allocation</p>
-                  <p className="text-sm font-bold text-slate-900 mt-1 truncate" title={data.records[0]?.projectName || data.records[0]?.projectCode}>
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Project Allocation</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1 truncate" title={data.records[0]?.projectName || data.records[0]?.projectCode}>
                     {data.records[0]?.projectCode || 'HO0001'}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                     {data.records[0]?.projectName || 'Head Office'}
                   </p>
                 </div>
@@ -385,19 +385,19 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                   percentage for that date's selfies, and supervisor approval status. */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Attendance &amp; Approval Register</h3>
-                  <span className="text-[11px] text-slate-500">{data.punches.length} Day(s)</span>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Attendance &amp; Approval Register</h3>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{data.punches.length} Day(s)</span>
                 </div>
                 {data.punches.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
+                  <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/40">
                     No daily attendance entries recorded for this month yet.
                   </div>
                 ) : (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-semibold">
+                          <tr className="bg-slate-100/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold">
                             <th className="py-2.5 px-3">Date</th>
                             <th className="py-2.5 px-3">Project</th>
                             <th className="py-2.5 px-3 text-center">
@@ -408,7 +408,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                             <th className="py-2.5 px-3 text-center">Approval</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                           {data.punches.map((punch) => {
                             const isStaff = data.employee.employeeType === 'Staff';
                             const daysOrHoursValue = isStaff
@@ -429,36 +429,36 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
 
                             return (
                               <tr key={punch.id} className="hover:bg-slate-50/60 transition-colors">
-                                <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                                   {formatDate(punch.punchDate)}
                                 </td>
-                                <td className="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+                                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                   {punch.projectName || punch.projectCode || data.employee.assignedProjectName || '-'}
                                 </td>
                                 <td className="py-2.5 px-3 text-center font-semibold">
                                   {isStaff ? daysOrHoursValue : `${daysOrHoursValue.toFixed(1)} Hrs`}
                                 </td>
-                                <td className="py-2.5 px-3 text-center font-semibold text-amber-600">
+                                <td className="py-2.5 px-3 text-center font-semibold text-amber-600 dark:text-amber-400">
                                   {punch.overtimeHours || 0}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   {geofencePercent === null ? (
-                                    <span className="text-slate-400 italic">-</span>
+                                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
                                   ) : (
-                                    <span className={`font-bold ${geofencePercent >= 100 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    <span className={`font-bold ${geofencePercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                       {geofencePercent}%
                                     </span>
                                   )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   {isApproved ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                       Approved
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                      <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                                      <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                                       Not-approved
                                     </span>
                                   )}
@@ -476,23 +476,23 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
               {/* Daily Shift Punches & Selfies */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-blue-600" />
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     Daily Shifts &amp; Selfie Logs ({selectedMonth})
                   </h3>
-                  <span className="text-[11px] text-slate-500">{data.punches.length} Shift Punch(es)</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{data.punches.length} Shift Punch(es)</span>
                 </div>
 
                 {data.punches.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/40">
+                  <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/40">
                     No camera shift punches recorded in Supabase Workforce or local mobile punch log for this month yet.
                   </div>
                 ) : (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-semibold">
+                          <tr className="bg-slate-100/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold">
                             <th className="py-2.5 px-3">Date</th>
                             <th className="py-2.5 px-3">Start Time &amp; Selfie</th>
                             <th className="py-2.5 px-3">End Time &amp; Selfie</th>
@@ -501,7 +501,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                             <th className="py-2.5 px-3">Site Location</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                           {data.punches.map((punch) => {
                             const startImg = punch.startSelfieUrl || punch.selfieUrl;
                             const endImg = punch.endSelfieUrl;
@@ -509,7 +509,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
 
                             return (
                               <tr key={punch.id} className="hover:bg-slate-50/60 transition-colors">
-                                <td className="py-2.5 px-3 font-semibold text-slate-900 whitespace-nowrap">
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                                   {formatDate(punch.punchDate)}
                                 </td>
 
@@ -520,7 +520,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                       <button
                                         type="button"
                                         onClick={() => setLightboxImage({ url: startImg, title: `Start Shift Selfie - ${punch.punchDate}` })}
-                                        className="relative group w-8 h-8 rounded-md overflow-hidden border border-slate-200 hover:border-blue-500 shadow-2xs shrink-0"
+                                        className="relative group w-8 h-8 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-2xs shrink-0"
                                         title="Click to zoom selfie"
                                       >
                                         <img src={startImg} alt="Start selfie" className="w-full h-full object-cover" />
@@ -529,11 +529,11 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     ) : (
-                                      <div className="w-8 h-8 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                                      <div className="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
                                         <UserRound className="w-4 h-4" />
                                       </div>
                                     )}
-                                    <span className="font-mono font-bold text-emerald-700">
+                                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
                                       {formatTime(punch.checkInTime)}
                                     </span>
                                   </div>
@@ -546,7 +546,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                       <button
                                         type="button"
                                         onClick={() => setLightboxImage({ url: endImg, title: `End Shift Selfie - ${punch.punchDate}` })}
-                                        className="relative group w-8 h-8 rounded-md overflow-hidden border border-slate-200 hover:border-blue-500 shadow-2xs shrink-0"
+                                        className="relative group w-8 h-8 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-2xs shrink-0"
                                         title="Click to zoom selfie"
                                       >
                                         <img src={endImg} alt="End selfie" className="w-full h-full object-cover" />
@@ -555,22 +555,22 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                         </div>
                                       </button>
                                     ) : punch.checkOutTime ? (
-                                      <div className="w-8 h-8 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                                      <div className="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
                                         <UserRound className="w-4 h-4" />
                                       </div>
                                     ) : null}
                                     {punch.checkOutTime ? (
-                                      <span className="font-mono font-bold text-blue-700">
+                                      <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
                                         {formatTime(punch.checkOutTime)}
                                       </span>
                                     ) : (
-                                      <span className="text-slate-400 italic">On Shift</span>
+                                      <span className="text-slate-400 dark:text-slate-500 italic">On Shift</span>
                                     )}
                                   </div>
                                 </td>
 
                                 {/* Duration */}
-                                <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-800 whitespace-nowrap">
+                                <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                                   {punch.hoursWorked !== undefined ? `${punch.hoursWorked.toFixed(1)} Hrs` : '-'}
                                 </td>
 
@@ -578,25 +578,25 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                 <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                   {punch.isGeofenceException !== undefined ? (
                                     isInside ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                        <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                         Inside Site Radius
                                       </span>
                                     ) : (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                        <ShieldAlert className="w-3 h-3 text-rose-600" />
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                                        <ShieldAlert className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                                         Outside Site Radius
                                       </span>
                                     )
                                   ) : (
-                                    <span className="text-slate-400 text-[10px] italic">Within Geofence</span>
+                                    <span className="text-slate-400 dark:text-slate-500 text-[10px] italic">Within Geofence</span>
                                   )}
                                 </td>
 
                                 {/* Site */}
-                                <td className="py-2.5 px-3 text-slate-600 truncate max-w-xs whitespace-nowrap">
+                                <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 truncate max-w-xs whitespace-nowrap">
                                   <div className="flex items-center gap-1" title={punch.siteName || 'Assigned Site'}>
-                                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-500 shrink-0" />
                                     <span className="truncate">{punch.siteName || 'Assigned Site'}</span>
                                   </div>
                                 </td>
@@ -614,24 +614,24 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50/80 flex items-center justify-between shrink-0">
+        <div className="px-6 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             {onNavigateToFullAttendance && (
               <button
                 type="button"
                 onClick={() => onNavigateToFullAttendance(employeeId, selectedMonth)}
-                className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 Open in Full Monthly Attendance Register
               </button>
             )}
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-500" />
+              <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               Print Report
             </button>
           </div>
@@ -658,7 +658,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setLightboxImage(null)}
-                className="p-1 text-slate-400 hover:text-white rounded-md"
+                className="p-1 text-slate-400 dark:text-slate-500 hover:text-white rounded-md"
               >
                 <X className="w-4 h-4" />
               </button>

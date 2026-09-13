@@ -321,27 +321,27 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 z-50 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[92vh] overflow-hidden">
         {/* Modal Header */}
-        <div className="px-6 py-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 flex items-start justify-between gap-4">
+        <div className="px-6 py-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200 dark:border-slate-700 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 shrink-0">
+            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 shrink-0">
               <HeaderIcon className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-slate-900 tracking-tight">{header.title}</h3>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">{header.title}</h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 uppercase tracking-wider">
                   {modalMode}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">{header.subtitle}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{header.subtitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors shrink-0"
+            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 p-1.5 rounded-lg transition-colors shrink-0"
             title="Close"
           >
             <X className="w-5 h-5" />
@@ -349,7 +349,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto space-y-5 text-slate-700">
+        <div className="p-6 overflow-y-auto space-y-5 text-slate-700 dark:text-slate-300">
           <form id="masterDataEntryForm" onSubmit={handleSubmit} className="space-y-5">
             {/* ============================================================== */}
             {/* 1. COMPANIES FORM */}
@@ -359,7 +359,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                 {/* Code & Commercial Name */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-1">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Company Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -370,15 +370,15 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       placeholder="e.g. DGO, SMI, NC"
                       disabled={modalMode === 'edit'}
                       className={`w-full text-sm border rounded-lg px-3 py-2 font-mono font-bold tracking-wider uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.companyCode ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
-                      } ${modalMode === 'edit' ? 'bg-slate-100 cursor-not-allowed text-slate-500' : ''}`}
+                        errors.companyCode ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                      } ${modalMode === 'edit' ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed text-slate-500 dark:text-slate-400' : ''}`}
                     />
-                    {errors.companyCode && <p className="text-xs text-rose-600 mt-1">{errors.companyCode}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Unique primary key across ERP & HCMS</p>
+                    {errors.companyCode && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.companyCode}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Unique primary key across ERP & HCMS</p>
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Commercial Trade Name <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -388,18 +388,18 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, companyName: e.target.value })}
                       placeholder="e.g. Duqm Global Oilfield Services LLC"
                       className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.companyName ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.companyName ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.companyName && <p className="text-xs text-rose-600 mt-1">{errors.companyName}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Standard display name used in dashboards and payslips</p>
+                    {errors.companyName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.companyName}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Standard display name used in dashboards and payslips</p>
                   </div>
                 </div>
 
                 {/* Legal Entity Name & CR Number */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Full Legal / Registered Name
                     </label>
                     <input
@@ -407,13 +407,13 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       value={formData.legalName || ''}
                       onChange={e => setFormData({ ...formData, legalName: e.target.value })}
                       placeholder="e.g. Duqm Global Oilfield Services LLC"
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">Exact name as registered with Ministry of Commerce</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Exact name as registered with Ministry of Commerce</p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Commercial Registration (CR) Number
                     </label>
                     <input
@@ -421,16 +421,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       value={formData.crNumber || ''}
                       onChange={e => setFormData({ ...formData, crNumber: e.target.value })}
                       placeholder="e.g. CR-1029384"
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">Ministry CR number for legal audit compliance</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Ministry CR number for legal audit compliance</p>
                   </div>
                 </div>
 
                 {/* Jurisdiction, Currency & Tax ID */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Country Jurisdiction
                     </label>
                     <input
@@ -438,11 +438,11 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       value={formData.country || 'Oman'}
                       onChange={e => setFormData({ ...formData, country: e.target.value })}
                       placeholder="Oman"
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Operating Currency
                     </label>
                     <input
@@ -450,11 +450,11 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       value={formData.currency || 'OMR'}
                       onChange={e => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
                       placeholder="OMR"
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       VAT / Tax Identification No.
                     </label>
                     <input
@@ -462,7 +462,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       value={formData.taxId || ''}
                       onChange={e => setFormData({ ...formData, taxId: e.target.value })}
                       placeholder="OM-TAX-998811"
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -470,7 +470,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                 {/* Contact Coordinates */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Official Contact Email
                     </label>
                     <input
@@ -479,13 +479,13 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, contactEmail: e.target.value })}
                       placeholder="payroll@company.om"
                       className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.contactEmail ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.contactEmail ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.contactEmail && <p className="text-xs text-rose-600 mt-1">{errors.contactEmail}</p>}
+                    {errors.contactEmail && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.contactEmail}</p>}
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Telephone Contact
                     </label>
                     <input
@@ -493,14 +493,14 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       value={formData.contactPhone || ''}
                       onChange={e => setFormData({ ...formData, contactPhone: e.target.value })}
                       placeholder="+968 2412 3456"
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 {/* Physical Headquarters Address */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Registered Office Address
                   </label>
                   <textarea
@@ -508,24 +508,24 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     value={formData.address || ''}
                     onChange={e => setFormData({ ...formData, address: e.target.value })}
                     placeholder="Building 404, Way 2135, Al Azaiba North, Muscat, Sultanate of Oman"
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 {/* Operational Status Toggle */}
-                <div className="flex items-center gap-3 pt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 pt-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
                     id="companyActiveToggle"
                     checked={formData.isActive !== false}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 w-4 h-4"
                   />
                   <div>
-                    <label htmlFor="companyActiveToggle" className="text-sm font-semibold text-slate-800 cursor-pointer">
+                    <label htmlFor="companyActiveToggle" className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
                       Active Entity Status
                     </label>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Active companies are selectable when hiring staff, allocating projects, and preparing WPS files.
                     </p>
                   </div>
@@ -540,7 +540,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-1">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Department Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -550,15 +550,15 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                       placeholder="e.g. ENG, HR, FIN"
                       className={`w-full text-sm border rounded-lg px-3 py-2 font-mono font-bold uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.code ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.code ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.code && <p className="text-xs text-rose-600 mt-1">{errors.code}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Short alphanumeric key</p>
+                    {errors.code && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.code}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Short alphanumeric key</p>
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Department Name <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -568,16 +568,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Civil Construction & Earthworks"
                       className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.name ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.name ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.name && <p className="text-xs text-rose-600 mt-1">{errors.name}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Official department title for reporting</p>
+                    {errors.name && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.name}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Official department title for reporting</p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Department Remarks & Scope
                   </label>
                   <textarea
@@ -585,23 +585,23 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     value={formData.remarks || ''}
                     onChange={e => setFormData({ ...formData, remarks: e.target.value })}
                     placeholder="Covers engineering planning, structural execution, and technical supervision."
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
 
-                <div className="flex items-center gap-3 pt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 pt-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
                     id="departmentActiveToggle"
                     checked={formData.isActive !== false}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 w-4 h-4"
                   />
                   <div>
-                    <label htmlFor="departmentActiveToggle" className="text-sm font-semibold text-slate-800 cursor-pointer">
+                    <label htmlFor="departmentActiveToggle" className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
                       Active Department Status
                     </label>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Disabling will prevent assigning new designations and staff to this department.
                     </p>
                   </div>
@@ -615,7 +615,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
             {activeTab === 'designations' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Designation / Job Title <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -625,21 +625,21 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g. Senior Project Engineer, Safety Officer, Site Foreman"
                     className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                      errors.title ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                      errors.title ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                     }`}
                   />
-                  {errors.title && <p className="text-xs text-rose-600 mt-1">{errors.title}</p>}
-                  <p className="text-[11px] text-slate-400 mt-1">Standardized title eliminating redundant typos and aliases</p>
+                  {errors.title && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.title}</p>}
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Standardized title eliminating redundant typos and aliases</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Governing Department
                   </label>
                   <select
                     value={formData.departmentId || ''}
                     onChange={e => setFormData({ ...formData, departmentId: e.target.value || null })}
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   >
                     <option value="">-- General / Cross-Departmental (No Fixed Dept) --</option>
                     {departments.map(dept => (
@@ -648,13 +648,13 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
                     Leave unassigned if this job position operates across multiple project sites or operations.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Job Description & Role Remarks
                   </label>
                   <textarea
@@ -662,23 +662,23 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     value={formData.remarks || ''}
                     onChange={e => setFormData({ ...formData, remarks: e.target.value })}
                     placeholder="Key responsibilities, qualification requirements, or grading references."
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
 
-                <div className="flex items-center gap-3 pt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 pt-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
                     id="designationActiveToggle"
                     checked={formData.isActive !== false}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 w-4 h-4"
                   />
                   <div>
-                    <label htmlFor="designationActiveToggle" className="text-sm font-semibold text-slate-800 cursor-pointer">
+                    <label htmlFor="designationActiveToggle" className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
                       Active Designation Status
                     </label>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Cannot be retired while active employees currently hold this title.
                     </p>
                   </div>
@@ -693,7 +693,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-1">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Trade Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -703,15 +703,15 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, tradeCode: e.target.value.toUpperCase() })}
                       placeholder="e.g. ELEC, WELD, MASON"
                       className={`w-full text-sm border rounded-lg px-3 py-2 font-mono font-bold uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.tradeCode ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.tradeCode ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.tradeCode && <p className="text-xs text-rose-600 mt-1">{errors.tradeCode}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Used on mobile app timesheets</p>
+                    {errors.tradeCode && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.tradeCode}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Used on mobile app timesheets</p>
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Trade / Craft Title <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -721,22 +721,22 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, tradeName: e.target.value })}
                       placeholder="e.g. Certified High-Voltage Electrician"
                       className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.tradeName ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.tradeName ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.tradeName && <p className="text-xs text-rose-600 mt-1">{errors.tradeName}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Full occupational title for site crew allocation</p>
+                    {errors.tradeName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.tradeName}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Full occupational title for site crew allocation</p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Craft Category
                   </label>
                   <select
                     value={formData.category || 'Civil'}
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   >
                     <option value="Civil">Civil (Carpenters, Masons, Steel Fixers)</option>
                     <option value="Electrical">Electrical (Electricians, Cable Jointers, Instrumentation)</option>
@@ -746,19 +746,19 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                   </select>
                 </div>
 
-                <div className="flex items-center gap-3 pt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3 pt-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
                     id="tradeActiveToggle"
                     checked={formData.isActive !== false}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 w-4 h-4"
                   />
                   <div>
-                    <label htmlFor="tradeActiveToggle" className="text-sm font-semibold text-slate-800 cursor-pointer">
+                    <label htmlFor="tradeActiveToggle" className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
                       Active Trade Skill Status
                     </label>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Syncs to Workforce-App to categorize field gang assignments and daily productivity rates.
                     </p>
                   </div>
@@ -773,14 +773,14 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
               <div className="space-y-4">
                 {/* Associated Project */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Associated Construction Project <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={formData.projectId || ''}
                     onChange={e => setFormData({ ...formData, projectId: e.target.value })}
-                    className={`w-full text-sm border rounded-lg px-3 py-2 font-medium bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                      errors.projectId ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300'
+                    className={`w-full text-sm border rounded-lg px-3 py-2 font-medium bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
+                      errors.projectId ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
                     }`}
                     required
                   >
@@ -791,13 +791,13 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  {errors.projectId && <p className="text-xs text-rose-600 mt-1">{errors.projectId}</p>}
+                  {errors.projectId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.projectId}</p>}
                 </div>
 
                 {/* Location Code & Type */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Location / Gate Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -807,21 +807,21 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, locationCode: e.target.value.toUpperCase() })}
                       placeholder="e.g. GATE-01, NORTH-CP"
                       className={`w-full text-sm border rounded-lg px-3 py-2 font-mono font-bold uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                        errors.locationCode ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                        errors.locationCode ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                       }`}
                     />
-                    {errors.locationCode && <p className="text-xs text-rose-600 mt-1">{errors.locationCode}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Short identifier for mobile check-in</p>
+                    {errors.locationCode && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.locationCode}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Short identifier for mobile check-in</p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Zone Classification
                     </label>
                     <select
                       value={formData.locationType || 'Main Gate'}
                       onChange={e => setFormData({ ...formData, locationType: e.target.value })}
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     >
                       <option value="Main Gate">Main Gate (Primary Ingress/Egress)</option>
                       <option value="Work Zone">Work Zone (Fabrication, Concrete Plant, Trench)</option>
@@ -834,7 +834,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
 
                 {/* Location Name */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Location Name & Description <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -844,20 +844,20 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     onChange={e => setFormData({ ...formData, locationName: e.target.value })}
                     placeholder="e.g. Terminal Expansion - West Security Turnstiles"
                     className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                      errors.locationName ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                      errors.locationName ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                     }`}
                   />
-                  {errors.locationName && <p className="text-xs text-rose-600 mt-1">{errors.locationName}</p>}
+                  {errors.locationName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.locationName}</p>}
                 </div>
 
                 {/* GPS Coordinates & Interactive Auto-Capture */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <Navigation className="w-3.5 h-3.5 text-indigo-600" /> GPS Geofence Centroid
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> GPS Geofence Centroid
                       </span>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         Latitude and Longitude in standard WGS-84 decimal degrees
                       </p>
                     </div>
@@ -866,30 +866,30 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       type="button"
                       onClick={handleCaptureCurrentLocation}
                       disabled={geoLocating}
-                      className="px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg flex items-center gap-1.5 transition shrink-0"
+                      className="px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 rounded-lg flex items-center gap-1.5 transition shrink-0"
                     >
-                      <Compass className={`w-3.5 h-3.5 ${geoLocating ? 'animate-spin text-indigo-600' : ''}`} />
+                      <Compass className={`w-3.5 h-3.5 ${geoLocating ? 'animate-spin text-indigo-600 dark:text-indigo-400' : ''}`} />
                       {geoLocating ? 'Detecting GPS...' : 'Use Current Device GPS'}
                     </button>
                   </div>
 
                   {geoSuccessMsg && (
-                    <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-800 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <div className="p-2 rounded bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 text-xs font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       {geoSuccessMsg}
                     </div>
                   )}
 
                   {errors.locationCapture && (
-                    <div className="p-2 rounded bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <div className="p-2 rounded bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
                       {errors.locationCapture}
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">
                         Latitude (-90 to +90) <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -900,14 +900,14 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                         onChange={e => setFormData({ ...formData, latitude: e.target.value === '' ? '' : parseFloat(e.target.value) })}
                         placeholder="e.g. 23.593300"
                         className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                          errors.latitude ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                          errors.latitude ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                         }`}
                       />
-                      {errors.latitude && <p className="text-xs text-rose-600 mt-0.5">{errors.latitude}</p>}
+                      {errors.latitude && <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">{errors.latitude}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">
                         Longitude (-180 to +180) <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -918,16 +918,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                         onChange={e => setFormData({ ...formData, longitude: e.target.value === '' ? '' : parseFloat(e.target.value) })}
                         placeholder="e.g. 58.284400"
                         className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                          errors.longitude ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                          errors.longitude ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                         }`}
                       />
-                      {errors.longitude && <p className="text-xs text-rose-600 mt-0.5">{errors.longitude}</p>}
+                      {errors.longitude && <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">{errors.longitude}</p>}
                     </div>
                   </div>
 
                   {/* Fast Oman Site Coordinates Preset Quick-Pills */}
                   <div className="pt-2">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
                       Fast Regional Presets (Oman Projects):
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -943,7 +943,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                             }));
                             setGeoSuccessMsg(`Set to ${preset.label} (${preset.lat}, ${preset.lng})`);
                           }}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-medium rounded shadow-xs transition"
+                          className="px-2 py-1 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-medium rounded shadow-xs transition"
                         >
                           {preset.label}
                         </button>
@@ -955,7 +955,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                 {/* Geofence Radius & Live Map Indicator */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Geofence Radius (Meters) <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
@@ -968,56 +968,56 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                         value={formData.radiusMeters || 300}
                         onChange={e => setFormData({ ...formData, radiusMeters: parseInt(e.target.value, 10) || 0 })}
                         className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none ${
-                          errors.radiusMeters ? 'border-rose-400 bg-rose-50/50' : 'border-slate-300 bg-white'
+                          errors.radiusMeters ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
                         }`}
                       />
-                      <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">meters</span>
+                      <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400 dark:text-slate-500">meters</span>
                     </div>
-                    {errors.radiusMeters && <p className="text-xs text-rose-600 mt-1">{errors.radiusMeters}</p>}
-                    <p className="text-[11px] text-slate-400 mt-1">Recommended: 250m - 500m for perimeter fencing</p>
+                    {errors.radiusMeters && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.radiusMeters}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Recommended: 250m - 500m for perimeter fencing</p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Effective Date
                     </label>
                     <input
                       type="date"
                       value={formData.effectiveFrom || ''}
                       onChange={e => setFormData({ ...formData, effectiveFrom: e.target.value })}
-                      className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">Date when this checkpoint becomes active</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Date when this checkpoint becomes active</p>
                   </div>
                 </div>
 
                 {/* Primary Gate & Active Checkboxes */}
-                <div className="space-y-2 pt-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="space-y-2 pt-1 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center gap-2.5">
                     <input
                       type="checkbox"
                       id="isPrimaryGeofenceCheck"
                       checked={!!formData.isPrimary}
                       onChange={e => setFormData({ ...formData, isPrimary: e.target.checked })}
-                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                      className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 w-4 h-4"
                     />
-                    <label htmlFor="isPrimaryGeofenceCheck" className="text-xs font-bold text-slate-800 cursor-pointer">
+                    <label htmlFor="isPrimaryGeofenceCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                       Designate as Primary Project Gate
                     </label>
                   </div>
-                  <p className="text-[11px] text-slate-500 ml-6.5">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-6.5">
                     When checked, the mobile app defaults to this checkpoint for site attendance validation and distance calculations.
                   </p>
 
-                  <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200">
+                  <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-700">
                     <input
                       type="checkbox"
                       id="isActiveGeofenceCheck"
                       checked={formData.isActive !== false}
                       onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                      className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 w-4 h-4"
                     />
-                    <label htmlFor="isActiveGeofenceCheck" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                    <label htmlFor="isActiveGeofenceCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                       Location Zone is Currently Active
                     </label>
                   </div>
@@ -1028,16 +1028,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
             {/* PAY-GRADES FORM */}
             {activeTab === 'pay-grades' && (
               <div className="space-y-4">
-                <div className="bg-violet-50/70 border border-violet-200 rounded-xl p-3.5 flex items-start gap-2.5">
-                  <BadgePercent className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-violet-800 leading-relaxed">
+                <div className="bg-violet-50/70 border border-violet-200 dark:border-violet-800/60 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <BadgePercent className="w-4 h-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-violet-800 dark:text-violet-300 leading-relaxed">
                     Pay-Grades define salary bands (minimum and maximum wage brackets in OMR) and standard site allowances to ensure equitable compensation and automated payroll band validation.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Grade Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1046,14 +1046,14 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, gradeCode: e.target.value.toUpperCase() })}
                       placeholder="e.g. GRD-EXEC, GRD-ENG"
                       className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 font-mono ${
-                        errors.gradeCode ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        errors.gradeCode ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                       }`}
                     />
-                    {errors.gradeCode && <p className="text-[11px] text-rose-600 mt-1">{errors.gradeCode}</p>}
+                    {errors.gradeCode && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.gradeCode}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Grade Title / Band Name <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1062,16 +1062,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, gradeName: e.target.value })}
                       placeholder="e.g. Senior Engineer / Section Head"
                       className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 ${
-                        errors.gradeName ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        errors.gradeName ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                       }`}
                     />
-                    {errors.gradeName && <p className="text-[11px] text-rose-600 mt-1">{errors.gradeName}</p>}
+                    {errors.gradeName && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.gradeName}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Minimum Salary (OMR) <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
@@ -1082,16 +1082,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                         value={formData.minimumSalary ?? ''}
                         onChange={e => setFormData({ ...formData, minimumSalary: parseFloat(e.target.value) || 0 })}
                         className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 font-mono ${
-                          errors.minimumSalary ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                          errors.minimumSalary ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                         }`}
                       />
-                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">OMR</span>
+                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium">OMR</span>
                     </div>
-                    {errors.minimumSalary && <p className="text-[11px] text-rose-600 mt-1">{errors.minimumSalary}</p>}
+                    {errors.minimumSalary && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.minimumSalary}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Maximum Salary (OMR) <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
@@ -1102,18 +1102,18 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                         value={formData.maximumSalary ?? ''}
                         onChange={e => setFormData({ ...formData, maximumSalary: parseFloat(e.target.value) || 0 })}
                         className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-violet-500 font-mono ${
-                          errors.maximumSalary ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                          errors.maximumSalary ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                         }`}
                       />
-                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">OMR</span>
+                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium">OMR</span>
                     </div>
-                    {errors.maximumSalary && <p className="text-[11px] text-rose-600 mt-1">{errors.maximumSalary}</p>}
+                    {errors.maximumSalary && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.maximumSalary}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Standard Field Allowance (OMR)
                     </label>
                     <div className="relative">
@@ -1124,29 +1124,29 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                         value={formData.standardAllowance ?? ''}
                         onChange={e => setFormData({ ...formData, standardAllowance: parseFloat(e.target.value) || 0 })}
                         placeholder="0.00"
-                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-violet-500 font-mono"
                       />
-                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">OMR</span>
+                      <span className="absolute right-3 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium">OMR</span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1">Recommended baseline site / travel allowance</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Recommended baseline site / travel allowance</p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Currency
                     </label>
                     <input
                       type="text"
                       disabled
                       value={formData.currency || 'OMR'}
-                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-100 text-slate-600 font-mono cursor-not-allowed"
+                      className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono cursor-not-allowed"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">Omani Rial (OMR) statutory standard</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Omani Rial (OMR) statutory standard</p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Grade Description & Target Roles
                   </label>
                   <textarea
@@ -1154,19 +1154,19 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     value={formData.description || ''}
                     onChange={e => setFormData({ ...formData, description: e.target.value })}
                     placeholder="e.g. Lead Project Engineers, Commercial Managers, and HSE Leads"
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-violet-500"
                   />
                 </div>
 
-                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200">
+                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
                     id="isActivePayGradeCheck"
                     checked={formData.isActive !== false}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded text-violet-600 focus:ring-violet-500 w-4 h-4"
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500 w-4 h-4"
                   />
-                  <label htmlFor="isActivePayGradeCheck" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  <label htmlFor="isActivePayGradeCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                     Pay-Grade is Active and Available for Employee Assignment
                   </label>
                 </div>
@@ -1176,16 +1176,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
             {/* LEAVE-TYPES FORM */}
             {activeTab === 'leave-types' && (
               <div className="space-y-4">
-                <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3.5 flex items-start gap-2.5">
-                  <Calendar className="w-4 h-4 text-teal-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-teal-800 leading-relaxed">
+                <div className="bg-teal-50/70 border border-teal-200 dark:border-teal-800/60 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-teal-800 dark:text-teal-300 leading-relaxed">
                     Leave Types govern annual leave balances, paid/unpaid status for automated payroll deduction, and statutory Oman Labour Law compliance rules.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Leave Type Code <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1194,14 +1194,14 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                       placeholder="e.g. AL, SL, EL, HAJJ"
                       className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 font-mono ${
-                        errors.code ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        errors.code ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                       }`}
                     />
-                    {errors.code && <p className="text-[11px] text-rose-600 mt-1">{errors.code}</p>}
+                    {errors.code && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.code}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Leave Type Name <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1210,16 +1210,16 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Annual Paid Vacation, Sick Leave"
                       className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 ${
-                        errors.name ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        errors.name ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                       }`}
                     />
-                    {errors.name && <p className="text-[11px] text-rose-600 mt-1">{errors.name}</p>}
+                    {errors.name && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.name}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Annual Entitlement (Days) <span className="text-rose-500">*</span>
                     </label>
                     <input
@@ -1229,34 +1229,34 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                       onChange={e => setFormData({ ...formData, annualEntitlementDays: parseInt(e.target.value, 10) || 0 })}
                       placeholder="30"
                       className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 font-mono ${
-                        errors.annualEntitlementDays ? 'border-rose-400 bg-rose-50/50' : 'border-slate-200'
+                        errors.annualEntitlementDays ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-200 dark:border-slate-700'
                       }`}
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">Days per calendar year. Set 0 for ad-hoc / unpaid leaves</p>
-                    {errors.annualEntitlementDays && <p className="text-[11px] text-rose-600 mt-1">{errors.annualEntitlementDays}</p>}
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Days per calendar year. Set 0 for ad-hoc / unpaid leaves</p>
+                    {errors.annualEntitlementDays && <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1">{errors.annualEntitlementDays}</p>}
                   </div>
 
-                  <div className="flex flex-col justify-center bg-slate-50 p-3 rounded-xl border border-slate-200 mt-1">
+                  <div className="flex flex-col justify-center bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 mt-1">
                     <div className="flex items-center gap-2.5">
                       <input
                         type="checkbox"
                         id="isPaidLeaveCheck"
                         checked={formData.isPaid !== false}
                         onChange={e => setFormData({ ...formData, isPaid: e.target.checked })}
-                        className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4"
+                        className="rounded text-teal-600 dark:text-teal-400 focus:ring-teal-500 w-4 h-4"
                       />
-                      <label htmlFor="isPaidLeaveCheck" className="text-xs font-bold text-slate-800 cursor-pointer">
+                      <label htmlFor="isPaidLeaveCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                         Paid Leave (Salary Accrued)
                       </label>
                     </div>
-                    <p className="text-[11px] text-slate-500 ml-6.5 mt-1">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-6.5 mt-1">
                       Paid leave counts as payable days in monthly payroll calculations.
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Policy Remarks & Statutory Guidelines
                   </label>
                   <textarea
@@ -1264,19 +1264,19 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                     value={formData.remarks || ''}
                     onChange={e => setFormData({ ...formData, remarks: e.target.value })}
                     placeholder="e.g. Oman Labour Law Article 61: 30 calendar days per annum with full basic wage."
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
-                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200">
+                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-700">
                   <input
                     type="checkbox"
                     id="isActiveLeaveTypeCheck"
                     checked={formData.isActive !== false}
                     onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4"
+                    className="rounded text-teal-600 dark:text-teal-400 focus:ring-teal-500 w-4 h-4"
                   />
-                  <label htmlFor="isActiveLeaveTypeCheck" className="text-xs font-semibold text-slate-700 cursor-pointer">
+                  <label htmlFor="isActiveLeaveTypeCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                     Leave Type is Active and Selectable by Employees
                   </label>
                 </div>
@@ -1286,9 +1286,9 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-500 hidden sm:flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+          <div className="text-xs text-slate-500 dark:text-slate-400 hidden sm:flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span>HCMS Central Authority Enforcement</span>
           </div>
 
@@ -1297,7 +1297,7 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition shadow-xs"
+              className="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition shadow-xs"
             >
               Cancel
             </button>

@@ -387,7 +387,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
       <div className="p-8 flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-slate-500">Loading workforce deployment data...</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading workforce deployment data...</p>
         </div>
       </div>
     );
@@ -396,68 +396,68 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
   return (
     <div className="space-y-6">
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">{error}</div>
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs">{error}</div>
       )}
 
       {/* Human Resource Summary Widget -- each tile is 2 lines: label + total, then the
           Staff/Workers breakdown. */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3">Human Resource Summary</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs p-4">
+        <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider mb-3">Human Resource Summary</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              Total Active Employees: <span className="text-base font-bold text-slate-900 normal-case">{overview.total}</span>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Total Active Employees: <span className="text-base font-bold text-slate-900 dark:text-slate-100 normal-case">{overview.total}</span>
             </p>
             <p className="text-[11px] mt-1">
-              <span className="text-blue-700 font-semibold">Staff: {overview.totalStaff}</span>
+              <span className="text-blue-700 dark:text-blue-300 font-semibold">Staff: {overview.totalStaff}</span>
               <span className="mx-1.5 text-slate-300">•</span>
-              <span className="text-indigo-700 font-semibold">Workers: {overview.totalWorkers}</span>
+              <span className="text-indigo-700 dark:text-indigo-300 font-semibold">Workers: {overview.totalWorkers}</span>
             </p>
           </div>
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
-            <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">
-              Total Present Employees: <span className="text-base font-bold text-emerald-700 normal-case">{overview.present}</span>
+          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60">
+            <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+              Total Present Employees: <span className="text-base font-bold text-emerald-700 dark:text-emerald-300 normal-case">{overview.present}</span>
             </p>
             <p className="text-[11px] mt-1">
-              <span className="text-emerald-700 font-semibold">Staff: {overview.presentStaff}</span>
+              <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Staff: {overview.presentStaff}</span>
               <span className="mx-1.5 text-emerald-300">•</span>
-              <span className="text-emerald-700 font-semibold">Workers: {overview.presentWorkers}</span>
+              <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Workers: {overview.presentWorkers}</span>
             </p>
           </div>
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
-            <p className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">
-              Total Absent Employees: <span className="text-base font-bold text-rose-700 normal-case">{overview.absent}</span>
+          <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60">
+            <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+              Total Absent Employees: <span className="text-base font-bold text-rose-700 dark:text-rose-300 normal-case">{overview.absent}</span>
             </p>
             <p className="text-[11px] mt-1">
-              <span className="text-rose-700 font-semibold">Staff: {overview.absentStaff}</span>
+              <span className="text-rose-700 dark:text-rose-300 font-semibold">Staff: {overview.absentStaff}</span>
               <span className="mx-1.5 text-rose-300">•</span>
-              <span className="text-rose-700 font-semibold">Workers: {overview.absentWorkers}</span>
+              <span className="text-rose-700 dark:text-rose-300 font-semibold">Workers: {overview.absentWorkers}</span>
             </p>
           </div>
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
-            <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
-              Employees on Leave: <span className="text-base font-bold text-amber-700 normal-case">{overview.leave}</span>
+          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60">
+            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider">
+              Employees on Leave: <span className="text-base font-bold text-amber-700 dark:text-amber-300 normal-case">{overview.leave}</span>
             </p>
             <p className="text-[11px] mt-1">
-              <span className="text-amber-700 font-semibold">Staff: {overview.leaveStaff}</span>
+              <span className="text-amber-700 dark:text-amber-300 font-semibold">Staff: {overview.leaveStaff}</span>
               <span className="mx-1.5 text-amber-300">•</span>
-              <span className="text-amber-700 font-semibold">Workers: {overview.leaveWorkers}</span>
+              <span className="text-amber-700 dark:text-amber-300 font-semibold">Workers: {overview.leaveWorkers}</span>
             </p>
           </div>
         </div>
       </div>
 
       {/* Filter Bar -- search + all filters + actions in a single wrapping row. */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-52 shrink-0">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search employee by ID or name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-8 pr-2 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <MultiSelectDropdown allLabel="All Companies" options={COMPANY_OPTIONS} selected={companyFilter} onChange={setCompanyFilter} />
@@ -468,7 +468,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
           <button
             type="button"
             onClick={handleResetFilters}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Reset Filters
@@ -479,7 +479,7 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
               onClick={handleSyncEligibility}
               disabled={syncing}
               title="Push active employees' Civil ID, name, phone, company and site to the Artify Workforce app so they can register there."
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer shrink-0"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Syncing…' : 'Sync with Workforce App'}
@@ -518,21 +518,21 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
         };
 
         return (
-          <div key={section.key} className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 flex-wrap gap-2">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 tracking-wide">
-                <Building className="w-4 h-4 text-slate-400" />
+          <div key={section.key} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs p-4">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2 tracking-wide">
+                <Building className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                 {section.title}
               </h3>
-              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
-                <span>Total: <span className="text-slate-900 font-bold">{section.employees.length}</span></span>
-                <span className="text-emerald-600">Active: <span className="font-bold">{presentCount}</span></span>
-                <span className="text-rose-600">Absent: <span className="font-bold">{absentCount}</span></span>
+              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span>Total: <span className="text-slate-900 dark:text-slate-100 font-bold">{section.employees.length}</span></span>
+                <span className="text-emerald-600 dark:text-emerald-400">Active: <span className="font-bold">{presentCount}</span></span>
+                <span className="text-rose-600 dark:text-rose-400">Absent: <span className="font-bold">{absentCount}</span></span>
               </div>
             </div>
 
             {section.employees.length === 0 ? (
-              <div className="py-8 text-center text-slate-400">
+              <div className="py-8 text-center text-slate-400 dark:text-slate-500">
                 <p className="text-sm font-semibold">0 Active Employees</p>
                 <p className="text-xs mt-1">No employees currently deployed to this project.</p>
               </div>
@@ -541,11 +541,11 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
                 {staffList.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-                      <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Staff ({staffList.length})</span>
+                      <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">Staff ({staffList.length})</span>
                       <span className="text-[11px] font-semibold">
-                        <span className="text-emerald-600">Present Staff: {staffPresent}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">Present Staff: {staffPresent}</span>
                         <span className="mx-1.5 text-slate-300">•</span>
-                        <span className="text-rose-600">Absent Staff: {staffList.length - staffPresent}</span>
+                        <span className="text-rose-600 dark:text-rose-400">Absent Staff: {staffList.length - staffPresent}</span>
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-3">
@@ -555,17 +555,17 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
                 )}
 
                 {staffList.length > 0 && workerList.length > 0 && (
-                  <div className="border-t border-slate-100" />
+                  <div className="border-t border-slate-100 dark:border-slate-800" />
                 )}
 
                 {workerList.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-                      <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Workers ({workerList.length})</span>
+                      <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">Workers ({workerList.length})</span>
                       <span className="text-[11px] font-semibold">
-                        <span className="text-emerald-600">Present Workers: {workerPresent}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">Present Workers: {workerPresent}</span>
                         <span className="mx-1.5 text-slate-300">•</span>
-                        <span className="text-rose-600">Absent Workers: {workerList.length - workerPresent}</span>
+                        <span className="text-rose-600 dark:text-rose-400">Absent Workers: {workerList.length - workerPresent}</span>
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-3">

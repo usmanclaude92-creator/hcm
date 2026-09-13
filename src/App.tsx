@@ -27,12 +27,20 @@ import { DocumentRepositoryView } from './components/documents/DocumentRepositor
 import { WorkforceDeploymentView } from './components/workforce/WorkforceDeploymentView';
 import { useIdleTimer, IDLE_TIMEOUT_MS, WARNING_DURATION_MS } from './hooks/useIdleTimer';
 import { IdleTimeoutModal } from './components/common/IdleTimeoutModal';
+import { useTheme } from './hooks/useTheme';
 
 const MainApp: React.FC = () => {
   const { isAuthenticated, isLoading, isDemoMode, mustChangePassword, logout } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
   const [viewParams, setViewParams] = useState<Record<string, any>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Single source of truth for the theme, applied here -- above every early return -- so
+  // the .dark class is set on the very first render no matter which screen shows first
+  // (loading spinner, login, forced password change, or the authenticated app). Header
+  // and LoginView receive it as props instead of each running their own useTheme()
+  // instance, which would fight over document.documentElement's class on re-render.
+  const { isDark, toggleTheme } = useTheme();
 
   // 15-minute idle timeout for security compliance with 60-second warning countdown
   const { isWarningOpen, remainingSeconds, resetTimer } = useIdleTimer({
@@ -49,17 +57,17 @@ const MainApp: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center transition-colors">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-slate-400">Initializing Secure Cloud Payroll System...</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Initializing Secure Cloud Payroll System...</p>
         </div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    return <LoginView />;
+    return <LoginView isDark={isDark} toggleTheme={toggleTheme} />;
   }
 
   // The API refuses every endpoint except change-password for a restricted session, so
@@ -162,6 +170,8 @@ const MainApp: React.FC = () => {
         <Header
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onNavigate={handleNavigate}
+          isDark={isDark}
+          toggleTheme={toggleTheme}
         />
         <main className="flex-1 overflow-y-auto px-[2%] py-6 print:p-0">
           {renderView()}

@@ -472,42 +472,42 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       label: 'All Documents',
       icon: Layers,
       count: documents.length,
-      color: 'text-slate-700 bg-slate-100',
+      color: 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800',
     },
     {
       id: 'civil-id',
       label: 'Civil IDs / Resident Cards',
       icon: CreditCard,
       count: documents.filter((d) => d.category === 'civil-id' || d.documentType?.toLowerCase().includes('civil')).length,
-      color: 'text-blue-700 bg-blue-50 border-blue-200',
+      color: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/60',
     },
     {
       id: 'passport',
       label: 'Passports',
       icon: Globe,
       count: documents.filter((d) => d.category === 'passport' || d.documentType?.toLowerCase().includes('passport')).length,
-      color: 'text-indigo-700 bg-indigo-50 border-indigo-200',
+      color: 'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800/60',
     },
     {
       id: 'visa',
       label: 'Employment Visas',
       icon: FileCheck,
       count: documents.filter((d) => d.category === 'visa' || d.documentType?.toLowerCase().includes('visa')).length,
-      color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      color: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/60',
     },
     {
       id: 'driving-licence',
       label: 'Driving Licences',
       icon: Car,
       count: documents.filter((d) => d.category === 'driving-licence' || d.documentType?.toLowerCase().includes('driving')).length,
-      color: 'text-amber-700 bg-amber-50 border-amber-200',
+      color: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800/60',
     },
     {
       id: 'contract',
       label: 'Employment Contracts',
       icon: FileText,
       count: documents.filter((d) => d.category === 'contract' || d.documentType?.toLowerCase().includes('contract')).length,
-      color: 'text-purple-700 bg-purple-50 border-purple-200',
+      color: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800/60',
     },
   ], [documents]);
 
@@ -523,7 +523,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
   const renderExpiryCountdown = (doc: EnrichedDocument) => {
     if (!doc.expiryDate) {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
           Permanent / No Expiry
         </span>
       );
@@ -537,7 +537,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
     if (days < 0) {
       return (
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-md">
             <AlertOctagon size={12} /> Expired {Math.abs(days)}d ago
           </span>
         </div>
@@ -547,7 +547,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
     if (days <= 30) {
       return (
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 bg-orange-50 border border-orange-300 px-2 py-0.5 rounded-md animate-pulse">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 px-2 py-0.5 rounded-md animate-pulse">
             <AlertTriangle size={12} /> {days} days left (Urgent)
           </span>
         </div>
@@ -557,7 +557,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
     if (days <= 60) {
       return (
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-md">
             <Clock size={12} /> {days} days left
           </span>
         </div>
@@ -566,7 +566,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
     return (
       <div className="flex items-center gap-1.5">
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-md">
           <CheckCircle2 size={12} /> Valid ({days}d)
         </span>
       </div>
@@ -660,12 +660,12 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
   // Icon selector by document category
   const getCategoryIcon = (category: string, docType?: string) => {
     const lower = (docType || category).toLowerCase();
-    if (lower.includes('civil')) return <CreditCard className="text-blue-600" size={16} />;
-    if (lower.includes('passport')) return <Globe className="text-indigo-600" size={16} />;
-    if (lower.includes('visa')) return <FileCheck className="text-emerald-600" size={16} />;
-    if (lower.includes('driving')) return <Car className="text-amber-600" size={16} />;
-    if (lower.includes('contract')) return <FileText className="text-purple-600" size={16} />;
-    return <FileBadge className="text-slate-600" size={16} />;
+    if (lower.includes('civil')) return <CreditCard className="text-blue-600 dark:text-blue-400" size={16} />;
+    if (lower.includes('passport')) return <Globe className="text-indigo-600 dark:text-indigo-400" size={16} />;
+    if (lower.includes('visa')) return <FileCheck className="text-emerald-600 dark:text-emerald-400" size={16} />;
+    if (lower.includes('driving')) return <Car className="text-amber-600 dark:text-amber-400" size={16} />;
+    if (lower.includes('contract')) return <FileText className="text-purple-600 dark:text-purple-400" size={16} />;
+    return <FileBadge className="text-slate-600 dark:text-slate-400" size={16} />;
   };
 
   // Helper to intelligently detect document category & type from filename
@@ -769,7 +769,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       {/* PAGE DRAG & DROP OVERLAY */}
       {pageIsDragging && (
         <div className="fixed inset-0 z-50 bg-indigo-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-200">
-          <div className="w-24 h-24 rounded-3xl bg-indigo-600/90 border-2 border-indigo-400 text-white flex items-center justify-center mb-5 shadow-2xl shadow-indigo-500/50 scale-110 animate-bounce">
+          <div className="w-24 h-24 rounded-3xl bg-indigo-600/90 border-2 border-indigo-400 dark:border-indigo-600 text-white flex items-center justify-center mb-5 shadow-2xl shadow-indigo-500/50 scale-110 animate-bounce">
             <Upload size={48} />
           </div>
           <h2 className="text-2xl font-black tracking-tight">Drop Statutory Document to Upload</h2>
@@ -784,22 +784,22 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       )}
 
       {/* 1. TOP HEADER & KPI METRICS BAR */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
               <FolderOpen size={24} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   Central Document Repository
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
                   <ShieldCheck size={13} /> {storageEngine}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
                 Unified corporate object repository for Passports, Employment Visas, Civil IDs, Driving Licences &amp; contracts with live expiry tracking and automated compliance alerts.
               </p>
             </div>
@@ -809,7 +809,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             <button
               onClick={fetchData}
               disabled={loading}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Refresh Repository"
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -819,9 +819,9 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             <button
               onClick={exportToExcel}
               disabled={filteredDocuments.length === 0}
-              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
             >
-              <FileSpreadsheet size={14} className="text-emerald-600" />
+              <FileSpreadsheet size={14} className="text-emerald-600 dark:text-emerald-400" />
               <span>Export ({filteredDocuments.length})</span>
             </button>
 
@@ -845,14 +845,14 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
           {/* Card 1: Total Documents */}
           <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/80 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-600">Total Archive</span>
-              <Layers size={15} className="text-slate-400" />
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">Total Archive</span>
+              <Layers size={15} className="text-slate-400 dark:text-slate-500" />
             </div>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl font-black text-slate-900 font-mono">
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
                 {stats?.totalDocuments ?? documents.length}
               </span>
-              <span className="text-[10px] text-slate-500 font-medium">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 {stats?.uniqueEmployeesWithDocs ?? 0} Emps
               </span>
             </div>
@@ -863,19 +863,19 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             onClick={() => setActiveCategory('civil-id')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               activeCategory === 'civil-id'
-                ? 'bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20'
+                ? 'bg-blue-50/80 border-blue-300 dark:border-blue-700 ring-2 ring-blue-500/20'
                 : 'bg-slate-50/80 border-slate-200/80 hover:border-blue-200 hover:bg-blue-50/30'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-blue-900">Civil IDs</span>
-              <CreditCard size={15} className="text-blue-600" />
+              <span className="text-[11px] font-semibold text-blue-900 dark:text-blue-300">Civil IDs</span>
+              <CreditCard size={15} className="text-blue-600 dark:text-blue-400" />
             </div>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-black text-blue-950 font-mono">
                 {stats?.byType.civilId ?? 0}
               </span>
-              <span className="text-[10px] text-blue-700 font-medium">ROP Cards</span>
+              <span className="text-[10px] text-blue-700 dark:text-blue-300 font-medium">ROP Cards</span>
             </div>
           </div>
 
@@ -884,19 +884,19 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             onClick={() => setActiveCategory('passport')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               activeCategory === 'passport'
-                ? 'bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-500/20'
+                ? 'bg-indigo-50/80 border-indigo-300 dark:border-indigo-700 ring-2 ring-indigo-500/20'
                 : 'bg-slate-50/80 border-slate-200/80 hover:border-indigo-200 hover:bg-indigo-50/30'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-indigo-900">Passports</span>
-              <Globe size={15} className="text-indigo-600" />
+              <span className="text-[11px] font-semibold text-indigo-900 dark:text-indigo-300">Passports</span>
+              <Globe size={15} className="text-indigo-600 dark:text-indigo-400" />
             </div>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-black text-indigo-950 font-mono">
                 {stats?.byType.passport ?? 0}
               </span>
-              <span className="text-[10px] text-indigo-700 font-medium">Bio-Data</span>
+              <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-medium">Bio-Data</span>
             </div>
           </div>
 
@@ -905,19 +905,19 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             onClick={() => setActiveCategory('visa')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               activeCategory === 'visa'
-                ? 'bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-500/20'
+                ? 'bg-emerald-50/80 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-500/20'
                 : 'bg-slate-50/80 border-slate-200/80 hover:border-emerald-200 hover:bg-emerald-50/30'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-emerald-900">Employment Visas</span>
-              <FileCheck size={15} className="text-emerald-600" />
+              <span className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-300">Employment Visas</span>
+              <FileCheck size={15} className="text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-black text-emerald-950 font-mono">
                 {stats?.byType.visa ?? 0}
               </span>
-              <span className="text-[10px] text-emerald-700 font-medium">ROP Visas</span>
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium">ROP Visas</span>
             </div>
           </div>
 
@@ -926,19 +926,19 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             onClick={() => setActiveCategory('driving-licence')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               activeCategory === 'driving-licence'
-                ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-500/20'
+                ? 'bg-amber-50/80 border-amber-300 dark:border-amber-700 ring-2 ring-amber-500/20'
                 : 'bg-slate-50/80 border-slate-200/80 hover:border-amber-200 hover:bg-amber-50/30'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-amber-900">Driving Licences</span>
-              <Car size={15} className="text-amber-600" />
+              <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-300">Driving Licences</span>
+              <Car size={15} className="text-amber-600 dark:text-amber-400" />
             </div>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-black text-amber-950 font-mono">
                 {stats?.byType.drivingLicence ?? 0}
               </span>
-              <span className="text-[10px] text-amber-700 font-medium">Fleet Operators</span>
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium">Fleet Operators</span>
             </div>
           </div>
 
@@ -949,19 +949,19 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             }}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               selectedStatus === 'Expiring'
-                ? 'bg-rose-50/80 border-rose-300 ring-2 ring-rose-500/20'
+                ? 'bg-rose-50/80 border-rose-300 dark:border-rose-700 ring-2 ring-rose-500/20'
                 : 'bg-slate-50/80 border-slate-200/80 hover:border-rose-200 hover:bg-rose-50/30'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-rose-900">Expiry Action</span>
-              <AlertTriangle size={15} className="text-rose-600" />
+              <span className="text-[11px] font-semibold text-rose-900 dark:text-rose-300">Expiry Action</span>
+              <AlertTriangle size={15} className="text-rose-600 dark:text-rose-400" />
             </div>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-2xl font-black text-rose-700 font-mono">
+              <span className="text-2xl font-black text-rose-700 dark:text-rose-300 font-mono">
                 {(stats?.byStatus.expired ?? 0) + (stats?.byStatus.urgent ?? 0)}
               </span>
-              <span className="text-[10px] text-rose-600 font-medium font-bold">
+              <span className="text-[10px] text-rose-600 dark:text-rose-400 font-medium font-bold">
                 {stats?.byStatus.expired ?? 0} Expired
               </span>
             </div>
@@ -970,7 +970,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       </div>
 
       {/* 2. QUICK DRAG-AND-DROP INGESTION BAR & CATEGORY TABS */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs space-y-4">
         {/* Quick Drop Zone Banner */}
         {canEdit && (
           <div
@@ -979,7 +979,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               setUploadInitialFile(null);
               setIsUploadModalOpen(true);
             }}
-            className="group relative flex items-center justify-between p-3.5 bg-gradient-to-r from-indigo-50/70 via-blue-50/40 to-slate-50 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-xl cursor-pointer transition-all hover:shadow-xs"
+            className="group relative flex items-center justify-between p-3.5 bg-gradient-to-r from-indigo-50/70 via-blue-50/40 to-slate-50 border-2 border-dashed border-indigo-200 dark:border-indigo-800/60 hover:border-indigo-400 rounded-xl cursor-pointer transition-all hover:shadow-xs"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
@@ -988,17 +988,17 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               <div>
                 <p className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
                   <span>Quick Document Ingestion &amp; Drag-and-Drop</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
                     Live Dropzone
                   </span>
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Drag any employee Civil ID, Passport, Visa, Licence, or Contract onto this screen to auto-classify and archive.
                 </p>
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-indigo-700 bg-white px-3 py-1.5 rounded-lg border border-indigo-200 shadow-2xs group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <span className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/60 shadow-2xs group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                 Upload Document
               </span>
             </div>
@@ -1006,7 +1006,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
         )}
 
         {/* Category Navigation Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-800 scrollbar-none">
           {categoryTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeCategory === tab.id;
@@ -1017,16 +1017,16 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
-                <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
+                <Icon size={14} className={isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400'} />
                 <span>{tab.label}</span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     isActive
                       ? 'bg-slate-800 text-slate-200'
-                      : 'bg-slate-100 text-slate-600'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                   }`}
                 >
                   {tab.count}
@@ -1041,19 +1041,19 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
           {/* Filter Bar Header & Quick Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/60">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-indigo-600/10 text-indigo-600 flex items-center justify-center font-bold">
+              <div className="w-7 h-7 rounded-lg bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
                 <Filter size={15} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-800">Filter Bar &amp; Deep Search</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Filter Bar &amp; Deep Search</span>
                   {activeFilterCount > 0 && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white animate-pulse">
                       {activeFilterCount} active filter{activeFilterCount > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Search by employee name, filter document types, or isolate expiration date ranges
                 </p>
               </div>
@@ -1061,12 +1061,12 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
               {/* Sort Selector */}
-              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 shadow-2xs">
-                <ArrowUpDown size={12} className="text-slate-400" />
+              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 shadow-2xs">
+                <ArrowUpDown size={12} className="text-slate-400 dark:text-slate-500" />
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="text-xs font-medium text-slate-700 bg-transparent border-none focus:outline-hidden pr-2 cursor-pointer"
+                  className="text-xs font-medium text-slate-700 dark:text-slate-300 bg-transparent border-none focus:outline-hidden pr-2 cursor-pointer"
                 >
                   <option value="uploadedAt">Upload Date</option>
                   <option value="expiryDate">Expiry Date</option>
@@ -1076,7 +1076,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                 </select>
                 <button
                   onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className="text-[11px] font-bold text-slate-500 hover:text-slate-900 px-1 transition-colors"
+                  className="text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 px-1 transition-colors"
                   title="Toggle Ascending/Descending"
                 >
                   {sortOrder === 'asc' ? '↑' : '↓'}
@@ -1084,11 +1084,11 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center border border-slate-200 rounded-lg p-0.5 bg-white shadow-2xs">
+              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 bg-white dark:bg-slate-900 shadow-2xs">
                 <button
                   onClick={() => setViewMode('table')}
                   className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                    viewMode === 'table' ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-semibold' : 'text-slate-400 hover:text-slate-700'
+                    viewMode === 'table' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
                   }`}
                   title="Table View"
                 >
@@ -1097,7 +1097,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                    viewMode === 'grid' ? 'bg-indigo-50 text-indigo-700 shadow-2xs font-semibold' : 'text-slate-400 hover:text-slate-700'
+                    viewMode === 'grid' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 shadow-2xs font-semibold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
                   }`}
                   title="Grid / Card View"
                 >
@@ -1111,23 +1111,23 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {/* Filter 1: Employee Name Search */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                <User size={12} className="text-indigo-600" />
+              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <User size={12} className="text-indigo-600 dark:text-indigo-400" />
                 <span>Search by Employee Name / ID</span>
               </label>
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={14} />
                 <input
                   type="text"
                   placeholder="e.g. Ahmed, Salim, EMP001..."
                   value={employeeNameSearch}
                   onChange={(e) => setEmployeeNameSearch(e.target.value)}
-                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-hidden"
+                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-hidden"
                 />
                 {employeeNameSearch && (
                   <button
                     onClick={() => setEmployeeNameSearch('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                   >
                     <X size={12} />
                   </button>
@@ -1139,7 +1139,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   <select
                     value={selectedEmployeeId}
                     onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                    className="w-full text-[11px] text-slate-600 bg-white border border-slate-200 rounded-lg py-1 px-2 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    className="w-full text-[11px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                   >
                     <option value="ALL">Select from Employee List ({availableEmployees.length})</option>
                     {availableEmployees.map((emp) => (
@@ -1154,14 +1154,14 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
             {/* Filter 2: Document Type Selector */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                <FileText size={12} className="text-indigo-600" />
+              <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <FileText size={12} className="text-indigo-600 dark:text-indigo-400" />
                 <span>Document Type</span>
               </label>
               <select
                 value={selectedDocType}
                 onChange={(e) => setSelectedDocType(e.target.value)}
-                className="w-full text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                className="w-full text-xs font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
               >
                 <option value="ALL">All Document Types</option>
                 {availableDocTypes.map((dt) => (
@@ -1176,7 +1176,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                 <select
                   value={selectedCompany}
                   onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="w-full text-[11px] text-slate-600 bg-white border border-slate-200 rounded-lg py-1 px-2 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                  className="w-full text-[11px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                 >
                   <option value="ALL">All Companies / Business Units</option>
                   {companies.map((c) => (
@@ -1191,8 +1191,8 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             {/* Filter 3: Expiration Date Range */}
             <div className="space-y-1 lg:col-span-2 xl:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                  <Calendar size={12} className="text-indigo-600" />
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar size={12} className="text-indigo-600 dark:text-indigo-400" />
                   <span>Expiration Date Range</span>
                 </label>
                 {(expiryStartDate || expiryEndDate) && (
@@ -1202,7 +1202,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       setExpiryEndDate('');
                       setDatePreset('all');
                     }}
-                    className="text-[10px] font-bold text-rose-600 hover:text-rose-800 transition-colors cursor-pointer"
+                    className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-800 transition-colors cursor-pointer"
                   >
                     Reset Dates
                   </button>
@@ -1212,7 +1212,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               {/* Date Inputs: From Date to To Date */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">From:</span>
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-slate-500">From:</span>
                   <input
                     type="date"
                     value={expiryStartDate}
@@ -1220,11 +1220,11 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       setExpiryStartDate(e.target.value);
                       setDatePreset('custom');
                     }}
-                    className="w-full pl-11 pr-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                    className="w-full pl-11 pr-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                   />
                 </div>
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">To:</span>
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-slate-500">To:</span>
                   <input
                     type="date"
                     value={expiryEndDate}
@@ -1232,14 +1232,14 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       setExpiryEndDate(e.target.value);
                       setDatePreset('custom');
                     }}
-                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                    className="w-full pl-7 pr-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                   />
                 </div>
               </div>
 
               {/* Quick Date Range Preset Pills */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] text-slate-400 font-medium mr-0.5">Presets:</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mr-0.5">Presets:</span>
                 {[
                   { id: 'all', label: 'All Dates' },
                   { id: 'next-30', label: '≤30 Days (Urgent)' },
@@ -1257,7 +1257,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-indigo-600 text-white shadow-2xs'
-                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       {p.label}
@@ -1272,18 +1272,18 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 border-t border-slate-200/50">
             {/* Universal Keyword Search */}
             <div className="md:col-span-2 relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={13} />
               <input
                 type="text"
                 placeholder="Universal keyword search (doc number, filename, remarks, metadata)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                 >
                   <X size={12} />
                 </button>
@@ -1295,7 +1295,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
+                className="w-full text-xs font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden cursor-pointer"
               >
                 <option value="ALL">All Expiry Statuses</option>
                 <option value="Valid">Valid &amp; Compliant</option>
@@ -1310,15 +1310,15 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
           {/* Active Filter Badges & Results Feedback Row */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/60 text-xs">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-bold text-slate-500 mr-1">Active Criteria:</span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">Active Criteria:</span>
 
               {activeFilterCount === 0 && (
-                <span className="text-[11px] text-slate-400 italic">No filters active (Showing all records)</span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">No filters active (Showing all records)</span>
               )}
 
               {/* Employee Name Filter Chip */}
               {employeeNameSearch && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
                   <User size={10} /> Name: "{employeeNameSearch}"
                   <button onClick={() => setEmployeeNameSearch('')} className="hover:text-indigo-950 cursor-pointer">
                     <X size={11} />
@@ -1328,7 +1328,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Selected Employee ID Chip */}
               {selectedEmployeeId !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
                   <User size={10} /> Emp: {selectedEmployeeId}
                   <button onClick={() => setSelectedEmployeeId('ALL')} className="hover:text-indigo-950 cursor-pointer">
                     <X size={11} />
@@ -1338,7 +1338,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Document Type Chip */}
               {selectedDocType !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
                   <FileText size={10} /> Type: {selectedDocType}
                   <button onClick={() => setSelectedDocType('ALL')} className="hover:text-blue-950 cursor-pointer">
                     <X size={11} />
@@ -1348,7 +1348,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Expiration Date Range Chip */}
               {(expiryStartDate || expiryEndDate) && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                   <Calendar size={10} /> Expiry: {expiryStartDate ? formatDate(expiryStartDate) : 'Start'} → {expiryEndDate ? formatDate(expiryEndDate) : 'Future'}
                   <button
                     onClick={() => {
@@ -1365,7 +1365,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Company Chip */}
               {selectedCompany !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-200 text-slate-800">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                   <Building size={10} /> Company: {selectedCompany}
                   <button onClick={() => setSelectedCompany('ALL')} className="hover:text-slate-950 cursor-pointer">
                     <X size={11} />
@@ -1375,7 +1375,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Status Chip */}
               {selectedStatus !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-orange-100 text-orange-800 border border-orange-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800/60">
                   <Clock size={10} /> Status: {selectedStatus}
                   <button onClick={() => setSelectedStatus('ALL')} className="hover:text-orange-950 cursor-pointer">
                     <X size={11} />
@@ -1385,7 +1385,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Category Tab Chip */}
               {activeCategory !== 'ALL' && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
                   <Layers size={10} /> Category: {activeCategory}
                   <button onClick={() => setActiveCategory('ALL')} className="hover:text-purple-950 cursor-pointer">
                     <X size={11} />
@@ -1395,7 +1395,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
               {/* Universal Search Chip */}
               {searchQuery && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                   <Search size={10} /> "{searchQuery}"
                   <button onClick={() => setSearchQuery('')} className="hover:text-emerald-950 cursor-pointer">
                     <X size={11} />
@@ -1407,7 +1407,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               {activeFilterCount > 0 && (
                 <button
                   onClick={handleClearAllFilters}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-800 px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md transition-colors cursor-pointer ml-1"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-800 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-md transition-colors cursor-pointer ml-1"
                 >
                   <Trash2 size={11} /> Clear All Filters
                 </button>
@@ -1415,8 +1415,8 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             </div>
 
             {/* Results Counter Pill */}
-            <div className="text-[11px] font-semibold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-              Showing <span className="font-bold text-indigo-600">{filteredDocuments.length}</span> of <span className="font-bold text-slate-900">{documents.length}</span> documents
+            <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs">
+              Showing <span className="font-bold text-indigo-600 dark:text-indigo-400">{filteredDocuments.length}</span> of <span className="font-bold text-slate-900 dark:text-slate-100">{documents.length}</span> documents
             </div>
           </div>
         </div>
@@ -1424,18 +1424,18 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
       {/* 3. MAIN DOCUMENTS LISTING */}
       {loading ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
           <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm font-semibold text-slate-700">Loading Central Document Archive...</p>
-          <p className="text-xs text-slate-400 mt-1">Retrieving file records, signatures &amp; expiry states</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Loading Central Document Archive...</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Retrieving file records, signatures &amp; expiry states</p>
         </div>
       ) : filteredDocuments.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 flex items-center justify-center mx-auto mb-3">
             <FolderOpen size={28} />
           </div>
-          <h3 className="text-base font-bold text-slate-800">No Documents Found</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Documents Found</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
             {activeFilterCount > 0
               ? 'No documents matched your filter criteria (Employee Name, Document Type, or Expiration Date Range). Try clearing or adjusting the filters.'
               : 'No statutory documents or file copies have been uploaded to the repository yet.'}
@@ -1444,7 +1444,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             {activeFilterCount > 0 && (
               <button
                 onClick={handleClearAllFilters}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-700 rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Trash2 size={13} /> Reset Filter Bar
               </button>
@@ -1464,11 +1464,11 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
         </div>
       ) : viewMode === 'table' ? (
         /* TABLE VIEW */
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Employee</th>
                   <th className="py-3 px-4">Document Type &amp; Reference</th>
                   <th className="py-3 px-4">File Name &amp; Size</th>
@@ -1478,7 +1478,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                 {filteredDocuments.map((doc, index) => {
                   const isExpired = doc.status === 'Expired';
                   const isUrgent = doc.status === 'Urgent';
@@ -1493,7 +1493,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       {/* Employee Column */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs uppercase shrink-0 border border-slate-200">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-xs uppercase shrink-0 border border-slate-200 dark:border-slate-700">
                             {doc.employeeName ? doc.employeeName.charAt(0) : 'E'}
                           </div>
                           <div>
@@ -1501,16 +1501,16 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleOpenPreview(doc, index)}
-                                className="font-bold text-slate-900 hover:text-indigo-600 transition-colors text-left cursor-pointer"
+                                className="font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 transition-colors text-left cursor-pointer"
                                 title="Quick View Document"
                               >
                                 {doc.employeeName}
                               </button>
-                              <span className="font-mono text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded-md">
+                              <span className="font-mono text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded-md">
                                 {doc.employeeId}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 truncate max-w-[180px]">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[180px]">
                               {doc.employeeCompany} • {doc.designation || 'Staff'}
                             </p>
                           </div>
@@ -1523,7 +1523,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleOpenPreview(doc, index)}
-                            className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 hover:bg-indigo-50 hover:border-indigo-300 transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:border-indigo-300 transition-colors cursor-pointer"
                             title="Quick View Document"
                           >
                             {getCategoryIcon(doc.category, doc.documentType)}
@@ -1532,17 +1532,17 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                             <button
                               type="button"
                               onClick={() => handleOpenPreview(doc, index)}
-                              className="font-bold text-slate-800 block text-left hover:text-indigo-600 transition-colors cursor-pointer"
+                              className="font-bold text-slate-800 dark:text-slate-200 block text-left hover:text-indigo-600 transition-colors cursor-pointer"
                               title="Quick View Document"
                             >
                               {doc.documentType || doc.title}
                             </button>
                             {doc.documentNumber ? (
-                              <span className="text-[11px] font-mono font-semibold text-slate-600">
+                              <span className="text-[11px] font-mono font-semibold text-slate-600 dark:text-slate-400">
                                 Ref: {doc.documentNumber}
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-400">No ref #</span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">No ref #</span>
                             )}
                           </div>
                         </div>
@@ -1556,12 +1556,12 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                           className="flex items-center gap-1.5 text-left group cursor-pointer"
                           title="Quick View Document"
                         >
-                          <FileText size={13} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
-                          <span className="font-medium text-slate-700 group-hover:text-indigo-600 transition-colors truncate max-w-[160px]" title={doc.fileName}>
+                          <FileText size={13} className="text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 transition-colors shrink-0" />
+                          <span className="font-medium text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 transition-colors truncate max-w-[160px]" title={doc.fileName}>
                             {doc.fileName}
                           </span>
                         </button>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
                           {formatFileSize(doc.fileSize)}
                         </span>
                       </td>
@@ -1570,15 +1570,15 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       <td className="py-3 px-4">
                         {doc.expiryDate ? (
                           <div>
-                            <span className="font-semibold text-slate-800 block">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 block">
                               {formatDate(doc.expiryDate)}
                             </span>
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
                               Issued: {doc.issueDate ? formatDate(doc.issueDate) : '—'}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-500 font-medium text-[11px]">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">
                             Permanent / Lifetime
                           </span>
                         )}
@@ -1590,9 +1590,9 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       </td>
 
                       {/* Upload Date & User */}
-                      <td className="py-3 px-4 text-[11px] text-slate-500">
+                      <td className="py-3 px-4 text-[11px] text-slate-500 dark:text-slate-400">
                         <span>{doc.uploadedAt ? formatDate(doc.uploadedAt) : '—'}</span>
-                        <span className="block text-[10px] text-slate-400 truncate max-w-[100px]">
+                        <span className="block text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[100px]">
                           by {doc.uploadedBy || 'admin'}
                         </span>
                       </td>
@@ -1602,7 +1602,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleOpenPreview(doc, index)}
-                            className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-lg transition-colors cursor-pointer"
                             title="Quick-View Document"
                           >
                             <Eye size={15} />
@@ -1610,7 +1610,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
                           <button
                             onClick={() => handleDownload(doc)}
-                            className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 rounded-lg transition-colors cursor-pointer"
                             title="Download File"
                           >
                             <Download size={15} />
@@ -1627,7 +1627,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                                   setEditExpiryDate(doc.expiryDate || '');
                                   setEditRemarks(doc.remarks || '');
                                 }}
-                                className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-lg transition-colors cursor-pointer"
                                 title="Edit Metadata"
                               >
                                 <Edit2 size={15} />
@@ -1639,7 +1639,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                                 !doc.id.startsWith('dl_') && (
                                   <button
                                     onClick={() => setDeletingDocId(doc.id)}
-                                    className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-lg transition-colors cursor-pointer"
                                     title="Delete Document"
                                   >
                                     <Trash2 size={15} />
@@ -1656,7 +1656,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             </table>
           </div>
 
-          <div className="bg-slate-50/60 border-t border-slate-100 px-4 py-3 flex items-center justify-between text-xs text-slate-500">
+          <div className="bg-slate-50/60 border-t border-slate-100 dark:border-slate-800 px-4 py-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>
               Showing <strong>{filteredDocuments.length}</strong> of <strong>{documents.length}</strong> archived records
             </span>
@@ -1683,22 +1683,22 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             return (
               <div
                 key={doc.id}
-                className={`bg-white rounded-2xl border transition-all hover:shadow-md p-4 flex flex-col justify-between ${
+                className={`bg-white dark:bg-slate-900 rounded-2xl border transition-all hover:shadow-md p-4 flex flex-col justify-between ${
                   isExpired
-                    ? 'border-rose-200 bg-rose-50/10 ring-1 ring-rose-500/20'
+                    ? 'border-rose-200 dark:border-rose-800/60 bg-rose-50/10 ring-1 ring-rose-500/20'
                     : isUrgent
-                    ? 'border-amber-200 bg-amber-50/10'
-                    : 'border-slate-200'
+                    ? 'border-amber-200 dark:border-amber-800/60 bg-amber-50/10'
+                    : 'border-slate-200 dark:border-slate-700'
                 }`}
               >
                 <div>
                   {/* Top Header Card */}
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-3">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleOpenPreview(doc, index)}
-                        className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 hover:bg-indigo-50 hover:border-indigo-300 transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:border-indigo-300 transition-colors cursor-pointer"
                         title="Quick View Document"
                       >
                         {getCategoryIcon(doc.category, doc.documentType)}
@@ -1707,12 +1707,12 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleOpenPreview(doc, index)}
-                          className="text-xs font-bold text-slate-900 truncate max-w-[140px] block text-left hover:text-indigo-600 transition-colors cursor-pointer"
+                          className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate max-w-[140px] block text-left hover:text-indigo-600 transition-colors cursor-pointer"
                           title={doc.documentType || doc.title}
                         >
                           {doc.documentType || doc.title}
                         </button>
-                        <span className="text-[10px] text-slate-500 font-mono">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
                           {doc.documentNumber ? `Ref: ${doc.documentNumber}` : 'No ref #'}
                         </span>
                       </div>
@@ -1721,21 +1721,21 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   </div>
 
                   {/* Employee Details */}
-                  <div className="space-y-1.5 mb-3 bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 text-[11px]">
+                  <div className="space-y-1.5 mb-3 bg-slate-50/70 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px]">
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
                         onClick={() => handleOpenPreview(doc, index)}
-                        className="font-bold text-slate-800 truncate max-w-[130px] text-left hover:text-indigo-600 cursor-pointer"
+                        className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[130px] text-left hover:text-indigo-600 cursor-pointer"
                         title={doc.employeeName}
                       >
                         {doc.employeeName}
                       </button>
-                      <span className="font-mono font-semibold text-slate-500">
+                      <span className="font-mono font-semibold text-slate-500 dark:text-slate-400">
                         {doc.employeeId}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500 truncate">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                       {doc.employeeCompany} • {doc.designation || 'Staff'}
                     </p>
                   </div>
@@ -1743,20 +1743,20 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   {/* Dates & File Meta */}
                   <div className="grid grid-cols-2 gap-2 text-[11px] mb-3">
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Issue Date</span>
-                      <span className="font-medium text-slate-700">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Issue Date</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
                         {doc.issueDate ? formatDate(doc.issueDate) : '—'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 block">Expiry Date</span>
-                      <span className="font-bold text-slate-900">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Expiry Date</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">
                         {doc.expiryDate ? formatDate(doc.expiryDate) : 'Permanent'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={() => handleOpenPreview(doc, index)}
@@ -1770,14 +1770,14 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                 </div>
 
                 {/* Actions Bar */}
-                <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100">
-                  <span className="text-[10px] text-slate-400">
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
                     {doc.uploadedAt ? formatDate(doc.uploadedAt) : ''}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenPreview(doc, index)}
-                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                       title="Quick View Document"
                     >
                       <Eye size={13} /> View
@@ -1785,7 +1785,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
                     <button
                       onClick={() => handleDownload(doc)}
-                      className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
                       title="Download"
                     >
                       <Download size={14} />
@@ -1801,7 +1801,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                           setEditExpiryDate(doc.expiryDate || '');
                           setEditRemarks(doc.remarks || '');
                         }}
-                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-lg transition-colors cursor-pointer"
                         title="Edit Metadata"
                       >
                         <Edit2 size={14} />
@@ -1866,15 +1866,15 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       {/* B) UPLOAD NEW DOCUMENT MODAL */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center">
                   <Upload size={16} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Upload to Document Repository</h3>
-                  <p className="text-[11px] text-slate-500">Encrypt and store official employee statutory document</p>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Upload to Document Repository</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Encrypt and store official employee statutory document</p>
                 </div>
               </div>
               <button
@@ -1882,7 +1882,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   setIsUploadModalOpen(false);
                   setUploadInitialFile(null);
                 }}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -1891,7 +1891,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
             <div className="space-y-3.5">
               {/* Employee Selector */}
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Select Employee <span className="text-rose-500">*</span>
                 </label>
                 <SearchableEmployeeSelect
@@ -1907,7 +1907,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               {/* Category & Document Type */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Document Category
                   </label>
                   <select
@@ -1922,7 +1922,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                       else if (cat === 'contract') setUploadDocType('Employment Contract');
                       else setUploadDocType('General Document');
                     }}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 focus:bg-white"
                   >
                     <option value="civil-id">Civil ID / Resident Card</option>
                     <option value="passport">Passport Copy</option>
@@ -1933,7 +1933,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Document Reference #
                   </label>
                   <input
@@ -1941,7 +1941,7 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                     placeholder="e.g. 12345678 or DL-99"
                     value={uploadDocNumber}
                     onChange={(e) => setUploadDocNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50 font-mono"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 font-mono"
                   />
                 </div>
               </div>
@@ -1949,32 +1949,32 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Issue Date
                   </label>
                   <input
                     type="date"
                     value={uploadIssueDate}
                     onChange={(e) => setUploadIssueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Expiry Date
                   </label>
                   <input
                     type="date"
                     value={uploadExpiryDate}
                     onChange={(e) => setUploadExpiryDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                   />
                 </div>
               </div>
 
               {/* Remarks */}
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Notes &amp; Remarks (Optional)
                 </label>
                 <input
@@ -1982,13 +1982,13 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
                   placeholder="e.g. Renewed copy, Royal Oman Police clearance"
                   value={uploadRemarks}
                   onChange={(e) => setUploadRemarks(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                 />
               </div>
 
               {/* Upload Dropzone */}
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Attach File (PDF, JPG, PNG) <span className="text-rose-500">*</span>
                 </label>
                 <FileUploadComponent
@@ -2017,8 +2017,8 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
               </div>
 
               {uploadSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-medium flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>{uploadSuccess}</span>
                 </div>
               )}
@@ -2030,20 +2030,20 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       {/* C) EDIT METADATA MODAL */}
       {editingDoc && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center">
                   <Edit2 size={16} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Edit Document Metadata</h3>
-                  <p className="text-[11px] text-slate-500">{editingDoc.fileName}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Edit Document Metadata</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{editingDoc.fileName}</p>
                 </div>
               </div>
               <button
                 onClick={() => setEditingDoc(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg"
               >
                 <X size={16} />
               </button>
@@ -2051,64 +2051,64 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Title</label>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Title</label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Document Number
                 </label>
                 <input
                   type="text"
                   value={editDocNumber}
                   onChange={(e) => setEditDocNumber(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-xl bg-slate-50/50"
+                  className="w-full px-3 py-2 text-xs font-mono border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Issue Date</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Issue Date</label>
                   <input
                     type="date"
                     value={editIssueDate}
                     onChange={(e) => setEditIssueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">Expiry Date</label>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Expiry Date</label>
                   <input
                     type="date"
                     value={editExpiryDate}
                     onChange={(e) => setEditExpiryDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Remarks</label>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Remarks</label>
                 <textarea
                   rows={2}
                   value={editRemarks}
                   onChange={(e) => setEditRemarks(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50/50"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setEditingDoc(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -2129,20 +2129,20 @@ export const DocumentRepositoryView: React.FC<DocumentRepositoryViewProps> = ({
       {/* D) DELETE CONFIRMATION DIALOG */}
       {deletingDocId && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
               <AlertOctagon size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Delete Document Copy?</h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Delete Document Copy?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Are you sure you want to permanently delete this file from encrypted object storage? This action cannot be undone.
               </p>
             </div>
             <div className="flex items-center justify-center gap-2 pt-2">
               <button
                 onClick={() => setDeletingDocId(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>

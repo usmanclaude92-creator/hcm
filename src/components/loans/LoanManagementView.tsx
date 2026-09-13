@@ -235,8 +235,8 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Landmark className="w-5 h-5 text-purple-600" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <Landmark className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             Employee Loan Management
           </h2>
         </div>
@@ -244,9 +244,9 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={handleExportLoans}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
             Export Loans Ledger
           </button>
 
@@ -263,7 +263,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -272,42 +272,42 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       {/* KPI Cards */}
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-medium text-slate-500">Total Loan Principal Granted</span>
-            <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Loan Principal Granted</span>
+            <strong className="block text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">
               OMR {formatOMR(summary.totalLoanAmount)}
             </strong>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">{(summary.activeCount || 0) + (summary.completedCount || 0)} Total Loan Agreements</span>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 block">{(summary.activeCount || 0) + (summary.completedCount || 0)} Total Loan Agreements</span>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
-            <span className="text-xs font-semibold text-emerald-700">Total Principal Repaid</span>
-            <strong className="block text-xl font-bold text-emerald-800 mt-1 font-mono">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 shadow-xs">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Total Principal Repaid</span>
+            <strong className="block text-xl font-bold text-emerald-800 dark:text-emerald-300 mt-1 font-mono">
               OMR {formatOMR(summary.totalRecovered)}
             </strong>
-            <span className="text-[11px] text-emerald-600 mt-0.5 block">{summary.completedCount} Loans Closed</span>
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 block">{summary.completedCount} Loans Closed</span>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-purple-200 bg-purple-50/30 shadow-xs">
-            <span className="text-xs font-semibold text-purple-700">Outstanding Loan Balance</span>
-            <strong className="block text-xl font-bold text-purple-800 mt-1 font-mono">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/30 shadow-xs">
+            <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">Outstanding Loan Balance</span>
+            <strong className="block text-xl font-bold text-purple-800 dark:text-purple-300 mt-1 font-mono">
               OMR {formatOMR(summary.totalOutstanding)}
             </strong>
-            <span className="text-[11px] text-purple-600 mt-0.5 block">{summary.activeCount} Active Repayment Loans</span>
+            <span className="text-[11px] text-purple-600 dark:text-purple-400 mt-0.5 block">{summary.activeCount} Active Repayment Loans</span>
           </div>
         </div>
       )}
 
       {/* Filter Bar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center gap-3">
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col sm:flex-row items-center gap-3">
         <div className="flex-1 relative w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
           <input
             type="text"
             placeholder="Search employee ID, name, or loan purpose..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
           />
         </div>
 
@@ -315,7 +315,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-purple-500"
+            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-purple-500"
           >
             <option value="ALL">All Loan Statuses</option>
             <option value="Active">Active Loans</option>
@@ -325,26 +325,26 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       </div>
 
       {/* Loans Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-3">Employee</th>
                 <th className="px-3 py-3">Loan Date</th>
                 <th className="px-4 py-3 text-right">Principal (OMR)</th>
                 <th className="px-3 py-3 text-right">Repaid (OMR)</th>
-                <th className="px-4 py-3 text-right font-bold text-purple-900">Remaining Balance</th>
+                <th className="px-4 py-3 text-right font-bold text-purple-900 dark:text-purple-300">Remaining Balance</th>
                 <th className="px-3 py-3 text-right">Target / Mo.</th>
                 <th className="px-3 py-3">Purpose</th>
                 <th className="px-3 py-3 text-center">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
               {filteredLoans.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400">
+                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400 dark:text-slate-500">
                     No loan records found matching criteria.
                   </td>
                 </tr>
@@ -352,32 +352,32 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                 filteredLoans.map((l) => (
                   <tr key={l.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
-                      <span className="font-mono font-bold text-blue-600 block">{l.employeeId}</span>
-                      <span className="font-semibold text-slate-900">{l.employeeName}</span>
+                      <span className="font-mono font-bold text-blue-600 dark:text-blue-400 block">{l.employeeId}</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">{l.employeeName}</span>
                     </td>
-                    <td className="px-3 py-3 text-slate-600">{formatDate(l.loanDate)}</td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                    <td className="px-3 py-3 text-slate-600 dark:text-slate-400">{formatDate(l.loanDate)}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
                       OMR {formatOMR(l.loanAmount)}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-emerald-700">
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-300">
                       OMR {formatOMR(l.totalRecovered)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-bold">
-                      <span className={l.outstandingBalance > 0 ? 'text-purple-700' : 'text-slate-400'}>
+                      <span className={l.outstandingBalance > 0 ? 'text-purple-700 dark:text-purple-300' : 'text-slate-400 dark:text-slate-500'}>
                         OMR {formatOMR(l.outstandingBalance)}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-slate-600">
+                    <td className="px-3 py-3 text-right font-mono text-slate-600 dark:text-slate-400">
                       {l.monthlyRecoveryAmount > 0 ? `OMR ${formatOMR(l.monthlyRecoveryAmount)}` : '—'}
                     </td>
-                    <td className="px-3 py-3 text-slate-600 max-w-[180px] truncate" title={l.remarks}>
+                    <td className="px-3 py-3 text-slate-600 dark:text-slate-400 max-w-[180px] truncate" title={l.remarks}>
                       {l.remarks || '—'}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         l.status === 'Completed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-purple-100 text-purple-800'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                          : 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300'
                       }`}>
                         {l.status}
                       </span>
@@ -386,7 +386,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleOpenHistory(l)}
-                          className="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                          className="px-2 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-md transition-colors"
                         >
                           Repayments
                         </button>
@@ -412,15 +412,15 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       {/* Issue New Loan Modal */}
       {isNewLoanModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Landmark className="w-4 h-4 text-purple-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 Issue Employee Loan Agreement
               </h3>
               <button
                 onClick={() => setIsNewLoanModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -428,7 +428,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
 
             <form onSubmit={handleSaveNewLoan} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Select Employee <span className="text-rose-500">*</span>
                 </label>
                 <SearchableEmployeeSelect
@@ -443,7 +443,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Loan Principal (OMR) <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -452,12 +452,12 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                     required
                     value={loanForm.loanAmount}
                     onChange={(e) => setLoanForm({ ...loanForm, loanAmount: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Agreement Date <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -465,13 +465,13 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                     required
                     value={loanForm.loanDate}
                     onChange={(e) => setLoanForm({ ...loanForm, loanDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Monthly Payroll Deduction Target (OMR)
                 </label>
                 <input
@@ -479,13 +479,13 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                   step="0.001"
                   value={loanForm.monthlyDeduction}
                   onChange={(e) => setLoanForm({ ...loanForm, monthlyDeduction: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono focus:ring-2 focus:ring-purple-500"
                 />
-                <span className="text-[10px] text-slate-400">Auto-suggested in monthly payroll calculation deductions</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">Auto-suggested in monthly payroll calculation deductions</span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Loan Reason / Notes
                 </label>
                 <textarea
@@ -493,15 +493,15 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                   value={loanForm.purpose}
                   onChange={(e) => setLoanForm({ ...loanForm, purpose: e.target.value })}
                   placeholder="e.g. Advance for medical / housing..."
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2.5">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsNewLoanModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
                 >
                   Cancel
                 </button>
@@ -521,19 +521,19 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       {/* Direct Repay Modal */}
       {isRepayModalOpen && selectedLoan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
                   Record Direct Repayment: {selectedLoan.employeeId} - {selectedLoan.employeeName}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Principal: OMR {formatOMR(selectedLoan.loanAmount)} • Remaining: OMR {formatOMR(selectedLoan.outstandingBalance)}
                 </p>
               </div>
               <button
                 onClick={() => setIsRepayModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -542,7 +542,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
             <form onSubmit={handleSaveDirectRepay} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Repayment Amount (OMR) <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -551,12 +551,12 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                     required
                     value={repayForm.amount}
                     onChange={(e) => setRepayForm({ ...repayForm, amount: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold text-purple-900 focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-purple-900 dark:text-purple-300 focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Payment Date <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -564,20 +564,20 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                     required
                     value={repayForm.repaymentDate}
                     onChange={(e) => setRepayForm({ ...repayForm, repaymentDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Mode
                   </label>
                   <select
                     value={repayForm.repaymentMode}
                     onChange={(e) => setRepayForm({ ...repayForm, repaymentMode: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="Cash">Cash Deposit</option>
                     <option value="Bank Transfer">Bank Transfer</option>
@@ -586,7 +586,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Reference / Receipt No.
                   </label>
                   <input
@@ -594,47 +594,47 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                     value={repayForm.referenceNumber}
                     onChange={(e) => setRepayForm({ ...repayForm, referenceNumber: e.target.value })}
                     placeholder="e.g. RCP-00234"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
                   />
                 </div>
               </div>
 
               {/* Receipt File */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                <label className="block text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-purple-600" />
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+                <label className="block text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   Attach Repayment Proof / Deposit Slip
                 </label>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,application/pdf"
                   onChange={handleReceiptFileChange}
-                  className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-800 hover:file:bg-purple-200 cursor-pointer"
+                  className="text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-800 hover:file:bg-purple-200 cursor-pointer"
                 />
                 {repayForm.receiptFileName && (
-                  <p className="text-[11px] text-purple-700 font-medium">
+                  <p className="text-[11px] text-purple-700 dark:text-purple-300 font-medium">
                     Attached: {repayForm.receiptFileName}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Remarks
                 </label>
                 <textarea
                   rows={2}
                   value={repayForm.remarks}
                   onChange={(e) => setRepayForm({ ...repayForm, remarks: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2.5">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsRepayModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
                 >
                   Cancel
                 </button>
@@ -654,19 +654,19 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
       {/* Repayments History Modal */}
       {isHistoryModalOpen && selectedLoan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
                   Repayment Track Record: {selectedLoan.employeeId} - {selectedLoan.employeeName}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Principal: OMR {formatOMR(selectedLoan.loanAmount)} • Repaid: OMR {formatOMR(selectedLoan.totalRecovered)} • Balance: OMR {formatOMR(selectedLoan.outstandingBalance)}
                 </p>
               </div>
               <button
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -674,11 +674,11 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
 
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
               {repaymentsList.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No repayments recorded for this loan agreement yet.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 italic">No repayments recorded for this loan agreement yet.</p>
               ) : (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 font-semibold">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold">
                       <tr>
                         <th className="px-3 py-2">Date</th>
                         <th className="px-3 py-2">Source / Mode</th>
@@ -688,20 +688,20 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                         <th className="px-3 py-2">Recorded By</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
                       {repaymentsList.map((r) => (
                         <tr key={r.id} className={r.isReversed ? 'opacity-50' : ''}>
                           <td className="px-3 py-2">{formatDate(r.recoveryDate)}</td>
                           <td className="px-3 py-2">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              r.recoverySource === 'Payroll' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                              r.recoverySource === 'Payroll' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                             }`}>
                               {r.recoverySource === 'Payroll' ? 'Payroll Deduction' : r.recoverySource}
                             </span>
-                            {r.isReversed && <span className="ml-1.5 text-rose-600 font-semibold text-[10px]">(Reversed)</span>}
+                            {r.isReversed && <span className="ml-1.5 text-rose-600 dark:text-rose-400 font-semibold text-[10px]">(Reversed)</span>}
                           </td>
-                          <td className="px-3 py-2 text-slate-600">{r.payrollMonth || '—'}</td>
-                          <td className="px-3 py-2 text-right font-mono font-bold text-purple-700">
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{r.payrollMonth || '—'}</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-purple-700 dark:text-purple-300">
                             OMR {formatOMR(r.recoveryAmount)}
                           </td>
                           <td className="px-3 py-2 text-center">
@@ -716,7 +716,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                                   });
                                   setViewerOpen(true);
                                 }}
-                                className="text-purple-600 hover:text-purple-800 font-semibold inline-flex items-center gap-1"
+                                className="text-purple-600 dark:text-purple-400 hover:text-purple-800 font-semibold inline-flex items-center gap-1"
                               >
                                 <Paperclip className="w-3 h-3" /> View
                               </button>
@@ -724,7 +724,7 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
                               '—'
                             )}
                           </td>
-                          <td className="px-3 py-2 text-slate-500">{r.createdByName || r.createdBy}</td>
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{r.createdByName || r.createdBy}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -733,10 +733,10 @@ export const LoanManagementView: React.FC<LoanManagementViewProps> = ({ initialO
               )}
             </div>
 
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex justify-end">
               <button
                 onClick={() => setIsHistoryModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 Close
               </button>

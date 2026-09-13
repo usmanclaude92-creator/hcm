@@ -85,21 +85,21 @@ const PendingRegistrationCallout: React.FC<PendingRegistrationCalloutProps> = ({
   onRegister,
   saving,
 }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-8 text-center max-w-lg mx-auto my-8 shadow-xs">
-    <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center max-w-lg mx-auto my-8 shadow-xs">
+    <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-3">
       <ShieldCheck size={24} />
     </div>
-    <h3 className="text-sm font-bold text-slate-800 mb-1">
+    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
       {tabName} Lifecycle Requires Registered Profile
     </h3>
-    <p className="text-xs text-slate-500 leading-relaxed mb-5">
+    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-5">
       Statutory document renewal workflows, validity status tracking, and encrypted file archives unlock once the employee record is created in the database.
     </p>
     <div className="flex flex-wrap items-center justify-center gap-3">
       <button
         type="button"
         onClick={onGoToPersonal}
-        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+        className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
       >
         Review Details (Tab 1)
       </button>
@@ -1010,8 +1010,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
   const renderContent = () => (
     <div
-      className={`bg-white rounded-2xl shadow-xl border border-slate-200 w-full overflow-hidden flex flex-col ${
-        isModalMode ? 'max-w-5xl max-h-[92vh]' : 'shadow-xs border-slate-200'
+      className={`bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full overflow-hidden flex flex-col ${
+        isModalMode ? 'max-w-5xl max-h-[92vh]' : 'shadow-xs border-slate-200 dark:border-slate-700'
       }`}
     >
       {/* Header Bar */}
@@ -1020,7 +1020,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           {backLabel && (
             <button
               onClick={handleSafeClose}
-              className="mr-2 text-slate-400 hover:text-white flex items-center gap-1 text-xs font-semibold cursor-pointer"
+              className="mr-2 text-slate-400 dark:text-slate-500 hover:text-white flex items-center gap-1 text-xs font-semibold cursor-pointer"
             >
               <ArrowLeft size={16} />
               <span>{backLabel}</span>
@@ -1060,7 +1060,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               Professional HR Record, Statutory Identification &amp; 360° Compliance Dossier
             </p>
           </div>
@@ -1080,7 +1080,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           {isModalMode && (
             <button
               onClick={handleSafeClose}
-              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              className="text-slate-400 dark:text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -1093,14 +1093,14 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         <div
           className={`px-6 py-3 text-xs font-semibold flex items-center justify-between ${
             feedback.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-b border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-b border-rose-200'
+              ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-b border-emerald-200 dark:border-emerald-800/60'
+              : 'bg-rose-50 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300 border-b border-rose-200 dark:border-rose-800/60'
           }`}
         >
           <span>{feedback.message}</span>
           <button
             onClick={() => setFeedback(null)}
-            className="text-slate-400 hover:text-slate-600 font-bold ml-4 cursor-pointer"
+            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-bold ml-4 cursor-pointer"
           >
             ×
           </button>
@@ -1108,15 +1108,15 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       )}
 
       {/* Category Navigation Tabs */}
-      <div className="flex items-center px-6 border-b border-slate-200 bg-slate-50 gap-1 overflow-x-auto shrink-0">
+      <div className="flex items-center px-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 gap-1 overflow-x-auto shrink-0">
         {/* TAB 1: PERSONAL INFORMATION (FIRST TAB!) */}
         <button
           type="button"
           onClick={() => setActiveTab('personal')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'personal'
-              ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
           <User size={15} />
@@ -1129,8 +1129,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           onClick={() => setActiveTab('employment')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'employment'
-              ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
           <Building size={15} />
@@ -1143,8 +1143,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           onClick={() => setActiveTab('payroll')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'payroll'
-              ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
           <CreditCard size={15} />
@@ -1157,8 +1157,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           onClick={() => setActiveTab('civil-id')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'civil-id'
-              ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
           <CreditCard size={15} />
@@ -1174,8 +1174,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           onClick={() => setActiveTab('driving-licence')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'driving-licence'
-              ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
           <Car size={15} />
@@ -1192,8 +1192,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             onClick={() => setActiveTab('visa')}
             className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'visa'
-                ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
             }`}
           >
             <FileCheck size={15} />
@@ -1210,13 +1210,13 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           onClick={() => setActiveTab('govt-docs')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'govt-docs'
-              ? 'border-blue-600 text-blue-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
           <FileText size={15} />
           <span>Government Documents &amp; Passports</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[10px]">
+          <span className="px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px]">
             {complianceData?.governmentDocuments?.length || 0}
           </span>
         </button>
@@ -1227,13 +1227,13 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           onClick={() => setActiveTab('documents')}
           className={`px-4 py-3 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
             activeTab === 'documents'
-              ? 'border-indigo-600 text-indigo-600 bg-white shadow-xs'
-              : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/60'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60'
           }`}
         >
-          <FolderOpen size={15} className="text-indigo-600" />
+          <FolderOpen size={15} className="text-indigo-600 dark:text-indigo-400" />
           <span>Document Repository &amp; Storage</span>
-          <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+          <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
             {docCount || complianceData?.governmentDocuments?.length || 0}
           </span>
         </button>
@@ -1246,7 +1246,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         }`}
       >
         {loading ? (
-          <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-3">
+          <div className="py-12 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-xs">Loading employee verification &amp; document records...</p>
           </div>
@@ -1439,11 +1439,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
       {/* Footer Close Button in Modal Mode */}
       {isModalMode && (
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
-          <div className="text-xs text-slate-500">
+        <div className="px-6 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {currentEmployee ? (
               <span>
-                Employee ID: <strong className="font-mono text-slate-700">{currentEmployee.employeeId}</strong> • Status: {currentEmployee.isActive ? 'Active' : 'Inactive'}
+                Employee ID: <strong className="font-mono text-slate-700 dark:text-slate-300">{currentEmployee.employeeId}</strong> • Status: {currentEmployee.isActive ? 'Active' : 'Inactive'}
               </span>
             ) : (
               <span>Registration Mode</span>
@@ -1452,7 +1452,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           <button
             type="button"
             onClick={handleSafeClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             Close Dossier
           </button>
@@ -1513,7 +1513,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       {/* RENEW CIVIL ID MODAL */}
       {isRenewCidOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold">
                 {complianceData?.currentCivilId ? 'Renew Civil ID Card' : 'Create Civil ID Record'}
@@ -1521,7 +1521,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               <button
                 type="button"
                 onClick={() => setIsRenewCidOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 dark:text-slate-500 hover:text-white cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1529,7 +1529,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
             <div className="p-5 space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Civil ID / Resident ID Number *
                 </label>
                 <input
@@ -1538,78 +1538,78 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   placeholder="e.g. 10293847"
                   value={cidForm.civilIdNumber}
                   onChange={(e) => setCidForm({ ...cidForm, civilIdNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-mono focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Issue Date</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Issue Date</label>
                   <input
                     type="date"
                     value={cidForm.issueDate}
                     onChange={(e) => setCidForm({ ...cidForm, issueDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Expiry Date *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Expiry Date *</label>
                   <input
                     type="date"
                     required
                     value={cidForm.expiryDate}
                     onChange={(e) => setCidForm({ ...cidForm, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-semibold text-slate-900"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold text-slate-900 dark:text-slate-100"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Issuing Authority</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Issuing Authority</label>
                   <input
                     type="text"
                     value={cidForm.issuingAuthority}
                     onChange={(e) => setCidForm({ ...cidForm, issuingAuthority: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Country</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Country</label>
                   <input
                     type="text"
                     value={cidForm.country}
                     onChange={(e) => setCidForm({ ...cidForm, country: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Reason for Renewal / Replace</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Reason for Renewal / Replace</label>
                 <input
                   type="text"
                   placeholder="e.g. Periodic 5-Year Card Renewal"
                   value={cidForm.replaceReason}
                   onChange={(e) => setCidForm({ ...cidForm, replaceReason: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Remarks</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Remarks</label>
                 <input
                   type="text"
                   placeholder="Smart ID card remarks"
                   value={cidForm.remarks}
                   onChange={(e) => setCidForm({ ...cidForm, remarks: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                 />
               </div>
 
               {/* Document File Attachment Upload */}
-              <div className="pt-2 border-t border-slate-200">
-                <label className="font-semibold text-slate-700 block mb-1.5">
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
                   Civil ID / Resident ID Document Attachment (Scan / PDF / Photo)
                 </label>
                 <FileUploadComponent
@@ -1622,18 +1622,18 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   }}
                 />
                 {cidForm.documentAttachment && (
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                     ✓ Document attachment linked: {cidForm.documentAttachment}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsRenewCidOpen(false)}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1654,7 +1654,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       {/* RENEW / ADD DRIVING LICENCE MODAL */}
       {isRenewDlOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold">
                 {complianceData?.currentDrivingLicence ? 'Renew Driving Licence' : 'Add Driving Licence'}
@@ -1662,7 +1662,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               <button
                 type="button"
                 onClick={() => setIsRenewDlOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 dark:text-slate-500 hover:text-white cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1670,25 +1670,25 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
             <div className="p-5 space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Licence Number *</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Licence Number *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. DL-OM-89214"
                   value={dlForm.licenceNumber}
                   onChange={(e) => setDlForm({ ...dlForm, licenceNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-mono focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-semibold text-slate-700">Category *</label>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Category *</label>
                     <button
                       type="button"
                       onClick={() => setIsAddCategoryOpen(true)}
-                      className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                     >
                       + Add Category
                     </button>
@@ -1696,7 +1696,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   <select
                     value={dlForm.category}
                     onChange={(e) => setDlForm({ ...dlForm, category: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-medium bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-medium bg-white dark:bg-slate-900"
                   >
                     {licenceCategories.map((cat) => (
                       <option key={cat} value={cat}>
@@ -1707,54 +1707,54 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Expiry Date *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Expiry Date *</label>
                   <input
                     type="date"
                     required
                     value={dlForm.expiryDate}
                     onChange={(e) => setDlForm({ ...dlForm, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-semibold"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Vehicle / Equipment Class</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Vehicle / Equipment Class</label>
                   <input
                     type="text"
                     placeholder="e.g. Light Vehicle / Excavator"
                     value={dlForm.vehicleClass}
                     onChange={(e) => setDlForm({ ...dlForm, vehicleClass: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Restrictions / Blood Group</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Restrictions / Blood Group</label>
                   <input
                     type="text"
                     placeholder="e.g. Corrective Lenses, O+"
                     value={dlForm.restrictions}
                     onChange={(e) => setDlForm({ ...dlForm, restrictions: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Remarks</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Remarks</label>
                 <input
                   type="text"
                   placeholder="Licence remarks / endorsements"
                   value={dlForm.remarks}
                   onChange={(e) => setDlForm({ ...dlForm, remarks: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                 />
               </div>
 
               {/* Driving Licence File Attachment Upload */}
-              <div className="pt-2 border-t border-slate-200">
-                <label className="font-semibold text-slate-700 block mb-1.5">
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
                   Driving Licence Document Attachment (Scan / PDF / Photo)
                 </label>
                 <FileUploadComponent
@@ -1767,18 +1767,18 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   }}
                 />
                 {dlForm.documentAttachment && (
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                     ✓ Document attachment linked: {dlForm.documentAttachment}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsRenewDlOpen(false)}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1799,7 +1799,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       {/* RENEW VISA / AMEND TRADE MODAL */}
       {isRenewVisaOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold">
                 {complianceData?.currentVisa ? 'Renew Visa / Amend Trade on Visa' : 'Create Employment Visa Record'}
@@ -1807,7 +1807,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               <button
                 type="button"
                 onClick={() => setIsRenewVisaOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 dark:text-slate-500 hover:text-white cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1815,7 +1815,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
 
             <div className="p-5 space-y-4 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                   Trade on Visa (Registered Profession with Ministry of Labour) *
                 </label>
                 <input
@@ -1824,49 +1824,49 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   placeholder="e.g. Mason, Carpenter, Electrician, General Helper"
                   value={visaForm.tradeOnVisa}
                   onChange={(e) => setVisaForm({ ...visaForm, tradeOnVisa: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-bold text-slate-900 focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Visa Number</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Visa Number</label>
                   <input
                     type="text"
                     placeholder="e.g. V-882910"
                     value={visaForm.visaNumber}
                     onChange={(e) => setVisaForm({ ...visaForm, visaNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-mono"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Visa Expiry Date *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Visa Expiry Date *</label>
                   <input
                     type="date"
                     required
                     value={visaForm.expiryDate}
                     onChange={(e) => setVisaForm({ ...visaForm, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-semibold"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Sponsoring Entity</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Sponsoring Entity</label>
                   <input
                     type="text"
                     value={visaForm.sponsor}
                     onChange={(e) => setVisaForm({ ...visaForm, sponsor: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Sponsorship Type</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Sponsorship Type</label>
                   <select
                     value={visaForm.sponsorshipType}
                     onChange={(e) => setVisaForm({ ...visaForm, sponsorshipType: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900"
                   >
                     <option value="Corporate">Corporate / SMI Sponsorship</option>
                     <option value="Direct">Direct Company</option>
@@ -1877,19 +1877,19 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Reason for Change / Amendment</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Reason for Change / Amendment</label>
                 <input
                   type="text"
                   placeholder="e.g. Trade amended from General Helper to Electrician"
                   value={visaForm.reasonForChange}
                   onChange={(e) => setVisaForm({ ...visaForm, reasonForChange: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                 />
               </div>
 
               {/* Visa Document File Attachment Upload */}
-              <div className="pt-2 border-t border-slate-200">
-                <label className="font-semibold text-slate-700 block mb-1.5">
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
                   Visa Document Attachment (Ministry of Labour Visa Stamp / Resident Card / PDF)
                 </label>
                 <FileUploadComponent
@@ -1902,18 +1902,18 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   }}
                 />
                 {visaForm.documentAttachment && (
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                     ✓ Document attachment linked: {visaForm.documentAttachment}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsRenewVisaOpen(false)}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -1934,13 +1934,13 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       {/* ADD GOVERNMENT DOCUMENT MODAL */}
       {isAddGovtDocOpen && currentEmployee && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold">Add Government Document / Passport</h3>
               <button
                 type="button"
                 onClick={() => setIsAddGovtDocOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 dark:text-slate-500 hover:text-white cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -1949,11 +1949,11 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
             <div className="p-5 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Document Type *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Document Type *</label>
                   <select
                     value={newGovtDoc.documentType}
                     onChange={(e) => setNewGovtDoc({ ...newGovtDoc, documentType: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-medium bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-medium bg-white dark:bg-slate-900"
                   >
                     <option value="Passport">Passport</option>
                     <option value="Work Permit">Work Permit / Labour Card</option>
@@ -1965,77 +1965,77 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Document Number *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Document Number *</label>
                   <input
                     type="text"
                     required
                     placeholder="Document Number"
                     value={newGovtDoc.documentNumber}
                     onChange={(e) => setNewGovtDoc({ ...newGovtDoc, documentNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Issue Date</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Issue Date</label>
                   <input
                     type="date"
                     value={newGovtDoc.issueDate}
                     onChange={(e) => setNewGovtDoc({ ...newGovtDoc, issueDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Expiry Date *</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Expiry Date *</label>
                   <input
                     type="date"
                     required
                     value={newGovtDoc.expiryDate}
                     onChange={(e) => setNewGovtDoc({ ...newGovtDoc, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-semibold"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg font-semibold"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Issuing Authority</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Issuing Authority</label>
                   <input
                     type="text"
                     placeholder="e.g. ROP Passports Dept"
                     value={newGovtDoc.issuingAuthority}
                     onChange={(e) => setNewGovtDoc({ ...newGovtDoc, issuingAuthority: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Country</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Country</label>
                   <input
                     type="text"
                     placeholder="Country of Issue"
                     value={newGovtDoc.country}
                     onChange={(e) => setNewGovtDoc({ ...newGovtDoc, country: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Remarks</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Remarks</label>
                 <input
                   type="text"
                   placeholder="Additional notes"
                   value={newGovtDoc.remarks}
                   onChange={(e) => setNewGovtDoc({ ...newGovtDoc, remarks: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                 />
               </div>
 
               {/* Document File Attachment Upload */}
-              <div className="pt-2 border-t border-slate-200">
-                <label className="font-semibold text-slate-700 block mb-1.5">
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
                   Document Attachment Scan / PDF
                 </label>
                 <FileUploadComponent
@@ -2056,18 +2056,18 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   }}
                 />
                 {newGovtDoc.documentAttachment && (
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                     ✓ Document attachment linked: {newGovtDoc.documentAttachment}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsAddGovtDocOpen(false)}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -2088,34 +2088,34 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
       {/* QUICK ADD CATEGORY MODAL */}
       {isAddCategoryOpen && (
         <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/70 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-sm overflow-hidden animate-in fade-in">
             <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
               <h4 className="text-xs font-bold">Add Driving Licence Category</h4>
               <button
                 type="button"
                 onClick={() => setIsAddCategoryOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 dark:text-slate-500 hover:text-white cursor-pointer"
               >
                 <X size={16} />
               </button>
             </div>
             <div className="p-4 space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">New Category Name</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">New Category Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Tower Crane Operator"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg"
                 />
               </div>
             </div>
-            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+            <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsAddCategoryOpen(false)}
-                className="px-3 py-1 bg-slate-200 text-slate-700 rounded-md text-xs font-semibold cursor-pointer"
+                className="px-3 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
@@ -2165,25 +2165,25 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
           id="discard-changes-modal"
           className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4"
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden p-6 space-y-5">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full overflow-hidden p-6 space-y-5">
             <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                 <AlertTriangle size={24} />
               </div>
               <div className="space-y-1.5 flex-1">
-                <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   Discard Unsaved Changes?
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   You have unsaved edits in this employee record. If you navigate away now, any modifications made will be lost.
                 </p>
                 {dirtySections.length > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-slate-400 font-medium">Modified:</span>
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Modified:</span>
                     {dirtySections.map((sec) => (
                       <span
                         key={sec}
-                        className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[11px] font-semibold border border-amber-200/70"
+                        className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[11px] font-semibold border border-amber-200/70"
                       >
                         {sec}
                       </span>
@@ -2193,12 +2193,12 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 id="btn-keep-editing"
                 onClick={() => setShowDiscardConfirm(false)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer"
               >
                 Keep Editing
               </button>
@@ -2209,7 +2209,7 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
                   setShowDiscardConfirm(false);
                   onClose();
                 }}
-                className="px-3.5 py-2 text-xs font-semibold text-rose-700 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:text-white bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-600 border border-rose-200 dark:border-rose-800/60 hover:border-rose-600 rounded-lg transition-colors cursor-pointer"
               >
                 Discard Changes
               </button>

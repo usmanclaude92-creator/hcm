@@ -49,19 +49,19 @@ export const ForcePasswordChangeView: React.FC = () => {
   };
 
   const inputClass =
-    'w-full pl-10 pr-3 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-transparent';
+    'w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors';
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="w-full max-w-md mx-auto">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-7 shadow-2xl">
+        <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-7 shadow-xl dark:shadow-2xl transition-colors">
           <div className="flex items-start gap-3 mb-5">
-            <span className="mt-0.5 shrink-0 w-9 h-9 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-              <ShieldAlert className="w-4.5 h-4.5 text-amber-400" />
+            <span className="mt-0.5 shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center">
+              <ShieldAlert className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
             </span>
             <div>
-              <h1 className="text-lg font-semibold text-slate-100 leading-tight">Choose a new password</h1>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+              <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100 leading-tight">Choose a new password</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                 {passwordChangeReason
                   ? `${passwordChangeReason} Until it is changed, this account can do nothing else.`
                   : 'This account is using a password that does not meet the security policy. Until it is changed, this account can do nothing else.'}
@@ -69,14 +69,14 @@ export const ForcePasswordChangeView: React.FC = () => {
             </div>
           </div>
 
-          <p className="text-[11px] text-slate-500 mb-5 pb-4 border-b border-slate-800">
-            Signed in as <span className="text-slate-300 font-medium">{user?.username}</span> · {user?.role}
+          <p className="text-[11px] text-slate-500 dark:text-slate-500 mb-5 pb-4 border-b border-slate-200 dark:border-slate-800">
+            Signed in as <span className="text-slate-700 dark:text-slate-300 font-medium">{user?.username}</span> · {user?.role}
           </p>
 
           {error && (
             <div
               role="alert"
-              className="mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs"
+              className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300 text-xs"
             >
               {error}
             </div>
@@ -84,11 +84,11 @@ export const ForcePasswordChangeView: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
             <div>
-              <label htmlFor="fpc-current" className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="fpc-current" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                 Current password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
                   id="fpc-current"
                   type="password"
@@ -103,11 +103,11 @@ export const ForcePasswordChangeView: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="fpc-new" className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="fpc-new" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                 New password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
                   id="fpc-new"
                   type="password"
@@ -120,17 +120,17 @@ export const ForcePasswordChangeView: React.FC = () => {
                   aria-describedby="fpc-policy"
                 />
               </div>
-              <p id="fpc-policy" className="text-[11px] text-slate-500 mt-1.5">
+              <p id="fpc-policy" className="text-[11px] text-slate-500 dark:text-slate-500 mt-1.5">
                 At least 8 characters, with a letter and a number. Common passwords are rejected.
               </p>
             </div>
 
             <div>
-              <label htmlFor="fpc-confirm" className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label htmlFor="fpc-confirm" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                 Confirm new password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
                   id="fpc-confirm"
                   type="password"
@@ -161,7 +161,7 @@ export const ForcePasswordChangeView: React.FC = () => {
           <button
             type="button"
             onClick={logout}
-            className="mt-4 w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className="mt-4 w-full flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
             Sign out instead

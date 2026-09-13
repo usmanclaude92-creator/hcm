@@ -8,7 +8,7 @@ export type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Resigned';
 const STYLES: Record<AttendanceStatus, string> = {
   Present: 'bg-emerald-500 text-white',
   Absent: 'bg-rose-500 text-white',
-  Leave: 'bg-amber-400 text-slate-900',
+  Leave: 'bg-amber-400 text-slate-900', // dark text kept in both themes: solid amber needs dark text for contrast regardless
   Resigned: 'bg-rose-600 text-white',
 };
 

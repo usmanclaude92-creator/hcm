@@ -42,47 +42,47 @@ export const AuditLogsView: React.FC = () => {
 
   const getActionBadge = (action: string) => {
     if (action.includes('CREATE') || action.includes('INSERT') || action.includes('DISBURSE')) {
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60';
     }
     if (action.includes('UPDATE') || action.includes('MODIFY') || action.includes('EDIT')) {
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/60';
     }
     if (action.includes('FINALIZE') || action.includes('LOCK')) {
-      return 'bg-purple-100 text-purple-800 border-purple-200';
+      return 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/60';
     }
     if (action.includes('DELETE') || action.includes('VOID') || action.includes('REVERSE')) {
-      return 'bg-rose-100 text-rose-800 border-rose-200';
+      return 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800/60';
     }
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <History className="w-5 h-5 text-purple-600" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+          <History className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           Audit Trail & Governance Logs
         </h2>
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Filter Bar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center gap-3">
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col sm:flex-row items-center gap-3">
         <div className="flex-1 relative w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
           <input
             type="text"
             placeholder="Search audit descriptions, users, record keys..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-purple-500"
           />
         </div>
 
@@ -90,7 +90,7 @@ export const AuditLogsView: React.FC = () => {
           <select
             value={moduleFilter}
             onChange={(e) => setModuleFilter(e.target.value)}
-            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-purple-500"
+            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-purple-500"
           >
             <option value="ALL">All System Modules</option>
             <option value="EMPLOYEES">Employee Master</option>
@@ -106,10 +106,10 @@ export const AuditLogsView: React.FC = () => {
       </div>
 
       {/* Logs Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-3">Timestamp</th>
                 <th className="px-3 py-3">User & Role</th>
@@ -118,31 +118,31 @@ export const AuditLogsView: React.FC = () => {
                 <th className="px-4 py-3">Audit Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400 dark:text-slate-500">
                     No audit records matching query.
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap font-mono text-[11px]">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[10px]">
+                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">
                           {log.userName ? log.userName.slice(0, 2).toUpperCase() : 'U'}
                         </div>
                         <div>
-                          <span className="font-semibold text-slate-900 block">{log.userName}</span>
-                          <span className="text-[10px] text-slate-400">{log.userRole}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100 block">{log.userName}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">{log.userRole}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-3 font-semibold text-slate-700">
+                    <td className="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">
                       {log.module}
                     </td>
                     <td className="px-3 py-3">
@@ -150,24 +150,24 @@ export const AuditLogsView: React.FC = () => {
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                       <p className="text-xs">{log.description}</p>
                       {(log.previousValue !== undefined || log.newValue !== undefined) && (
                         <div className="mt-1 flex items-center gap-2 text-[10px] font-mono">
                           {log.previousValue !== undefined && (
-                            <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded border border-rose-200">
+                            <span className="px-1.5 py-0.5 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded border border-rose-200 dark:border-rose-800/60">
                               was: {JSON.stringify(log.previousValue)}
                             </span>
                           )}
                           {log.newValue !== undefined && (
-                            <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200">
+                            <span className="px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded border border-emerald-200 dark:border-emerald-800/60">
                               now: {JSON.stringify(log.newValue)}
                             </span>
                           )}
                         </div>
                       )}
                       {log.recordId && (
-                        <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 block">
                           Record ID: {log.recordId}
                         </span>
                       )}

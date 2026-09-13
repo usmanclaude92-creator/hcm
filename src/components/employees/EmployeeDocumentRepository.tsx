@@ -215,13 +215,13 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
   return (
     <div className="space-y-4">
       {/* Header & Metric Summary */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <FolderOpen className="w-4 h-4 text-indigo-600" />
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <FolderOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             Document Storage Repository
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Encrypted object-storage file repository for {employee.employeeName} ({employee.employeeId})
           </p>
         </div>
@@ -233,10 +233,10 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
               setHistoryCategory('ALL');
               setIsDocHistoryOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 shadow-2xs transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-2xs transition-colors"
             title="View Document Lifecycle & Audit Trail"
           >
-            <History className="w-3.5 h-3.5 text-indigo-600" />
+            <History className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Document Lifecycle History</span>
           </button>
 
@@ -244,7 +244,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
             type="button"
             onClick={fetchDocuments}
             disabled={loading}
-            className="p-2 text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             title="Refresh documents"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -278,7 +278,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 selectedCategory === cat.key
                   ? 'bg-indigo-600 text-white shadow-2xs font-semibold'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
               }`}
             >
               <span>{cat.label}</span>
@@ -286,7 +286,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                   selectedCategory === cat.key
                     ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 text-slate-600'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                 }`}
               >
                 {cat.count}
@@ -297,19 +297,19 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
 
         {/* Search Field */}
         <div className="relative min-w-[220px]">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400 dark:text-slate-500" />
           <input
             type="text"
             placeholder="Search documents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-800"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-200"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
+              className="absolute right-2.5 top-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -319,17 +319,17 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
 
       {/* Document Grid / Table View */}
       {loading ? (
-        <div className="py-16 text-center text-slate-500 flex flex-col items-center justify-center">
-          <RefreshCw className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
+        <div className="py-16 text-center text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center">
+          <RefreshCw className="w-6 h-6 animate-spin text-indigo-600 dark:text-indigo-400 mb-2" />
           <p className="text-xs font-medium">Fetching documents from storage...</p>
         </div>
       ) : filteredDocuments.length === 0 ? (
-        <div className="py-14 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">
+        <div className="py-14 text-center bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+          <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 flex items-center justify-center mx-auto mb-3">
             <FileText className="w-6 h-6" />
           </div>
-          <h4 className="font-semibold text-slate-800 text-sm mb-1">No documents found</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+          <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-1">No documents found</h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-4">
             {searchQuery || selectedCategory !== 'ALL'
               ? 'No documents match your current filter query.'
               : 'No documents have been uploaded to object storage for this employee yet.'}
@@ -338,7 +338,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
             <button
               type="button"
               onClick={() => setIsUploadModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800/60 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               Upload First Document
@@ -352,7 +352,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
             return (
               <div
                 key={doc.id}
-                className="bg-white rounded-xl border border-slate-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between"
+                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -362,8 +362,8 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                         onClick={() => handleOpenPreview(doc, index)}
                         className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer hover:opacity-80 transition-opacity ${
                           isPdf
-                            ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                            : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                            ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60'
+                            : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60'
                         }`}
                         title="Quick View File"
                       >
@@ -373,12 +373,12 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                         <button
                           type="button"
                           onClick={() => handleOpenPreview(doc, index)}
-                          className="text-xs font-bold text-slate-900 truncate block text-left hover:text-indigo-600 cursor-pointer"
+                          className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate block text-left hover:text-indigo-600 cursor-pointer"
                           title={doc.title}
                         >
                           {doc.title}
                         </button>
-                        <p className="text-[11px] text-slate-500 truncate">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                           {doc.documentType} • {formatBytes(doc.fileSize)}
                         </p>
                       </div>
@@ -388,27 +388,27 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                   </div>
 
                   {/* Metadata pills */}
-                  <div className="bg-slate-50 rounded-lg p-2 text-[11px] space-y-1 text-slate-600 mb-3 border border-slate-100">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2 text-[11px] space-y-1 text-slate-600 dark:text-slate-400 mb-3 border border-slate-100 dark:border-slate-800">
                     {doc.documentNumber && (
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Doc Number:</span>
-                        <span className="font-mono font-medium text-slate-800">{doc.documentNumber}</span>
+                        <span className="text-slate-400 dark:text-slate-500">Doc Number:</span>
+                        <span className="font-mono font-medium text-slate-800 dark:text-slate-200">{doc.documentNumber}</span>
                       </div>
                     )}
                     {doc.expiryDate && (
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Expiry Date:</span>
-                        <span className="font-medium text-slate-800">{formatDate(doc.expiryDate)}</span>
+                        <span className="text-slate-400 dark:text-slate-500">Expiry Date:</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{formatDate(doc.expiryDate)}</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Uploaded:</span>
+                      <span className="text-slate-400 dark:text-slate-500">Uploaded:</span>
                       <span>
                         {formatDate(doc.uploadedAt)} by {doc.uploadedBy}
                       </span>
                     </div>
                     {doc.remarks && (
-                      <div className="pt-1 text-[10px] text-slate-500 italic border-t border-slate-200/60">
+                      <div className="pt-1 text-[10px] text-slate-500 dark:text-slate-400 italic border-t border-slate-200/60">
                         "{doc.remarks}"
                       </div>
                     )}
@@ -416,8 +416,8 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]" title={doc.fileName}>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate max-w-[130px]" title={doc.fileName}>
                     {doc.fileName}
                   </span>
 
@@ -425,7 +425,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                     <button
                       type="button"
                       onClick={() => handleOpenPreview(doc, index)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg transition-colors cursor-pointer"
                       title="Quick-View Document"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -444,7 +444,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                         setHistoryCategory(cat);
                         setIsDocHistoryOpen(true);
                       }}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-lg transition-colors"
                       title="View Lifecycle & Version History"
                     >
                       <History className="w-3.5 h-3.5" />
@@ -453,7 +453,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                     <a
                       href={buildStorageFileUrl(doc.fileUrl || (doc.storagePath ? `/api/storage/file/${encodeURIComponent(doc.storagePath)}` : null)) || undefined}
                       download={doc.fileName}
-                      className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                       title="Download Document"
                     >
                       <Download className="w-3.5 h-3.5" />
@@ -464,7 +464,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(doc)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                           title="Edit Metadata"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -472,7 +472,7 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                         <button
                           type="button"
                           onClick={() => handleDelete(doc.id, doc.title)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-lg transition-colors"
                           title="Delete Document"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -490,21 +490,21 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
       {/* UPLOAD NEW DOCUMENT MODAL */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-h-[92vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                   <Upload className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Upload Document to Storage</h3>
-                  <p className="text-xs text-slate-500">Associate with {employee.employeeName} ({employee.employeeId})</p>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Upload Document to Storage</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Associate with {employee.employeeName} ({employee.employeeId})</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsUploadModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -512,8 +512,8 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
 
             <div className="p-6 overflow-y-auto space-y-4 flex-1">
               {uploadSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>{uploadSuccess}</span>
                 </div>
               )}
@@ -521,11 +521,11 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
               {/* Category and Document Type */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Document Category *</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Category *</label>
                   <select
                     value={uploadCategory}
                     onChange={(e) => setUploadCategory(e.target.value as EmployeeDocumentCategory)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 font-medium"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 font-medium"
                   >
                     <option value="civil-id">Civil ID / National Card</option>
                     <option value="driving-licence">Driving Licence / Operator</option>
@@ -539,13 +539,13 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Document Classification *</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Classification *</label>
                   <input
                     type="text"
                     placeholder="e.g. Ministry of Labour Contract"
                     value={uploadDocType}
                     onChange={(e) => setUploadDocType(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -553,23 +553,23 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
               {/* Title & Document Number */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Document Title</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Title</label>
                   <input
                     type="text"
                     placeholder="e.g. Signed Offer Letter 2026"
                     value={uploadTitle}
                     onChange={(e) => setUploadTitle(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Reference / Document #</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Reference / Document #</label>
                   <input
                     type="text"
                     placeholder="e.g. CTR-98210"
                     value={uploadDocNumber}
                     onChange={(e) => setUploadDocNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
                 </div>
               </div>
@@ -577,34 +577,34 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
               {/* Issue and Expiry Dates */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Issue Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Issue Date</label>
                   <input
                     type="date"
                     value={uploadIssueDate}
                     onChange={(e) => setUploadIssueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
                   <input
                     type="date"
                     value={uploadExpiryDate}
                     onChange={(e) => setUploadExpiryDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
 
               {/* Remarks */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks & Notes</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Remarks & Notes</label>
                 <input
                   type="text"
                   placeholder="Optional notes regarding verification or translation..."
                   value={uploadRemarks}
                   onChange={(e) => setUploadRemarks(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -632,11 +632,11 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
               </div>
             </div>
 
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex justify-end">
               <button
                 type="button"
                 onClick={() => setIsUploadModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 Close
               </button>
@@ -648,16 +648,16 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
       {/* EDIT METADATA MODAL */}
       {editingDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div className="flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-indigo-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Edit Document Metadata</h3>
+                <Edit2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Edit Document Metadata</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setEditingDoc(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -665,62 +665,62 @@ export const EmployeeDocumentRepository: React.FC<EmployeeDocumentRepositoryProp
 
             <form onSubmit={handleSaveEdit} className="p-6 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Document Title *</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Title *</label>
                 <input
                   type="text"
                   required
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Document Number</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Document Number</label>
                 <input
                   type="text"
                   value={editDocNumber}
                   onChange={(e) => setEditDocNumber(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 font-mono"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Issue Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Issue Date</label>
                   <input
                     type="date"
                     value={editIssueDate}
                     onChange={(e) => setEditIssueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Expiry Date</label>
                   <input
                     type="date"
                     value={editExpiryDate}
                     onChange={(e) => setEditExpiryDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Remarks</label>
                 <input
                   type="text"
                   value={editRemarks}
                   onChange={(e) => setEditRemarks(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setEditingDoc(null)}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>

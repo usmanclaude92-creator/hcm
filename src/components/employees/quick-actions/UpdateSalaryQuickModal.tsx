@@ -93,7 +93,7 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-emerald-700 to-teal-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -117,24 +117,24 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
         </div>
 
         {/* Employee banner */}
-        <div className="px-6 py-3 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between text-xs">
+        <div className="px-6 py-3 bg-emerald-50/70 border-b border-emerald-100 dark:border-emerald-800/60 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
-            <span className="font-bold font-mono text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded">
+            <span className="font-bold font-mono text-emerald-900 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 rounded">
               {employee.employeeId}
             </span>
-            <span className="font-semibold text-slate-800">{employee.employeeName}</span>
-            <span className="text-slate-500">({employee.designation} • {employee.employeeCompany})</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">{employee.employeeName}</span>
+            <span className="text-slate-500 dark:text-slate-400">({employee.designation} • {employee.employeeCompany})</span>
           </div>
-          <div className="text-slate-600">
-            Current: <strong className="font-mono text-slate-900">OMR {formatOMR(employee.monthlySalaryOrRate)}</strong>
+          <div className="text-slate-600 dark:text-slate-400">
+            Current: <strong className="font-mono text-slate-900 dark:text-slate-100">OMR {formatOMR(employee.monthlySalaryOrRate)}</strong>
           </div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle size={15} className="shrink-0 text-rose-600" />
+            <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0 text-rose-600 dark:text-rose-400" />
               <span>{error}</span>
             </div>
           )}
@@ -142,13 +142,13 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Wage Type */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Wage Basis / Calculation Type <span className="text-rose-500">*</span>
               </label>
               <select
                 value={wageType}
                 onChange={(e) => setWageType(e.target.value as WageType)}
-                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
+                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
               >
                 <option value="Fixed Monthly">Fixed Monthly Salary</option>
                 <option value="Per Hour">Per Hour (Hourly Rate)</option>
@@ -157,11 +157,11 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
 
             {/* Base Salary or Hourly Rate */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 {wageType === 'Per Hour' ? 'Hourly Wage Rate (OMR/hr)' : 'Base Monthly Salary (OMR)'} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                   OMR
                 </span>
                 <input
@@ -177,7 +177,7 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
                       setActualSalary(val);
                     }
                   }}
-                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
+                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
                 />
               </div>
             </div>
@@ -186,11 +186,11 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Actual Take-Home Base Salary */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Actual Target Net Base (OMR) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                   OMR
                 </span>
                 <input
@@ -200,14 +200,14 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
                   required
                   value={actualSalary}
                   onChange={(e) => setActualSalary(e.target.value)}
-                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
+                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
                 />
               </div>
             </div>
 
             {/* WPS Enrolled */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 WPS Enrolled (CBO SIF Transfer) <span className="text-rose-500">*</span>
               </label>
               <select
@@ -219,7 +219,7 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
                     setWpsSalary(actualSalary || monthlySalaryOrRate);
                   }
                 }}
-                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
+                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
               >
                 <option value="Yes">Yes — Registered on WPS</option>
                 <option value="No">No — Non-WPS / Direct Cash</option>
@@ -228,14 +228,14 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
           </div>
 
           {wpsEmployee === 'Yes' && (
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     WPS Bank Registered Salary (OMR)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                       OMR
                     </span>
                     <input
@@ -244,13 +244,13 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
                       min="0"
                       value={wpsSalary}
                       onChange={(e) => setWpsSalary(e.target.value)}
-                      className="w-full pl-12 pr-3 py-1.5 text-xs font-mono font-bold text-slate-900 bg-white border border-slate-300 rounded-lg focus:border-emerald-600 outline-hidden"
+                      className="w-full pl-12 pr-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:border-emerald-600 outline-hidden"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Recover WPS Differential From
                   </label>
                   <input
@@ -258,15 +258,15 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
                     value={recoverFrom}
                     onChange={(e) => setRecoverFrom(e.target.value)}
                     placeholder="e.g. DGO, SMI, NC..."
-                    className="w-full px-3 py-1.5 text-xs text-slate-800 bg-white border border-slate-300 rounded-lg focus:border-emerald-600 outline-hidden"
+                    className="w-full px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:border-emerald-600 outline-hidden"
                   />
                 </div>
               </div>
 
               {wpsDiff > 0 && (
-                <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-center justify-between">
+                <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 rounded-lg p-2 flex items-center justify-between">
                   <span>WPS Differential (WPS Transfer &gt; Actual Net):</span>
-                  <strong className="font-mono text-amber-900">+OMR {formatOMR(wpsDiff)} to recover</strong>
+                  <strong className="font-mono text-amber-900 dark:text-amber-300">+OMR {formatOMR(wpsDiff)} to recover</strong>
                 </div>
               )}
             </div>
@@ -275,13 +275,13 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Salary Paid By */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Disbursement Entity / Paid By <span className="text-rose-500">*</span>
               </label>
               <select
                 value={salaryPaidBy}
                 onChange={(e) => setSalaryPaidBy(e.target.value as SalaryPaidBy)}
-                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
+                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 outline-hidden transition-all"
               >
                 {PAID_BY_OPTIONS.map((c) => (
                   <option key={c} value={c}>
@@ -293,7 +293,7 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
 
             {/* Revision Reason */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Reason for Revision
               </label>
               <input
@@ -301,18 +301,18 @@ export const UpdateSalaryQuickModal: React.FC<UpdateSalaryQuickModalProps> = ({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="e.g. Annual increment, promotion, role change"
-                className="w-full px-3 py-2 text-xs text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-hidden transition-all"
+                className="w-full px-3 py-2 text-xs text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-emerald-600 outline-hidden transition-all"
               />
             </div>
           </div>
 
           {/* Modal Footer */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>

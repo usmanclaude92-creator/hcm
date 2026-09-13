@@ -164,32 +164,32 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-2 px-3 py-2 bg-white border rounded-lg text-xs font-medium cursor-pointer transition-all shadow-2xs select-none ${
+        className={`flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg text-xs font-medium cursor-pointer transition-all shadow-2xs select-none ${
           disabled
-            ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+            ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
             : isOpen
-            ? 'border-blue-500 ring-2 ring-blue-500/20 text-slate-900'
-            : 'border-slate-300 hover:border-slate-400 text-slate-800'
+            ? 'border-blue-500 ring-2 ring-blue-500/20 text-slate-900 dark:text-slate-100'
+            : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 text-slate-800 dark:text-slate-200'
         }`}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <User className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
           {selectedEmployee ? (
             <div className="flex items-center gap-1.5 min-w-0 truncate">
-              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold shrink-0 border border-blue-200">
+              <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold shrink-0 border border-blue-200 dark:border-blue-800/60">
                 {selectedEmployee.employeeId}
               </span>
-              <span className="truncate font-semibold text-slate-900">
+              <span className="truncate font-semibold text-slate-900 dark:text-slate-100">
                 {selectedEmployee.employeeName}
               </span>
               {showDetails && selectedEmployee.employeeCompany && (
-                <span className="text-[10px] text-slate-400 font-normal shrink-0">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal shrink-0">
                   ({selectedEmployee.employeeCompany})
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-slate-400 truncate">
+            <span className="text-slate-400 dark:text-slate-500 truncate">
               {placeholder}
               {required && <span className="text-rose-500 ml-0.5">*</span>}
             </span>
@@ -201,7 +201,7 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
             <button
               type="button"
               onClick={handleClear}
-              className="p-0.5 text-slate-400 hover:text-slate-700 rounded-sm hover:bg-slate-100 transition-colors"
+              className="p-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               title="Clear selection"
             >
               <X size={13} />
@@ -209,8 +209,8 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
           )}
           <ChevronDown
             size={14}
-            className={`text-slate-400 transition-transform duration-200 ${
-              isOpen ? 'rotate-180 text-blue-600' : ''
+            className={`text-slate-400 dark:text-slate-500 transition-transform duration-200 ${
+              isOpen ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''
             }`}
           />
         </div>
@@ -218,13 +218,13 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
 
       {/* Dropdown Popover */}
       {isOpen && (
-        <div className="absolute left-0 right-0 z-50 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100 min-w-[280px]">
+        <div className="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100 min-w-[280px]">
           {/* Search Box Header */}
-          <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+          <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70">
             <div className="relative">
               <Search
                 size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
               />
               <input
                 ref={inputRef}
@@ -232,24 +232,24 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, ID, trade, company..."
-                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 placeholder:text-slate-400"
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-0.5"
                 >
                   <X size={12} />
                 </button>
               )}
             </div>
-            <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-slate-500 font-medium">
+            <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
               <span>
                 {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''} found
               </span>
               {searchQuery && (
-                <span className="text-blue-600 font-semibold">Filtered by search</span>
+                <span className="text-blue-600 dark:text-blue-400 font-semibold">Filtered by search</span>
               )}
             </div>
           </div>
@@ -262,15 +262,15 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
           >
             {filteredEmployees.length === 0 ? (
               <div className="py-6 px-4 text-center">
-                <p className="text-xs font-semibold text-slate-600">No employees found</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">No employees found</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                   Try searching for a different name, employee ID, or trade
                 </p>
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                    className="mt-2 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 cursor-pointer"
                   >
                     Clear search query
                   </button>
@@ -294,8 +294,8 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
                       isSelected
                         ? 'bg-blue-50/80 text-blue-950 font-medium'
                         : isHighlighted
-                        ? 'bg-slate-100/80 text-slate-900'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        ? 'bg-slate-100/80 text-slate-900 dark:text-slate-100'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -304,7 +304,7 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
                         className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${
                           isSelected
                             ? 'bg-blue-600 text-white'
-                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                         }`}
                       >
                         {emp.employeeName?.slice(0, 2).toUpperCase() || 'EM'}
@@ -313,31 +313,31 @@ export const SearchableEmployeeSelect: React.FC<SearchableEmployeeSelectProps> =
                       {/* Info & Metadata */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 truncate">
-                          <span className="font-semibold text-slate-900 truncate">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                             {emp.employeeName}
                           </span>
-                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-600 shrink-0 border border-slate-200">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0 border border-slate-200 dark:border-slate-700">
                             {emp.employeeId}
                           </span>
                         </div>
 
                         {showDetails && (
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500 truncate mt-0.5">
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                             {emp.designation && (
                               <span className="flex items-center gap-1 truncate">
-                                <Briefcase size={10} className="text-slate-400 shrink-0" />
+                                <Briefcase size={10} className="text-slate-400 dark:text-slate-500 shrink-0" />
                                 <span className="truncate">{emp.designation}</span>
                               </span>
                             )}
                             {emp.employeeCompany && (
-                              <span className="flex items-center gap-1 shrink-0 text-slate-400">
+                              <span className="flex items-center gap-1 shrink-0 text-slate-400 dark:text-slate-500">
                                 <span>•</span>
-                                <Building size={10} className="text-slate-400" />
+                                <Building size={10} className="text-slate-400 dark:text-slate-500" />
                                 <span>{emp.employeeCompany}</span>
                               </span>
                             )}
                             {emp.nationalityType && (
-                              <span className="text-[10px] text-slate-400 shrink-0">
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">
                                 ({emp.nationalityType})
                               </span>
                             )}

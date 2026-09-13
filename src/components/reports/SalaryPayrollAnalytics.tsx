@@ -11,23 +11,23 @@ export const SalaryPayrollAnalytics: React.FC<Props> = ({ analytics, onCompanyCl
     <div className="space-y-6">
       {/* Company + Pay By */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-          <h3 className="font-semibold text-slate-900 text-sm mb-1">Salary by Company</h3>
-          <p className="text-xs text-slate-500 mb-3">Click a row to filter Details</p>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-1">Salary by Company</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Click a row to filter Details</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
+              <thead className="text-slate-500 dark:text-slate-400 font-semibold uppercase border-b border-slate-200 dark:border-slate-700">
                 <tr><th className="py-2 pr-2">Company</th><th className="py-2 pr-2 text-right">Employees</th><th className="py-2 pr-2 text-right">Gross</th><th className="py-2 pr-2 text-right">Net</th><th className="py-2 pr-2 text-right">Paid</th><th className="py-2 text-right">Outstanding</th></tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {analytics.companyBreakdown.map((c: any) => (
                   <tr key={c.company} onClick={() => onCompanyClick(c.company)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
-                    <td className="py-2 pr-2 font-semibold text-slate-800">{c.company}</td>
+                    <td className="py-2 pr-2 font-semibold text-slate-800 dark:text-slate-200">{c.company}</td>
                     <td className="py-2 pr-2 text-right">{c.employees}</td>
                     <td className="py-2 pr-2 text-right font-mono">{formatOMR(c.gross)}</td>
-                    <td className="py-2 pr-2 text-right font-mono font-bold text-blue-700">{formatOMR(c.net)}</td>
-                    <td className="py-2 pr-2 text-right font-mono text-emerald-700">{formatOMR(c.paid)}</td>
-                    <td className="py-2 text-right font-mono text-rose-600">{formatOMR(c.outstanding)}</td>
+                    <td className="py-2 pr-2 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{formatOMR(c.net)}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-emerald-700 dark:text-emerald-300">{formatOMR(c.paid)}</td>
+                    <td className="py-2 text-right font-mono text-rose-600 dark:text-rose-400">{formatOMR(c.outstanding)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -35,23 +35,23 @@ export const SalaryPayrollAnalytics: React.FC<Props> = ({ analytics, onCompanyCl
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-          <h3 className="font-semibold text-slate-900 text-sm mb-1">Salary by Pay By</h3>
-          <p className="text-xs text-slate-500 mb-3">Who actually disburses each employee's salary</p>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-1">Salary by Pay By</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Who actually disburses each employee's salary</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
+              <thead className="text-slate-500 dark:text-slate-400 font-semibold uppercase border-b border-slate-200 dark:border-slate-700">
                 <tr><th className="py-2 pr-2">Pay By</th><th className="py-2 pr-2 text-right">Employees</th><th className="py-2 pr-2 text-right">Gross</th><th className="py-2 pr-2 text-right">Additions</th><th className="py-2 pr-2 text-right">Deductions</th><th className="py-2 text-right">Net</th></tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {analytics.payByBreakdown.map((c: any) => (
                   <tr key={c.payBy}>
-                    <td className="py-2 pr-2 font-semibold text-slate-800">{c.payBy}</td>
+                    <td className="py-2 pr-2 font-semibold text-slate-800 dark:text-slate-200">{c.payBy}</td>
                     <td className="py-2 pr-2 text-right">{c.employees}</td>
                     <td className="py-2 pr-2 text-right font-mono">{formatOMR(c.gross)}</td>
-                    <td className="py-2 pr-2 text-right font-mono text-emerald-700">{formatOMR(c.additions)}</td>
-                    <td className="py-2 pr-2 text-right font-mono text-rose-600">{formatOMR(c.deductions)}</td>
-                    <td className="py-2 text-right font-mono font-bold text-blue-700">{formatOMR(c.net)}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-emerald-700 dark:text-emerald-300">{formatOMR(c.additions)}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-rose-600 dark:text-rose-400">{formatOMR(c.deductions)}</td>
+                    <td className="py-2 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{formatOMR(c.net)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -62,22 +62,22 @@ export const SalaryPayrollAnalytics: React.FC<Props> = ({ analytics, onCompanyCl
 
       {/* Employee Type + WPS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-          <h3 className="font-semibold text-slate-900 text-sm mb-3">Staff vs Worker Salary Liability</h3>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-3">Staff vs Worker Salary Liability</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
+              <thead className="text-slate-500 dark:text-slate-400 font-semibold uppercase border-b border-slate-200 dark:border-slate-700">
                 <tr><th className="py-2 pr-2">Employee Type</th><th className="py-2 pr-2 text-right">Employees</th><th className="py-2 pr-2 text-right">Gross</th><th className="py-2 pr-2 text-right">Net</th><th className="py-2 pr-2 text-right">Paid</th><th className="py-2 text-right">Outstanding</th></tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {analytics.employeeTypeBreakdown.map((t: any) => (
                   <tr key={t.employeeType}>
-                    <td className="py-2 pr-2 font-semibold text-slate-800">{t.employeeType}</td>
+                    <td className="py-2 pr-2 font-semibold text-slate-800 dark:text-slate-200">{t.employeeType}</td>
                     <td className="py-2 pr-2 text-right">{t.employees}</td>
                     <td className="py-2 pr-2 text-right font-mono">{formatOMR(t.gross)}</td>
-                    <td className="py-2 pr-2 text-right font-mono font-bold text-blue-700">{formatOMR(t.net)}</td>
-                    <td className="py-2 pr-2 text-right font-mono text-emerald-700">{formatOMR(t.paid)}</td>
-                    <td className="py-2 text-right font-mono text-rose-600">{formatOMR(t.outstanding)}</td>
+                    <td className="py-2 pr-2 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{formatOMR(t.net)}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-emerald-700 dark:text-emerald-300">{formatOMR(t.paid)}</td>
+                    <td className="py-2 text-right font-mono text-rose-600 dark:text-rose-400">{formatOMR(t.outstanding)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -85,22 +85,22 @@ export const SalaryPayrollAnalytics: React.FC<Props> = ({ analytics, onCompanyCl
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-          <h3 className="font-semibold text-slate-900 text-sm mb-3">WPS Salary Analysis</h3>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-3">WPS Salary Analysis</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
+              <thead className="text-slate-500 dark:text-slate-400 font-semibold uppercase border-b border-slate-200 dark:border-slate-700">
                 <tr><th className="py-2 pr-2">WPS Status</th><th className="py-2 pr-2 text-right">Employees</th><th className="py-2 pr-2 text-right">Gross</th><th className="py-2 pr-2 text-right">Net</th><th className="py-2 pr-2 text-right">Paid</th><th className="py-2 text-right">Outstanding</th></tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {analytics.wpsBreakdown.map((w: any) => (
                   <tr key={w.wpsStatus}>
-                    <td className="py-2 pr-2 font-semibold text-slate-800">{w.wpsStatus}</td>
+                    <td className="py-2 pr-2 font-semibold text-slate-800 dark:text-slate-200">{w.wpsStatus}</td>
                     <td className="py-2 pr-2 text-right">{w.employees}</td>
                     <td className="py-2 pr-2 text-right font-mono">{formatOMR(w.gross)}</td>
-                    <td className="py-2 pr-2 text-right font-mono font-bold text-blue-700">{formatOMR(w.net)}</td>
-                    <td className="py-2 pr-2 text-right font-mono text-emerald-700">{formatOMR(w.paid)}</td>
-                    <td className="py-2 text-right font-mono text-rose-600">{formatOMR(w.outstanding)}</td>
+                    <td className="py-2 pr-2 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{formatOMR(w.net)}</td>
+                    <td className="py-2 pr-2 text-right font-mono text-emerald-700 dark:text-emerald-300">{formatOMR(w.paid)}</td>
+                    <td className="py-2 text-right font-mono text-rose-600 dark:text-rose-400">{formatOMR(w.outstanding)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -111,27 +111,27 @@ export const SalaryPayrollAnalytics: React.FC<Props> = ({ analytics, onCompanyCl
 
       {/* Additions + Deductions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-          <h3 className="font-semibold text-slate-900 text-sm mb-3">Salary Additions Analysis</h3>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-3">Salary Additions Analysis</h3>
           <div className="space-y-1.5">
             {analytics.additionsBreakdown.map((a: any) => (
               <div key={a.type} className="flex items-center justify-between p-2 bg-emerald-50/50 rounded-lg text-xs">
-                <span className="text-slate-700">{a.type}</span>
-                <span className="text-slate-400">{a.employees} emp</span>
-                <span className="font-mono font-bold text-emerald-700">OMR {formatOMR(a.amount)}</span>
+                <span className="text-slate-700 dark:text-slate-300">{a.type}</span>
+                <span className="text-slate-400 dark:text-slate-500">{a.employees} emp</span>
+                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">OMR {formatOMR(a.amount)}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-          <h3 className="font-semibold text-slate-900 text-sm mb-3">Salary Deductions Analysis</h3>
+        <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-3">Salary Deductions Analysis</h3>
           <div className="space-y-1.5">
             {analytics.deductionsBreakdown.map((d: any) => (
               <div key={d.type} className="flex items-center justify-between p-2 bg-rose-50/50 rounded-lg text-xs">
-                <span className="text-slate-700">{d.type}</span>
-                <span className="text-slate-400">{d.employees} emp</span>
-                <span className="font-mono font-bold text-rose-700">OMR {formatOMR(d.amount)}</span>
+                <span className="text-slate-700 dark:text-slate-300">{d.type}</span>
+                <span className="text-slate-400 dark:text-slate-500">{d.employees} emp</span>
+                <span className="font-mono font-bold text-rose-700 dark:text-rose-300">OMR {formatOMR(d.amount)}</span>
               </div>
             ))}
           </div>
@@ -139,27 +139,27 @@ export const SalaryPayrollAnalytics: React.FC<Props> = ({ analytics, onCompanyCl
       </div>
 
       {/* Project Analysis */}
-      <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-xs">
-        <h3 className="font-semibold text-slate-900 text-sm mb-1">Salary by Project</h3>
-        <p className="text-xs text-slate-500 mb-3">
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-xs">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm mb-1">Salary by Project</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
           Allocation view — an employee on multiple projects appears under each; not a cost split, so these totals may exceed company/pay-by totals
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="text-slate-500 font-semibold uppercase border-b border-slate-200">
+            <thead className="text-slate-500 dark:text-slate-400 font-semibold uppercase border-b border-slate-200 dark:border-slate-700">
               <tr><th className="py-2 pr-2">Project</th><th className="py-2 pr-2 text-right">Employees</th><th className="py-2 pr-2 text-right">Gross</th><th className="py-2 pr-2 text-right">Additions</th><th className="py-2 pr-2 text-right">Deductions</th><th className="py-2 text-right">Net</th></tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {analytics.projectBreakdown.length === 0 ? (
-                <tr><td colSpan={6} className="py-6 text-center text-slate-400">No project allocation in the current filters.</td></tr>
+                <tr><td colSpan={6} className="py-6 text-center text-slate-400 dark:text-slate-500">No project allocation in the current filters.</td></tr>
               ) : analytics.projectBreakdown.map((p: any) => (
                 <tr key={p.project}>
-                  <td className="py-2 pr-2 font-semibold text-slate-800">{p.project}</td>
+                  <td className="py-2 pr-2 font-semibold text-slate-800 dark:text-slate-200">{p.project}</td>
                   <td className="py-2 pr-2 text-right">{p.employees}</td>
                   <td className="py-2 pr-2 text-right font-mono">{formatOMR(p.gross)}</td>
-                  <td className="py-2 pr-2 text-right font-mono text-emerald-700">{formatOMR(p.additions)}</td>
-                  <td className="py-2 pr-2 text-right font-mono text-rose-600">{formatOMR(p.deductions)}</td>
-                  <td className="py-2 text-right font-mono font-bold text-blue-700">{formatOMR(p.net)}</td>
+                  <td className="py-2 pr-2 text-right font-mono text-emerald-700 dark:text-emerald-300">{formatOMR(p.additions)}</td>
+                  <td className="py-2 pr-2 text-right font-mono text-rose-600 dark:text-rose-400">{formatOMR(p.deductions)}</td>
+                  <td className="py-2 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{formatOMR(p.net)}</td>
                 </tr>
               ))}
             </tbody>

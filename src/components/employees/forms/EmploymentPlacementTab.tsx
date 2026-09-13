@@ -145,17 +145,17 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
     <div className="space-y-6">
       {/* Draft Profile Banner for New Employee Registration */}
       {isNewEmployee && (
-        <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="bg-blue-50/70 border border-blue-200 dark:border-blue-800/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold font-mono">
               {basicInfoForm?.employeeId ? basicInfoForm.employeeId.slice(-3) : 'NEW'}
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm">
+              <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 {basicInfoForm?.employeeName || 'New Employee (Name Pending)'}
               </p>
-              <p className="text-slate-500 text-[11px]">
-                ID: <strong className="font-mono text-blue-700">{basicInfoForm?.employeeId || 'Not Assigned'}</strong> • Nationality: <strong>{employmentForm.nationalityType}</strong>
+              <p className="text-slate-500 dark:text-slate-400 text-[11px]">
+                ID: <strong className="font-mono text-blue-700 dark:text-blue-300">{basicInfoForm?.employeeId || 'Not Assigned'}</strong> • Nationality: <strong>{employmentForm.nationalityType}</strong>
               </p>
             </div>
           </div>
@@ -163,7 +163,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
             <button
               type="button"
               onClick={onNavigateToPersonal}
-              className="text-xs text-blue-700 hover:text-blue-800 font-semibold underline self-start sm:self-auto cursor-pointer"
+              className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-800 font-semibold underline self-start sm:self-auto cursor-pointer"
             >
               Edit Identity Details (Tab 1)
             </button>
@@ -172,11 +172,11 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
       )}
 
       {/* SECTION 1: Corporate Placement & Role */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
-            <Building className="text-blue-600" size={18} />
-            <h3 className="font-bold text-slate-800 text-sm">
+            <Building className="text-blue-600 dark:text-blue-400" size={18} />
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
               Corporate Placement &amp; Organizational Role
             </h3>
           </div>
@@ -184,8 +184,8 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
             <span
               className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
                 employmentForm.isActive
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'bg-slate-100 text-slate-600'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}
             >
               {employmentForm.isActive ? '● Active in Payroll' : '○ Inactive / Relieved'}
@@ -196,7 +196,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Employing Company */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Employing / Sponsoring Company <span className="text-rose-500">*</span>
             </label>
             <select
@@ -208,7 +208,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   employeeCompany: e.target.value as EmployeeCompany,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-medium"
             >
               <option value="DGO">DGO (Dar Global Oman LLC)</option>
               <option value="SMI">SMI (Seven Mountain International LLC)</option>
@@ -220,7 +220,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
           {/* Job Role / Designation */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Internal Job Designation <span className="text-rose-500">*</span>
             </label>
             <input
@@ -236,7 +236,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   designation: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-slate-900"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-semibold text-slate-900 dark:text-slate-100"
             />
             <datalist id="designation-master-list">
               {designationOptions.map((title) => (
@@ -244,7 +244,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               ))}
             </datalist>
             {designationIsNew && (
-              <p className="text-[10px] text-amber-700 mt-1">
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1">
                 Not in the designation master. Saving keeps this title on the employee, but add it
                 under Organisation Master Data so reports group it with the rest.
               </p>
@@ -253,7 +253,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
           {/* Nationality Status */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Nationality Status <span className="text-rose-500">*</span>
             </label>
             <select
@@ -269,7 +269,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   setBasicInfoForm((prev) => ({ ...prev, nationalityType: val }));
                 }
               }}
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-medium"
             >
               <option value="Omani">Omani (Citizen)</option>
               <option value="Expat">Expat (Foreign Resident)</option>
@@ -278,7 +278,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
           {/* Employee Type */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Employee Category / Pay Basis <span className="text-rose-500">*</span>
             </label>
             <select
@@ -290,7 +290,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   employeeType: e.target.value as EmployeeType,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
             >
               <option value="Staff">Staff (Days-Worked Attendance Basis)</option>
               <option value="Worker">Worker (Hours-Worked Timesheet Basis)</option>
@@ -299,11 +299,11 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
           {/* Assigned Project / Site -- linked to Project Master Data */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Assigned Project / Site
             </label>
             {projectsError ? (
-              <p className="text-[10px] text-amber-700 py-2">
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 py-2">
                 Could not load Project Master Data. Assigned Project cannot be changed right now.
               </p>
             ) : (
@@ -316,7 +316,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                     assignedProjectCode: e.target.value || undefined,
                   })
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-medium"
               >
                 <option value="">— Not Assigned —</option>
                 {projectOptions.map((p) => {
@@ -335,7 +335,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               </select>
             )}
             {selectedProject && !isProjectCompanyAllowed && (
-              <p className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1 flex items-center gap-1">
                 <MapPin size={11} className="shrink-0" />
                 Company <strong>{employmentForm.employeeCompany}</strong> is restricted on{' '}
                 {selectedProject.projectCode} (allowed: {selectedProject.allowedCompanies?.join(', ')}). Saving
@@ -346,7 +346,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
           {/* Date of Joining */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Date of Joining (DOJ) <span className="text-rose-500">*</span>
             </label>
             <input
@@ -360,13 +360,13 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   dateOfJoining: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-semibold text-slate-900"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-semibold text-slate-900 dark:text-slate-100"
             />
           </div>
 
           {/* Date of Leaving */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Date of Leaving / End of Service (DOL)
             </label>
             <input
@@ -379,7 +379,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   dateOfLeaving: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
             />
           </div>
 
@@ -396,9 +396,9 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                     isActive: e.target.checked,
                   })
                 }
-                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded text-blue-600 dark:text-blue-400 focus:ring-blue-500"
               />
-              <span className="text-xs font-semibold text-slate-800">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                 Active in Site Allocations, Attendance &amp; Payroll
               </span>
             </label>
@@ -407,8 +407,8 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
         {/* Designation Change Log Reason (if updating existing) */}
         {employee && employee.designation !== employmentForm.designation && (
-          <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <label className="block text-xs font-bold text-amber-900 mb-1">
+          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800/60">
+            <label className="block text-xs font-bold text-amber-900 dark:text-amber-300 mb-1">
               Designation Change Note / Justification
             </label>
             <input
@@ -421,7 +421,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
                   promotionReason: e.target.value,
                 })
               }
-              className="w-full px-3 py-1.5 text-xs border border-amber-300 rounded-lg bg-white"
+              className="w-full px-3 py-1.5 text-xs border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-slate-900"
             />
           </div>
         )}
@@ -429,38 +429,38 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
       {/* SECTION 2: Role & Designation Promotion History */}
       {employee && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <History className="text-slate-600" size={18} />
-            <h3 className="font-bold text-slate-800 text-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+            <History className="text-slate-600 dark:text-slate-400" size={18} />
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
               Designation &amp; Role Promotion History
             </h3>
           </div>
 
           {designationHistory && designationHistory.length > 0 ? (
-            <div className="relative border-l-2 border-slate-200 ml-4 space-y-4 py-2">
+            <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-4 space-y-4 py-2">
               {designationHistory.map((item, idx) => (
                 <div key={item.id || idx} className="relative pl-5">
                   <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-600 border-2 border-white" />
                   <div className="text-xs">
                     <div className="flex items-center gap-2">
-                      <strong className="text-slate-800 font-semibold">{item.designation}</strong>
-                      <span className="text-slate-400 font-mono text-[11px]">
+                      <strong className="text-slate-800 dark:text-slate-200 font-semibold">{item.designation}</strong>
+                      <span className="text-slate-400 dark:text-slate-500 font-mono text-[11px]">
                         {formatDate(item.effectiveDate || item.createdAt)}
                       </span>
                     </div>
                     {item.reason && (
-                      <p className="text-slate-600 text-[11px] mt-0.5">{item.reason}</p>
+                      <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">{item.reason}</p>
                     )}
                     {item.changedBy && (
-                      <span className="text-[10px] text-slate-400">Logged by: {item.changedBy}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Logged by: {item.changedBy}</span>
                     )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-400 italic py-2">
+            <p className="text-xs text-slate-400 dark:text-slate-500 italic py-2">
               Initial designation {employee.designation} established on joining (
               {formatDate(employee.dateOfJoining)}). No subsequent transfers or promotions logged.
             </p>
@@ -470,8 +470,8 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
 
       {/* Action Footer */}
       {canWrite && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
-          <div className="text-xs text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             {isNewEmployee ? (
               <span>Corporate placement defaults will be registered to the new profile.</span>
             ) : (

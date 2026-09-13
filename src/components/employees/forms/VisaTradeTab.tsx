@@ -59,12 +59,12 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
   // If employee is Omani citizen, visa tab shows an informative notice
   if (employee && employee.nationalityType === 'Omani') {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3 shadow-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center space-y-3 shadow-xs">
         <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" />
-        <h3 className="text-base font-bold text-slate-800">
+        <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
           Omani Citizen — Residence Visa Not Required
         </h3>
-        <p className="text-xs text-slate-500 max-w-md mx-auto">
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
           {employee.employeeName} is registered as an Omani National. Work visas and residency permits apply only to expatriate personnel under Ministry of Labour regulations.
         </p>
       </div>
@@ -74,17 +74,17 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
   return (
     <div className="space-y-6">
       {/* SECTION 1: Visa Overview & Status */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <FileCheck size={22} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 Ministry of Labour Employment Visa &amp; Registered Trade
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Official MoL &amp; ROP Residence Visa &amp; Profession Records
               </p>
             </div>
@@ -95,7 +95,7 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
             <button
               type="button"
               onClick={onOpenHistoryModal}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <History size={14} />
               <span>Version History</span>
@@ -116,42 +116,42 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
         {currentVisa ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Trade on Visa */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 MoL Registered Trade
               </span>
-              <strong className="text-sm font-bold text-slate-900">
+              <strong className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 {currentVisa.tradeOnVisa}
               </strong>
             </div>
 
             {/* Visa Number */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Visa / Residence Number
               </span>
-              <strong className="font-mono text-sm font-bold text-blue-700">
+              <strong className="font-mono text-sm font-bold text-blue-700 dark:text-blue-300">
                 {currentVisa.visaNumber || '—'}
               </strong>
             </div>
 
             {/* Expiry Date & Countdown */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Visa Expiration Date
               </span>
               <div className="flex items-center gap-2">
-                <strong className="text-sm font-bold text-slate-800">
+                <strong className="text-sm font-bold text-slate-800 dark:text-slate-200">
                   {formatDate(currentVisa.expiryDate)}
                 </strong>
                 {daysLeft !== null && (
                   <span
                     className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                       daysLeft < 0
-                        ? 'bg-rose-100 text-rose-800'
+                        ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                         : daysLeft <= 30
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                        : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                     }`}
                   >
                     {daysLeft < 0
@@ -163,19 +163,19 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
             </div>
 
             {/* Sponsor & Type */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Sponsor &amp; Type
               </span>
-              <span className="text-xs font-semibold text-slate-700">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {currentVisa.sponsor || 'Company Sponsor'} ({currentVisa.sponsorshipType || 'Corporate'})
               </span>
             </div>
           </div>
         ) : (
-          <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
-            <FileCheck className="w-8 h-8 mx-auto text-slate-400" />
-            <p className="text-xs font-semibold text-slate-600">
+          <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 space-y-2">
+            <FileCheck className="w-8 h-8 mx-auto text-slate-400 dark:text-slate-500" />
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
               No active Employment Visa registered for this employee.
             </p>
             {canWrite && (
@@ -194,16 +194,16 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
 
       {/* SECTION 2: Trade Discrepancy Risk Analysis Widget */}
       {hasTradeDiscrepancy && (
-        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="p-4 bg-amber-50 dark:bg-amber-900/30 rounded-xl border border-amber-200 dark:border-amber-800/60 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1 text-xs">
-            <h4 className="font-bold text-amber-900">
+            <h4 className="font-bold text-amber-900 dark:text-amber-300">
               MoL Trade vs Internal Role Discrepancy Alert
             </h4>
-            <p className="text-amber-800">
+            <p className="text-amber-800 dark:text-amber-300">
               Internal designation is registered as <strong>{employee?.designation}</strong>, whereas the registered trade on the Ministry of Labour residence visa is <strong>{currentVisa?.tradeOnVisa}</strong>.
             </p>
-            <p className="text-[11px] text-amber-700">
+            <p className="text-[11px] text-amber-700 dark:text-amber-300">
               Under Oman Labour Regulations (Royal Decree 53/2023), significant trade discrepancies during Ministry site inspections can incur compliance citations. Consider aligning either the internal designation or submitting a Trade Amendment request to the Ministry of Labour.
             </p>
           </div>
@@ -212,27 +212,27 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
 
       {/* SECTION 3: Document Scans */}
       {currentVisa && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
             <div className="flex items-center gap-2">
-              <FileCheck className="text-purple-600" size={18} />
-              <h3 className="font-bold text-slate-800 text-sm">
+              <FileCheck className="text-purple-600 dark:text-purple-400" size={18} />
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 Visa Stamp &amp; Residence Attachment Scans
               </h3>
             </div>
           </div>
 
           {currentVisa.documentAttachment ? (
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">
+                <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-xs">
                   PDF / IMG
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     Visa Document Scan ({currentVisa.tradeOnVisa})
                   </p>
-                  <p className="text-[11px] font-mono text-slate-500 truncate max-w-md">
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate max-w-md">
                     {currentVisa.documentAttachment}
                   </p>
                 </div>
@@ -247,7 +247,7 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
                       `Visa_${currentVisa.visaNumber || currentVisa.tradeOnVisa}`
                     )
                   }
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Eye size={13} />
                   <span>Preview</span>
@@ -255,7 +255,7 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
                 <a
                   href={buildStorageFileUrl(currentVisa.documentAttachment) || undefined}
                   download={`Visa_${currentVisa.visaNumber || currentVisa.tradeOnVisa}`}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Download size={13} />
                   <span>Download</span>
@@ -263,8 +263,8 @@ export const VisaTradeTab: React.FC<VisaTradeTabProps> = ({
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center space-y-2">
-              <p className="text-xs text-slate-500">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-center space-y-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 No digital scan attached yet for this Visa.
               </p>
               {employee && canWrite && (

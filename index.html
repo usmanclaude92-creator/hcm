@@ -10,6 +10,19 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/png" href="/logo.png" />
+    <script>
+      // Applies the .dark class before first paint so there is no flash of the wrong
+      // theme while React mounts. Mirrors src/hooks/useTheme.ts exactly (same storage
+      // key, same priority: explicit user choice, then system preference) -- keep the
+      // two in sync if that logic ever changes.
+      (function () {
+        try {
+          var stored = localStorage.getItem('artify_theme');
+          var isDark = stored === 'dark' || (stored !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

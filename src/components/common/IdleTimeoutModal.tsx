@@ -48,7 +48,7 @@ export const IdleTimeoutModal: React.FC<IdleTimeoutModalProps> = ({
       aria-modal="true"
       aria-labelledby="idle-modal-title"
     >
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header Strip with Security Accent */}
         <div className="bg-amber-500 px-6 py-4 flex items-center gap-3 text-white">
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -70,20 +70,20 @@ export const IdleTimeoutModal: React.FC<IdleTimeoutModalProps> = ({
         {/* Modal Body */}
         <div className="p-6">
           {/* Circular / Large Countdown Card */}
-          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+          <div className="bg-amber-50/70 border border-amber-200 dark:border-amber-800/60 rounded-xl p-4 flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
               <Clock className="w-6 h-6 animate-pulse" />
             </div>
             <div className="flex-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 block">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 block">
                 Session Ending In
               </span>
-              <span className="text-2xl font-black font-mono text-slate-900 tracking-tight">
+              <span className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100 tracking-tight">
                 {formattedTime}
               </span>
             </div>
             <div className="text-right">
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-200/60 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-200/60 px-2 py-0.5 rounded-full">
                 <AlertTriangle className="w-3 h-3" />
                 15m Inactive
               </span>
@@ -91,7 +91,7 @@ export const IdleTimeoutModal: React.FC<IdleTimeoutModalProps> = ({
           </div>
 
           {/* Animated Countdown Progress Bar */}
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-4">
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-4">
             <div
               className={`h-full transition-all duration-1000 ease-linear rounded-full ${
                 remainingSeconds <= 15
@@ -105,13 +105,13 @@ export const IdleTimeoutModal: React.FC<IdleTimeoutModalProps> = ({
           </div>
 
           {/* Explanation Text */}
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             You have been inactive for nearly <strong>15 minutes</strong>. Under banking and payroll
             compliance standards, sessions are automatically locked to safeguard employee salaries,
             civil IDs, and corporate bank files.
           </p>
 
-          <p className="text-[11px] text-slate-500 mt-2 italic">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 italic">
             Press any key, move your cursor, or click below to continue working.
           </p>
 
@@ -130,7 +130,7 @@ export const IdleTimeoutModal: React.FC<IdleTimeoutModalProps> = ({
             <button
               type="button"
               onClick={onLogoutNow}
-              className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-slate-200"
+              className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/40 hover:text-rose-600 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-slate-200 dark:border-slate-700"
             >
               <LogOut className="w-4 h-4" />
               <span>Log Out Now</span>

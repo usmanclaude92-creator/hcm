@@ -189,12 +189,12 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
   const renderSortIcon = (col: SortColumn) => {
     if (sortColumn === col) {
       return sortDirection === 'asc' ? (
-        <ArrowUp className="w-3.5 h-3.5 text-emerald-600 inline ml-1" />
+        <ArrowUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 inline ml-1" />
       ) : (
-        <ArrowDown className="w-3.5 h-3.5 text-emerald-600 inline ml-1" />
+        <ArrowDown className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 inline ml-1" />
       );
     }
-    return <ArrowUpDown className="w-3 h-3 text-slate-400 inline ml-1 opacity-40 group-hover:opacity-100 transition-opacity" />;
+    return <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500 inline ml-1 opacity-40 group-hover:opacity-100 transition-opacity" />;
   };
 
   const renderResizer = (colKey: string, label: string) => (
@@ -364,41 +364,41 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
     <div className="space-y-4">
       {/* Metric Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-xs text-slate-500 font-medium">Total Net Salary Owed</span>
-          <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Net Salary Owed</span>
+          <strong className="block text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">
             OMR {formatOMR(filteredNetOwed)}
           </strong>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
-          <span className="text-xs text-emerald-700 font-semibold">Total Disbursed (Paid)</span>
-          <strong className="block text-xl font-bold text-emerald-800 mt-1 font-mono">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 shadow-xs">
+          <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold">Total Disbursed (Paid)</span>
+          <strong className="block text-xl font-bold text-emerald-800 dark:text-emerald-300 mt-1 font-mono">
             OMR {formatOMR(filteredDisbursed)}
           </strong>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs">
-          <span className="text-xs text-rose-700 font-semibold">Outstanding Balance</span>
-          <strong className="block text-xl font-bold text-rose-800 mt-1 font-mono">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50/30 shadow-xs">
+          <span className="text-xs text-rose-700 dark:text-rose-300 font-semibold">Outstanding Balance</span>
+          <strong className="block text-xl font-bold text-rose-800 dark:text-rose-300 mt-1 font-mono">
             OMR {formatOMR(filteredOutstanding)}
           </strong>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-emerald-600" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Payments Filters</span>
-            <span className="text-xs text-slate-500 font-medium">
+            <Filter className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Payments Filters</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               (Showing {sortedLedger.length} of {rawLedger.length} records)
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
               Sort:{' '}
-              <span className="font-semibold text-emerald-600">
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                 {sortColumn === 'default'
                   ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)'
                   : `${sortColumn} (${sortDirection.toUpperCase()})`}
@@ -407,7 +407,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-800 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
               >
                 <X className="w-3 h-3" />
                 Reset Filters
@@ -419,13 +419,13 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
           {/* 1. Search */}
           <div className="relative lg:col-span-1">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search ID / Name / Job..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
             />
           </div>
 
@@ -434,7 +434,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
             >
               <option value="ALL">Type: All</option>
               <option value="Staff">Type: Staff</option>
@@ -447,7 +447,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
             <select
               value={filterCompany}
               onChange={(e) => setFilterCompany(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
             >
               <option value="ALL">Company: All</option>
               {uniqueCompanies.map(c => (
@@ -461,7 +461,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
             <select
               value={filterJob}
               onChange={(e) => setFilterJob(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
             >
               <option value="ALL">Job: All</option>
               {uniqueJobs.map(j => (
@@ -475,7 +475,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
             >
               <option value="ALL">Payment: All</option>
               <option value="Fully Paid">Fully Paid</option>
@@ -490,7 +490,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
             <select
               value={filterReceipt}
               onChange={(e) => setFilterReceipt(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-emerald-500"
             >
               <option value="ALL">Receipt: All</option>
               <option value="Attached">Attached</option>
@@ -503,16 +503,16 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
 
       {/* Table Toolbar & Column Resize Reset Control */}
       <div className="flex items-center justify-between px-1 pb-1 text-xs">
-        <div className="flex items-center gap-2 text-slate-500 text-[11px]">
-          <span className="font-semibold text-slate-700">Salary Disbursal Reconciliation — {month}</span>
+        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px]">
+          <span className="font-semibold text-slate-700 dark:text-slate-300">Salary Disbursal Reconciliation — {month}</span>
           <span className="text-slate-300">•</span>
-          <span className="text-slate-400">Drag column edges to resize • Double-click edge to reset width</span>
+          <span className="text-slate-400 dark:text-slate-500">Drag column edges to resize • Double-click edge to reset width</span>
         </div>
         {isColumnsResized && (
           <button
             type="button"
             onClick={handleResetAllColumns}
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-emerald-700 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 px-2.5 py-1 rounded-md shadow-2xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-700 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 border border-slate-200 dark:border-slate-700 hover:border-emerald-200 px-2.5 py-1 rounded-md shadow-2xs transition-colors cursor-pointer"
             title="Reset all column widths to default"
           >
             <RotateCcw className="w-3 h-3" />
@@ -522,7 +522,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed border-collapse" style={{ minWidth: `${totalTableWidth}px` }}>
             <colgroup>
@@ -538,12 +538,12 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
               <col style={{ width: `${columnWidths.status}px` }} />
               <col style={{ width: `${columnWidths.receiptStatus}px` }} />
             </colgroup>
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase select-none">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold uppercase select-none">
               <tr>
                 {/* 1. Employee ID */}
                 <th
                   onClick={() => handleSort('employeeId')}
-                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                     <span className="truncate">Employee ID</span>
@@ -555,7 +555,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 2. Employee Name */}
                 <th
                   onClick={() => handleSort('employeeName')}
-                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                     <span className="truncate">Name</span>
@@ -567,7 +567,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 3. Type */}
                 <th
                   onClick={() => handleSort('employeeType')}
-                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                     <span className="truncate">Type</span>
@@ -579,7 +579,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 4. Designation / Job */}
                 <th
                   onClick={() => handleSort('designation')}
-                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                     <span className="truncate">Designation</span>
@@ -591,7 +591,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 5. Company */}
                 <th
                   onClick={() => handleSort('company')}
-                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                     <span className="truncate">Company</span>
@@ -603,7 +603,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 6. Paid By */}
                 <th
                   onClick={() => handleSort('salaryPaidBy')}
-                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                     <span className="truncate">Paid By</span>
@@ -615,7 +615,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 7. Net Owed */}
                 <th
                   onClick={() => handleSort('netSalary')}
-                  className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
                     <span className="truncate">Net Owed (OMR)</span>
@@ -627,7 +627,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 8. Disbursed */}
                 <th
                   onClick={() => handleSort('totalPaid')}
-                  className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
                     <span className="truncate">Disbursed (OMR)</span>
@@ -639,7 +639,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 9. Balance */}
                 <th
                   onClick={() => handleSort('outstanding')}
-                  className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
                     <span className="truncate">Balance (OMR)</span>
@@ -651,7 +651,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 10. Status */}
                 <th
                   onClick={() => handleSort('status')}
-                  className="relative px-3 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-center gap-1 overflow-hidden pr-2">
                     <span className="truncate">Status</span>
@@ -663,7 +663,7 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 {/* 11. Receipt Status */}
                 <th
                   onClick={() => handleSort('receiptStatus')}
-                  className="relative px-3 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                  className="relative px-3 py-3 text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                 >
                   <div className="flex items-center justify-center gap-1 overflow-hidden pr-2">
                     <span className="truncate">Receipt</span>
@@ -673,38 +673,38 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
               {sortedLedger.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
                     No payment records match the selected filters.
                   </td>
                 </tr>
               ) : (
                 sortedLedger.map((r: any) => (
                   <tr key={`${r.employeeId}-${r.payrollMonth || ''}`} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-3 py-2.5 font-mono font-bold text-blue-600 truncate">{r.employeeId}</td>
-                    <td className="px-3 py-2.5 font-semibold text-slate-900 truncate">{r.employeeName}</td>
+                    <td className="px-3 py-2.5 font-mono font-bold text-blue-600 dark:text-blue-400 truncate">{r.employeeId}</td>
+                    <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-slate-100 truncate">{r.employeeName}</td>
                     <td className="px-3 py-2.5">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        r.employeeType === 'Staff' ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'
+                        r.employeeType === 'Staff' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
                       }`}>
                         {r.employeeType || 'Worker'}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-slate-600 truncate">{r.designation || 'General'}</td>
-                    <td className="px-3 py-2.5 text-slate-600 truncate">{r.company}</td>
-                    <td className="px-3 py-2.5 text-slate-600 truncate">{r.salaryPaidBy || '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 truncate">{r.designation || 'General'}</td>
+                    <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 truncate">{r.company}</td>
+                    <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 truncate">{r.salaryPaidBy || '—'}</td>
                     <td className="px-3 py-2.5 text-right font-mono font-bold">OMR {formatOMR(r.netSalary)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-700">OMR {formatOMR(r.totalPaid)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600">OMR {formatOMR(r.outstanding)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-700 dark:text-emerald-300">OMR {formatOMR(r.totalPaid)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono font-bold text-rose-600 dark:text-rose-400">OMR {formatOMR(r.outstanding)}</td>
                     <td className="px-3 py-2.5 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         r.status === 'Fully Paid'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                           : r.status === 'Partially Paid'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
+                          ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                          : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                       }`}>
                         {r.status}
                       </span>
@@ -712,10 +712,10 @@ export const PaymentsReportTab: React.FC<PaymentsReportTabProps> = ({ reportData
                     <td className="px-3 py-2.5 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         r.receiptStatus === 'Attached'
-                          ? 'bg-blue-100 text-blue-800'
+                          ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300'
                           : r.receiptStatus === 'Attachment Pending'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-slate-100 text-slate-600'
+                          ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                         {r.receiptStatus || 'No Payments'}
                       </span>

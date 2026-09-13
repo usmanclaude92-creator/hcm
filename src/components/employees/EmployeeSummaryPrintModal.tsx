@@ -128,21 +128,21 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
       {/* Modal Container */}
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Top Modal Header & Controls (Hidden in Print) */}
-        <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+        <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
               <Printer size={20} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <span>Personal Information Summary Dossier</span>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold">
                   {employee.employeeId}
                 </span>
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Single-page employee profile summary with demographic details, summary stats, and statutory compliance.
               </p>
             </div>
@@ -158,14 +158,14 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
             </button>
             <button
               onClick={handleBrowserPrint}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
             >
               <Printer size={14} />
               <span>Print</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+              className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -173,12 +173,12 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
         </div>
 
         {/* Scrollable Printable Document Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 flex justify-center">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100 dark:bg-slate-800 flex justify-center">
           {/* Exact A4 Document Sheet Representation */}
           <div
             ref={printAreaRef}
             id="employee-summary-printable"
-            className="employee-printable-summary w-full max-w-[210mm] bg-white border border-slate-300 sm:rounded-xl shadow-lg p-6 sm:p-8 space-y-4 text-slate-800"
+            className="employee-printable-summary w-full max-w-[210mm] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 sm:rounded-xl shadow-lg p-6 sm:p-8 space-y-4 text-slate-800 dark:text-slate-200"
             style={{ minHeight: '270mm' }}
           >
             {/* 1. Header Banner */}
@@ -192,18 +192,18 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
                     <h1 className="text-base font-black text-blue-950 tracking-tight leading-none uppercase">
                       Artify Engineering &amp; Contracting LLC
                     </h1>
-                    <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mt-0.5">
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mt-0.5">
                       Confidential Employee Profile &amp; Statutory Record
                     </p>
                   </div>
                 </div>
               </div>
               <div className="text-right text-[11px]">
-                <div className="font-bold text-blue-900">REF: HR-EMP-{employee.employeeId}</div>
-                <div className="text-slate-500 text-[10px]">Date: {todayFormatted}</div>
+                <div className="font-bold text-blue-900 dark:text-blue-300">REF: HR-EMP-{employee.employeeId}</div>
+                <div className="text-slate-500 dark:text-slate-400 text-[10px]">Date: {todayFormatted}</div>
                 <span
                   className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${
-                    employee.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                    employee.isActive ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   {employee.isActive ? 'Active Employee' : 'Inactive'}
@@ -212,7 +212,7 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
             </div>
 
             {/* 2. Employee Hero Profile Block */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center sm:items-start gap-4">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row items-center sm:items-start gap-4">
               {/* Photo Box */}
               <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-xl bg-gradient-to-br from-blue-700 to-indigo-900 text-white flex flex-col items-center justify-center font-bold text-2xl shadow-sm shrink-0 border-2 border-white">
                 {(employee.employeeName || 'EMP')
@@ -227,12 +227,12 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
               {/* Core Details */}
               <div className="flex-1 text-center sm:text-left space-y-1">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <h2 className="text-lg font-bold text-slate-900">{employee.employeeName}</h2>
-                  <span className="font-mono font-bold text-xs bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full border border-blue-200 inline-block">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{employee.employeeName}</h2>
+                  <span className="font-mono font-bold text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800/60 inline-block">
                     {employee.employeeId}
                   </span>
                 </div>
-                <p className="text-xs font-semibold text-slate-700 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex flex-wrap items-center justify-center sm:justify-start gap-2">
                   <span>{employee.designation || 'Staff'}</span>
                   <span>•</span>
                   <span>{employee.employeeCompany || 'Artify Group'}</span>
@@ -241,84 +241,84 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
                   <span>•</span>
                   <span>{employee.employeeType || 'Direct'}</span>
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  Assigned Project / Worksite: <strong className="text-slate-800">{assignedProject}</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Assigned Project / Worksite: <strong className="text-slate-800 dark:text-slate-200">{assignedProject}</strong>
                 </p>
               </div>
             </div>
 
             {/* 3. Summary Stats KPI Bar */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <div className="p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg text-center">
-                <div className="text-[9px] font-bold text-slate-500 uppercase">Basic Salary</div>
-                <div className="text-xs font-bold text-blue-900 mt-0.5">OMR {formatOMR(basicSalary)}</div>
+              <div className="p-2.5 bg-blue-50/50 border border-blue-100 dark:border-blue-800/60 rounded-lg text-center">
+                <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">Basic Salary</div>
+                <div className="text-xs font-bold text-blue-900 dark:text-blue-300 mt-0.5">OMR {formatOMR(basicSalary)}</div>
               </div>
-              <div className="p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg text-center">
-                <div className="text-[9px] font-bold text-slate-500 uppercase">Gross Salary</div>
-                <div className="text-xs font-bold text-blue-900 mt-0.5">OMR {formatOMR(grossSalary)}</div>
+              <div className="p-2.5 bg-blue-50/50 border border-blue-100 dark:border-blue-800/60 rounded-lg text-center">
+                <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">Gross Salary</div>
+                <div className="text-xs font-bold text-blue-900 dark:text-blue-300 mt-0.5">OMR {formatOMR(grossSalary)}</div>
               </div>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                <div className="text-[9px] font-bold text-slate-500 uppercase">Salary Drawn</div>
-                <div className="text-xs font-bold text-slate-800 mt-0.5">OMR {formatOMR(summaryStats?.totalSalaryDrawn || 0)}</div>
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-center">
+                <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">Salary Drawn</div>
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">OMR {formatOMR(summaryStats?.totalSalaryDrawn || 0)}</div>
               </div>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                <div className="text-[9px] font-bold text-slate-500 uppercase">Outstanding Salary</div>
-                <div className="text-xs font-bold text-slate-800 mt-0.5">OMR {formatOMR(summaryStats?.outstandingSalary || 0)}</div>
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-center">
+                <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">Outstanding Salary</div>
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">OMR {formatOMR(summaryStats?.outstandingSalary || 0)}</div>
               </div>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-center">
-                <div className="text-[9px] font-bold text-slate-500 uppercase">Outstanding Loan</div>
-                <div className="text-xs font-bold text-slate-800 mt-0.5">OMR {formatOMR(summaryStats?.outstandingLoan || 0)}</div>
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-center">
+                <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase">Outstanding Loan</div>
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">OMR {formatOMR(summaryStats?.outstandingLoan || 0)}</div>
               </div>
             </div>
 
             {/* 4. Structured Information Sections */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {/* Section 1: Personal & Demographic Info */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 <div className="bg-blue-900 text-white px-3 py-1.5 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                   <User size={13} />
                   <span>1. Personal &amp; Demographic Profile</span>
                 </div>
-                <div className="p-3 space-y-1.5 bg-white">
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Father's Name:</span>
-                    <span className="font-semibold text-slate-800">
+                <div className="p-3 space-y-1.5 bg-white dark:bg-slate-900">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Father's Name:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {personal?.fatherName || '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Date of Birth &amp; Age:</span>
-                    <span className="font-semibold text-slate-800">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Date of Birth &amp; Age:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {dob ? `${formatDate(dob)} ${age !== null ? `(${age} yrs)` : ''}` : '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Gender / Marital Status:</span>
-                    <span className="font-semibold text-slate-800">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Gender / Marital Status:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {personal?.gender || 'Male'} • {personal?.maritalStatus || 'Single'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Blood Group:</span>
-                    <span className="font-bold text-rose-700 px-1.5 py-0.2 bg-rose-50 rounded text-[11px]">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Blood Group:</span>
+                    <span className="font-bold text-rose-700 dark:text-rose-300 px-1.5 py-0.2 bg-rose-50 dark:bg-rose-900/30 rounded text-[11px]">
                       {personal?.bloodGroup || '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Mobile Phone:</span>
-                    <span className="font-mono font-semibold text-slate-800">{mobile || '—'}</span>
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Mobile Phone:</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{mobile || '—'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Personal Email:</span>
-                    <span className="font-medium text-slate-800">{email || '—'}</span>
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Personal Email:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{email || '—'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Residential Address:</span>
-                    <span className="text-right text-[11px] text-slate-700 max-w-[200px]">{address || '—'}</span>
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Residential Address:</span>
+                    <span className="text-right text-[11px] text-slate-700 dark:text-slate-300 max-w-[200px]">{address || '—'}</span>
                   </div>
                   <div className="flex justify-between pt-0.5">
-                    <span className="text-slate-500">Emergency Contact:</span>
-                    <span className="text-right text-[11px] font-semibold text-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Emergency Contact:</span>
+                    <span className="text-right text-[11px] font-semibold text-slate-800 dark:text-slate-200">
                       {emergencyName ? `${emergencyName} (${emergencyRelation || 'Contact'}) - ${emergencyPhone || ''}` : '—'}
                     </span>
                   </div>
@@ -326,82 +326,82 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
               </div>
 
               {/* Section 2: Employment & Payroll */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 <div className="bg-blue-900 text-white px-3 py-1.5 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                   <Briefcase size={13} />
                   <span>2. Employment &amp; Payroll Setup</span>
                 </div>
-                <div className="p-3 space-y-1.5 bg-white">
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Employment Status:</span>
-                    <span className={`font-semibold ${employee.isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
+                <div className="p-3 space-y-1.5 bg-white dark:bg-slate-900">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Employment Status:</span>
+                    <span className={`font-semibold ${employee.isActive ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
                       {employee.isActive ? 'Active Employee' : 'Inactive'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Date of Joining:</span>
-                    <span className="font-semibold text-slate-800">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Date of Joining:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {employee.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Employee Company:</span>
-                    <span className="font-semibold text-slate-800">{employee.employeeCompany || '—'}</span>
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Employee Company:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{employee.employeeCompany || '—'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Salary Paid By:</span>
-                    <span className="font-semibold text-slate-800">{employee.salaryPaidBy || '—'}</span>
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Salary Paid By:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{employee.salaryPaidBy || '—'}</span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Wage Type &amp; WPS:</span>
-                    <span className="font-semibold text-slate-800">
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Wage Type &amp; WPS:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
                       {employee.wageType || 'Monthly'} • {employee.wpsEmployee === 'Yes' ? 'WPS Compliant' : 'Non-WPS'}
                     </span>
                   </div>
-                  <div className="flex justify-between border-b border-slate-100 pb-1">
-                    <span className="text-slate-500">Bank Name:</span>
-                    <span className="font-semibold text-slate-800">{bankName}</span>
+                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span className="text-slate-500 dark:text-slate-400">Bank Name:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{bankName}</span>
                   </div>
                   <div className="flex justify-between pt-0.5">
-                    <span className="text-slate-500">Account Number / IBAN:</span>
-                    <span className="font-mono text-slate-800">{accountNumber}</span>
+                    <span className="text-slate-500 dark:text-slate-400">Account Number / IBAN:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200">{accountNumber}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Section 3: Statutory Identification Matrix */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden text-xs">
               <div className="bg-blue-900 text-white px-3 py-1.5 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck size={13} />
                 <span>3. Statutory Documents &amp; Expiry Compliance</span>
               </div>
-              <div className="p-3 bg-white">
+              <div className="p-3 bg-white dark:bg-slate-900">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase">Civil ID / National ID</div>
-                    <div className="font-mono font-bold text-slate-900 mt-0.5">{civilIdNumber}</div>
-                    <div className="text-[10px] text-slate-600 mt-1 flex justify-between">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Civil ID / National ID</div>
+                    <div className="font-mono font-bold text-slate-900 dark:text-slate-100 mt-0.5">{civilIdNumber}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 flex justify-between">
                       <span>Expiry: {civilIdExpiry}</span>
-                      <span className="font-bold text-emerald-700">{civilIdStatus}</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-300">{civilIdStatus}</span>
                     </div>
                   </div>
 
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase">Passport</div>
-                    <div className="font-mono font-bold text-slate-900 mt-0.5">{passportNumber}</div>
-                    <div className="text-[10px] text-slate-600 mt-1 flex justify-between">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Passport</div>
+                    <div className="font-mono font-bold text-slate-900 dark:text-slate-100 mt-0.5">{passportNumber}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 flex justify-between">
                       <span>Expiry: {passportExpiry}</span>
-                      <span className="font-bold text-emerald-700">{passportStatus}</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-300">{passportStatus}</span>
                     </div>
                   </div>
 
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase">Visa / Work Permit</div>
-                    <div className="font-mono font-bold text-slate-900 mt-0.5">{visaNumber}</div>
-                    <div className="text-[10px] text-slate-600 mt-1 flex justify-between">
+                  <div className="p-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Visa / Work Permit</div>
+                    <div className="font-mono font-bold text-slate-900 dark:text-slate-100 mt-0.5">{visaNumber}</div>
+                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 flex justify-between">
                       <span>Expiry: {visaExpiry}</span>
-                      <span className="font-bold text-emerald-700">{visaStatus}</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-300">{visaStatus}</span>
                     </div>
                   </div>
                 </div>
@@ -411,21 +411,21 @@ export const EmployeeSummaryPrintModal: React.FC<EmployeeSummaryPrintModalProps>
             {/* 5. Authorization & Verification Sign-Off Footer */}
             <div className="pt-2">
               <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-                  <div className="text-[10px] font-bold text-slate-700 uppercase">Prepared &amp; Verified By:</div>
-                  <div className="text-[10px] text-slate-500 mt-1">HR &amp; Personnel Records Department</div>
-                  <div className="mt-6 border-b border-slate-300 w-3/4"></div>
-                  <div className="text-[9px] text-slate-400 mt-1">Signature &amp; Stamp • Date: {todayFormatted}</div>
+                <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 bg-slate-50/50">
+                  <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase">Prepared &amp; Verified By:</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">HR &amp; Personnel Records Department</div>
+                  <div className="mt-6 border-b border-slate-300 dark:border-slate-600 w-3/4"></div>
+                  <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">Signature &amp; Stamp • Date: {todayFormatted}</div>
                 </div>
 
-                <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50">
-                  <div className="text-[10px] font-bold text-slate-700 uppercase">Employee Acknowledgment:</div>
-                  <div className="text-[10px] text-slate-500 mt-1">I certify the accuracy of the demographic data above.</div>
-                  <div className="mt-6 border-b border-slate-300 w-3/4"></div>
-                  <div className="text-[9px] text-slate-400 mt-1">Employee Signature • Date: _________________</div>
+                <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 bg-slate-50/50">
+                  <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase">Employee Acknowledgment:</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">I certify the accuracy of the demographic data above.</div>
+                  <div className="mt-6 border-b border-slate-300 dark:border-slate-600 w-3/4"></div>
+                  <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">Employee Signature • Date: _________________</div>
                 </div>
               </div>
-              <div className="text-center text-[9px] text-slate-400 mt-3 italic">
+              <div className="text-center text-[9px] text-slate-400 dark:text-slate-500 mt-3 italic">
                 This document is a certified digital extract generated from the central enterprise payroll &amp; personnel database. Page 1 of 1
               </div>
             </div>

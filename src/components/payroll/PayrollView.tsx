@@ -259,12 +259,12 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
 
   const renderSortIcon = (column: PayrollSortColumn) => {
     if (sortColumn !== column) {
-      return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" />;
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" />;
     }
     return sortDirection === 'asc' ? (
-      <ArrowUp className="w-3 h-3 text-indigo-600 ml-1 shrink-0 font-bold" />
+      <ArrowUp className="w-3 h-3 text-indigo-600 dark:text-indigo-400 ml-1 shrink-0 font-bold" />
     ) : (
-      <ArrowDown className="w-3 h-3 text-indigo-600 ml-1 shrink-0 font-bold" />
+      <ArrowDown className="w-3 h-3 text-indigo-600 dark:text-indigo-400 ml-1 shrink-0 font-bold" />
     );
   };
 
@@ -726,17 +726,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-blue-600" />
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+              <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               Monthly Payroll Calculation
             </h2>
             {payroll && (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                 payroll.status === 'Finalized'
-                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
                   : payroll.status === 'In Revision'
-                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                  : 'bg-blue-100 text-blue-800 border border-blue-200'
+                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
+                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60'
               }`}>
                 {payroll.status} {payroll.revisionNumber > 0 ? `(Rev #${payroll.revisionNumber})` : ''}
               </span>
@@ -746,22 +746,22 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
 
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Month Picker */}
-          <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-3 py-1.5 shadow-2xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="text-xs font-semibold text-slate-800 focus:outline-hidden"
+              className="text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden"
             />
           </div>
 
           {payroll && lines.length > 0 && (
             <button
               onClick={handleExportPayroll}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               Export Sheet
             </button>
           )}
@@ -769,9 +769,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
           {payroll?.revisionNumber ? (
             <button
               onClick={handleViewRevisions}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
             >
-              <History className="w-3.5 h-3.5 text-blue-600" />
+              <History className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               Revisions ({payroll.revisionNumber})
             </button>
           ) : null}
@@ -803,7 +803,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                 isManager && (
                   <button
                     onClick={() => setIsReviseModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Revise Payroll
@@ -816,7 +816,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -826,29 +826,29 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
           raw payroll totals; the underlying payroll figures are untouched. */}
       {payroll && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-medium text-slate-500">Employees</span>
-            <strong className="block text-lg font-bold text-slate-900 mt-0.5">{filteredSummary.totalEmployees}</strong>
+          <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Employees</span>
+            <strong className="block text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">{filteredSummary.totalEmployees}</strong>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-medium text-slate-500">Gross Salary</span>
-            <strong className="block text-lg font-bold text-slate-900 mt-0.5">OMR {formatOMR(filteredSummary.totalGrossSalary)}</strong>
+          <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Gross Salary</span>
+            <strong className="block text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">OMR {formatOMR(filteredSummary.totalGrossSalary)}</strong>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-medium text-slate-500">Total Additions</span>
-            <strong className="block text-lg font-bold text-emerald-600 mt-0.5">+OMR {formatOMR(filteredSummary.totalAdditions)}</strong>
+          <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total Additions</span>
+            <strong className="block text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">+OMR {formatOMR(filteredSummary.totalAdditions)}</strong>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-medium text-slate-500">Total Deductions</span>
-            <strong className="block text-lg font-bold text-rose-600 mt-0.5">-OMR {formatOMR(filteredSummary.totalDeductions)}</strong>
+          <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total Deductions</span>
+            <strong className="block text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5">-OMR {formatOMR(filteredSummary.totalDeductions)}</strong>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 shadow-xs">
-            <span className="text-[11px] font-semibold text-blue-700">Net Salary (Owed)</span>
-            <strong className="block text-lg font-bold text-blue-900 mt-0.5">OMR {formatOMR(filteredSummary.totalNetSalary)}</strong>
+          <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50/40 shadow-xs">
+            <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">Net Salary (Owed)</span>
+            <strong className="block text-lg font-bold text-blue-900 dark:text-blue-300 mt-0.5">OMR {formatOMR(filteredSummary.totalNetSalary)}</strong>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 shadow-xs">
-            <span className="text-[11px] font-semibold text-amber-700">WPS Recoverable</span>
-            <strong className="block text-lg font-bold text-amber-900 mt-0.5">OMR {formatOMR(filteredSummary.totalRecoverableSalary)}</strong>
+          <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/40 shadow-xs">
+            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">WPS Recoverable</span>
+            <strong className="block text-lg font-bold text-amber-900 dark:text-amber-300 mt-0.5">OMR {formatOMR(filteredSummary.totalRecoverableSalary)}</strong>
           </div>
         </div>
       )}
@@ -856,46 +856,46 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       {/* Advanced Search & Filter Controls -- client-side view filtering only; never
           alters payroll data, only which already-calculated rows are displayed. */}
       {lines.length > 0 && (
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
           <div className="relative w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
             <input
               type="text"
               placeholder="Search employee by ID or name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-9 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-9 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-3 top-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-slate-100 dark:border-slate-800">
             <div className="flex flex-wrap items-center gap-2">
-              <Filter className="w-4 h-4 text-blue-600" />
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Payroll Filters</span>
-              <span className="text-xs text-slate-500 font-medium">
+              <Filter className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Payroll Filters</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                 (Showing {filteredLines.length} of {lines.length} records)
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-xs font-semibold text-blue-700">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/60 text-xs font-semibold text-blue-700 dark:text-blue-300">
                 Net Owed: OMR {formatOMR(filteredSummary.totalNetSalary)}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
-                Sort: <span className="font-semibold text-blue-600">{sortColumn === 'default' ? 'Project (ASC) → Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
+                Sort: <span className="font-semibold text-blue-600 dark:text-blue-400">{sortColumn === 'default' ? 'Project (ASC) → Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
               </span>
               {isFiltering && (
                 <button
                   type="button"
                   onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg transition-colors cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                   Reset Filters
@@ -906,18 +906,18 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2 flex-1 min-w-0">
-              <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 truncate font-medium">
+              <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 truncate font-medium">
                 <option value="ALL">All Projects</option>
                 {availableProjects.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
               </select>
-              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">All Types (Staff & Worker)</option>
                 <option value="Staff">Staff</option>
                 <option value="Worker">Worker</option>
               </select>
-              <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">All Companies</option>
                 <option value="DGO">DGO</option>
                 <option value="SMI">SMI</option>
@@ -925,35 +925,35 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                 <option value="Supplier">Supplier</option>
                 <option value="Azad">Azad</option>
               </select>
-              <select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 truncate font-medium">
+              <select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 truncate font-medium">
                 <option value="ALL">All Designations</option>
                 {availableJobs.map((j) => (
                   <option key={j} value={j}>{j}</option>
                 ))}
               </select>
-              <select value={paidByFilter} onChange={(e) => setPaidByFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={paidByFilter} onChange={(e) => setPaidByFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">All Paid By</option>
                 <option value="DGO">DGO</option>
                 <option value="SMI">SMI</option>
                 <option value="NC">NC</option>
                 <option value="Supplier">Supplier</option>
               </select>
-              <select value={wpsFilter} onChange={(e) => setWpsFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={wpsFilter} onChange={(e) => setWpsFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">WPS: All</option>
                 <option value="WPS">WPS</option>
                 <option value="Non-WPS">Non-WPS</option>
               </select>
-              <select value={wageTypeFilter} onChange={(e) => setWageTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={wageTypeFilter} onChange={(e) => setWageTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">All Wage Types</option>
                 <option value="Per Hour">Per Hour</option>
                 <option value="Fixed Monthly">Fixed Monthly</option>
               </select>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">All Statuses</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-              <select value={receiptStatusFilter} onChange={(e) => setReceiptStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-blue-500 font-medium">
+              <select value={receiptStatusFilter} onChange={(e) => setReceiptStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="ALL">All Receipts</option>
                 <option value="Attached">Attached</option>
                 <option value="Attachment Pending">Attachment Pending</option>
@@ -964,20 +964,20 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               type="button"
               onClick={handleResetFilters}
               disabled={!isFiltering}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Reset Filters
             </button>
           </div>
-          <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 gap-2">
+          <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800 gap-2">
             <span>
-              Showing <strong className="text-slate-700 font-semibold">{filteredLines.length}</strong> of {lines.length} employee{lines.length === 1 ? '' : 's'}
+              Showing <strong className="text-slate-700 dark:text-slate-300 font-semibold">{filteredLines.length}</strong> of {lines.length} employee{lines.length === 1 ? '' : 's'}
               {isFiltering && ' (filtered)'}
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-slate-400">
-                Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Project (ASC) → Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+              <span className="text-slate-400 dark:text-slate-500">
+                Sort: <span className="font-semibold text-slate-600 dark:text-slate-400 capitalize">{sortColumn === 'default' ? 'Project (ASC) → Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
               </span>
               {sortColumn !== 'default' && (
                 <button
@@ -986,7 +986,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                     setSortColumn('default');
                     setSortDirection('asc');
                   }}
-                  className="text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                  className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-medium cursor-pointer"
                 >
                   Reset Sort
                 </button>
@@ -997,13 +997,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       )}
 
       {/* Main Payroll Sheet Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         {/* Table Resizing & Controls Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-slate-700">Payroll Register</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Payroll Register</span>
             <span className="text-slate-300">•</span>
-            <span className="text-slate-500 text-[11px]">
+            <span className="text-slate-500 dark:text-slate-400 text-[11px]">
               Drag column edges to resize • Double-click edge to reset width
             </span>
           </div>
@@ -1012,10 +1012,10 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               <button
                 type="button"
                 onClick={handleResetAllColumns}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded shadow-2xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded shadow-2xs transition-colors cursor-pointer"
                 title="Reset all column widths to default"
               >
-                <RotateCcw className="w-3 h-3 text-slate-500" />
+                <RotateCcw className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                 Reset Columns
               </button>
             )}
@@ -1050,7 +1050,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                 <col style={{ width: `${columnWidths.action || DEFAULT_PAYROLL_COLUMN_WIDTHS.action}px` }} />
               )}
             </colgroup>
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider select-none">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider select-none">
               <tr>
                 <th
                   onClick={() => handleSort('srNo')}
@@ -1204,7 +1204,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                 </th>
                 <th
                   onClick={() => handleSort('netSalary')}
-                  className="px-4 py-3 text-right font-bold text-blue-900 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
+                  className="px-4 py-3 text-right font-bold text-blue-900 dark:text-blue-300 relative cursor-pointer group hover:bg-slate-100/70 transition-colors"
                 >
                   <div className="flex items-center justify-end">
                     <span className="truncate">Net / Total</span>
@@ -1240,22 +1240,22 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
               {lines.length === 0 ? (
                 <tr>
-                  <td colSpan={canEditLines ? 19 : 18} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={canEditLines ? 19 : 18} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">
                     <p className="text-sm font-semibold">No payroll calculated yet for {month}.</p>
                     <p className="text-xs mt-1">Ensure attendance is recorded, then click "Calculate / Re-Run Payroll".</p>
                   </td>
                 </tr>
               ) : filteredLines.length === 0 ? (
                 <tr>
-                  <td colSpan={canEditLines ? 19 : 18} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={canEditLines ? 19 : 18} className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">
                     <p className="text-sm font-semibold">No employees match the current filters.</p>
                     <button
                       type="button"
                       onClick={handleResetFilters}
-                      className="text-xs mt-1 text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                      className="text-xs mt-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 font-semibold cursor-pointer"
                     >
                       Reset Filters
                     </button>
@@ -1264,40 +1264,40 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               ) : (
                 filteredLines.map((line, idx) => (
                   <tr key={line.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-3 py-3 font-mono text-slate-400">{idx + 1}</td>
-                    <td className="px-3 py-3 text-slate-600">
+                    <td className="px-3 py-3 font-mono text-slate-400 dark:text-slate-500">{idx + 1}</td>
+                    <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
                       {line.employeeCompany}
                     </td>
-                    <td className="px-3 py-3 text-slate-600">
+                    <td className="px-3 py-3 text-slate-600 dark:text-slate-400">
                       {line.salaryPaidBy}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        line.wpsEmployee === 'Yes' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        line.wpsEmployee === 'Yes' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                         {line.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-slate-500 max-w-[150px] truncate" title={line.projectsSummary}>
+                    <td className="px-3 py-3 text-slate-500 dark:text-slate-400 max-w-[150px] truncate" title={line.projectsSummary}>
                       {line.projectsSummary}
                     </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        line.employeeType === 'Staff' ? 'bg-blue-50 text-blue-700' : 'bg-indigo-50 text-indigo-700'
+                        line.employeeType === 'Staff' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                       }`}>
                         {line.employeeType}
                       </span>
                     </td>
                     <td className="px-3 py-3">
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                        line.nationalityType === 'Omani' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        line.nationalityType === 'Omani' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                       }`}>
                         {line.nationalityType}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono font-bold text-blue-600 block">{line.employeeId}</span>
-                      <span className="font-semibold text-slate-900">{line.employeeName}</span>
+                      <span className="font-mono font-bold text-blue-600 dark:text-blue-400 block">{line.employeeId}</span>
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">{line.employeeName}</span>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold">
                       {isLineHourly(line) ? `${line.hoursWorked}h` : `${line.daysWorked}d`}
@@ -1305,34 +1305,34 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                           error rather than 25 worked + 5 approved paid leave. */}
                       {(line.paidLeaveDays || 0) > 0 && (
                         <span
-                          className="block text-[9px] font-semibold text-emerald-700"
+                          className="block text-[9px] font-semibold text-emerald-700 dark:text-emerald-300"
                           title={`${line.paidLeaveDays} day(s) of approved paid leave are included in the wage basis.`}
                         >
                           +{line.paidLeaveDays}d paid leave
                         </span>
                       )}
                       {(line.unpaidLeaveDays || 0) > 0 && (
-                        <span className="block text-[9px] font-semibold text-slate-400">
+                        <span className="block text-[9px] font-semibold text-slate-400 dark:text-slate-500">
                           {line.unpaidLeaveDays}d unpaid leave
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-slate-600">
+                    <td className="px-3 py-3 text-right font-mono text-slate-600 dark:text-slate-400">
                       OMR {formatOMR(line.basicSalaryOrRate)}
                       {line.rateOverridden && (
                         <span
-                          className="ml-1 inline-flex px-1 py-0.5 rounded bg-amber-100 text-amber-800 text-[9px] font-bold align-middle"
+                          className="ml-1 inline-flex px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-[9px] font-bold align-middle"
                           title={`Manually overridden. Employee Master currently holds OMR ${formatOMR(line.masterRate ?? line.basicSalaryOrRate)}. Edit the line to reset it.`}
                         >
                           OVERRIDE
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-slate-900">
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
                       {formatOMR(line.grossSalary)}
                     </td>
                     <td
-                      className="px-3 py-3 text-right font-mono text-amber-600"
+                      className="px-3 py-3 text-right font-mono text-amber-600 dark:text-amber-400"
                       title={
                         (line.overtimeHours || 0) > 0
                           ? `${line.overtimeHours}h at OMR ${formatOMR(line.overtimeRate || 0)}/h = OMR ${formatOMR(line.overtimePay || 0)}, included in Additions`
@@ -1343,33 +1343,33 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                         ? `${line.overtimeHours}h · ${formatOMR(line.overtimePay || 0)}`
                         : '—'}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-emerald-600">
+                    <td className="px-3 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
                       {formatOMR(line.bonus + (line.attendanceBonus || 0))}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-emerald-600">
+                    <td className="px-3 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
                       {line.totalAdditions > 0 ? `+${formatOMR(line.totalAdditions)}` : formatOMR(0)}
                     </td>
-                    <td className="px-3 py-3 text-right font-mono text-rose-600">
+                    <td className="px-3 py-3 text-right font-mono text-rose-600 dark:text-rose-400">
                       {line.totalDeductions > 0 ? `-${formatOMR(line.totalDeductions)}` : formatOMR(0)}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-700 text-sm">
+                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-700 dark:text-blue-300 text-sm">
                       {formatOMR(line.netSalary)}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        line.paymentMethod === 'WPS' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                        line.paymentMethod === 'WPS' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                       }`}>
                         {line.paymentMethod}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-amber-600">
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-amber-600 dark:text-amber-400">
                       {line.recoverableSalary > 0 ? formatOMR(line.recoverableSalary) : '—'}
                     </td>
                     {canWrite && payroll?.status !== 'Finalized' && (
                       <td className="px-3 py-3 text-right">
                         <button
                           onClick={() => handleOpenEditLine(line)}
-                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md transition-colors"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -1386,13 +1386,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       {/* Line Edit Modal (Allowing monthly override, additions, deductions) */}
       {editingLine && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden my-6">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden my-6">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
                   Edit Monthly Payroll Line: {editingLine.employeeId} - {editingLine.employeeName}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {editingLine.employeeType} • {isLineHourly(editingLine) ? 'Paid hourly' : 'Paid monthly'} • Worked:{' '}
                   {isLineHourly(editingLine) ? `${editingLine.hoursWorked} Hours` : `${editingLine.daysWorked} Days`}
                   {(editingLine.overtimeHours || 0) > 0 && ` + ${editingLine.overtimeHours} OT Hours`}
@@ -1405,22 +1405,22 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               </div>
               <button
                 onClick={() => setEditingLine(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveLine} className="p-6 space-y-4">
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between text-xs">
+              <div className="p-3 bg-blue-50/70 border border-blue-200 dark:border-blue-800/60 rounded-xl flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-blue-700 font-semibold block">Calculated Net Preview:</span>
+                  <span className="text-blue-700 dark:text-blue-300 font-semibold block">Calculated Net Preview:</span>
                   <strong className="text-base text-blue-950 font-mono">OMR {formatOMR(previewNet)}</strong>
                 </div>
                 {previewWpsRecoverable > 0 && (
                   <div className="text-right">
-                    <span className="text-amber-700 font-semibold block">WPS Excess Recoverable:</span>
-                    <strong className="text-base text-amber-900 font-mono">OMR {formatOMR(previewWpsRecoverable)}</strong>
+                    <span className="text-amber-700 dark:text-amber-300 font-semibold block">WPS Excess Recoverable:</span>
+                    <strong className="text-base text-amber-900 dark:text-amber-300 font-mono">OMR {formatOMR(previewWpsRecoverable)}</strong>
                   </div>
                 )}
               </div>
@@ -1428,7 +1428,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Rate Override */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Monthly Salary / Wage Rate (Override for {month})
                   </label>
                   <input
@@ -1437,24 +1437,24 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                     required
                     value={lineFormData.basicSalaryOrRate}
                     onChange={(e) => setLineFormData({ ...lineFormData, basicSalaryOrRate: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500"
                   />
                   {editingLine.rateOverridden ? (
                     <div className="mt-1 flex items-start justify-between gap-2">
-                      <span className="text-[10px] text-amber-700 leading-snug">
+                      <span className="text-[10px] text-amber-700 dark:text-amber-300 leading-snug">
                         Overridden for {month}. Employee Master holds OMR {formatOMR(editingLine.masterRate ?? editingLine.basicSalaryOrRate)}, and
                         recalculating will keep this override.
                       </span>
                       <button
                         type="button"
                         onClick={handleResetRateToMaster}
-                        className="shrink-0 text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        className="shrink-0 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 underline cursor-pointer"
                       >
                         Reset to master
                       </button>
                     </div>
                   ) : (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
                       Tracking Employee Master. Editing this field overrides the rate for {month} only; recalculating will then keep your value.
                     </span>
                   )}
@@ -1462,13 +1462,13 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
 
                 {/* Payment Method */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Payment Method
                   </label>
                   <select
                     value={lineFormData.paymentMethod}
                     onChange={(e) => setLineFormData({ ...lineFormData, paymentMethod: e.target.value as PaymentMethod })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="WPS">WPS (Wage Protection System)</option>
                     <option value="Non-WPS">Non-WPS (Cash / Cheque / Direct)</option>
@@ -1481,11 +1481,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               {((editingLine.overtimeHours || 0) > 0 ||
                 (editingLine.attendanceBonus || 0) > 0 ||
                 (editingLine.attendanceDeduction || 0) > 0) && (
-                <div className="p-3.5 bg-amber-50/60 border border-amber-100 rounded-xl space-y-3">
-                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">From the Attendance Ledger</p>
+                <div className="p-3.5 bg-amber-50/60 border border-amber-100 dark:border-amber-800/60 rounded-xl space-y-3">
+                  <p className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">From the Attendance Ledger</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
                         Overtime Rate (OMR / hour)
                       </label>
                       <input
@@ -1494,101 +1494,101 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                         min="0"
                         value={lineFormData.overtimeRate}
                         onChange={(e) => setLineFormData({ ...lineFormData, overtimeRate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-500"
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-500"
                       />
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         Defaults to 125% of the normal hourly wage
                       </span>
                     </div>
                     <div>
-                      <span className="block text-[11px] font-medium text-slate-600 mb-1">Overtime Pay</span>
-                      <p className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono">
+                      <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Overtime Pay</span>
+                      <p className="px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-mono">
                         {editingLine.overtimeHours || 0}h × {formatOMR(Number(lineFormData.overtimeRate || 0))} ={' '}
                         <strong>{formatOMR(previewOvertimePay)}</strong>
                       </p>
                     </div>
                     <div>
-                      <span className="block text-[11px] font-medium text-slate-600 mb-1">Site bonus / deduction</span>
-                      <p className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono">
-                        <span className="text-emerald-700">+{formatOMR(previewAttendanceBonus)}</span>
+                      <span className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Site bonus / deduction</span>
+                      <p className="px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-mono">
+                        <span className="text-emerald-700 dark:text-emerald-300">+{formatOMR(previewAttendanceBonus)}</span>
                         {' / '}
-                        <span className="text-rose-700">-{formatOMR(previewAttendanceDeduction)}</span>
+                        <span className="text-rose-700 dark:text-rose-300">-{formatOMR(previewAttendanceDeduction)}</span>
                       </p>
-                      <span className="text-[10px] text-slate-400">Edit these in the Attendance Ledger</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Edit these in the Attendance Ledger</span>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Additions Breakdown */}
-              <div className="p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-xl space-y-3">
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Salary Additions (OMR)</p>
+              <div className="p-3.5 bg-emerald-50/50 border border-emerald-100 dark:border-emerald-800/60 rounded-xl space-y-3">
+                <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Salary Additions (OMR)</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">House Allowance</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">House Allowance</label>
                     <input
                       type="number"
                       step="0.001"
                       value={lineFormData.houseAllowance}
                       onChange={(e) => setLineFormData({ ...lineFormData, houseAllowance: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-mono"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Transport</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Transport</label>
                     <input
                       type="number"
                       step="0.001"
                       value={lineFormData.transportAllowance}
                       onChange={(e) => setLineFormData({ ...lineFormData, transportAllowance: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-mono"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Bonus</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Bonus</label>
                     <input
                       type="number"
                       step="0.001"
                       value={lineFormData.bonus}
                       onChange={(e) => setLineFormData({ ...lineFormData, bonus: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-mono"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Other Allowance</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Other Allowance</label>
                     <input
                       type="number"
                       step="0.001"
                       value={lineFormData.otherAllowance}
                       onChange={(e) => setLineFormData({ ...lineFormData, otherAllowance: e.target.value })}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs font-mono"
+                      className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Deductions Breakdown */}
-              <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-xl space-y-3">
-                <p className="text-xs font-bold text-rose-800 uppercase tracking-wider">Salary Deductions (OMR)</p>
+              <div className="p-3.5 bg-rose-50/50 border border-rose-100 dark:border-rose-800/60 rounded-xl space-y-3">
+                <p className="text-xs font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider">Salary Deductions (OMR)</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Loan Recovery Amount</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Loan Recovery Amount</label>
                     <input
                       type="number"
                       step="0.001"
                       value={lineFormData.loanRecovery}
                       onChange={(e) => setLineFormData({ ...lineFormData, loanRecovery: e.target.value })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-xs font-mono font-semibold"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-semibold"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Other Deductions</label>
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Other Deductions</label>
                     <input
                       type="number"
                       step="0.001"
                       value={lineFormData.otherDeductions}
                       onChange={(e) => setLineFormData({ ...lineFormData, otherDeductions: e.target.value })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded text-xs font-mono"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono"
                     />
                   </div>
                 </div>
@@ -1598,7 +1598,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               {lineFormData.paymentMethod === 'WPS' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       WPS Registered Salary (OMR)
                     </label>
                     <input
@@ -1606,11 +1606,11 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                       step="0.001"
                       value={lineFormData.wpsSalary}
                       onChange={(e) => setLineFormData({ ...lineFormData, wpsSalary: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono"
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Recover Excess WPS From
                     </label>
                     <input
@@ -1618,17 +1618,17 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                       value={lineFormData.recoverFrom}
                       onChange={(e) => setLineFormData({ ...lineFormData, recoverFrom: e.target.value })}
                       placeholder="e.g. DGO"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
                     />
                   </div>
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-200 flex justify-end gap-2.5">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setEditingLine(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
                 >
                   Cancel
                 </button>
@@ -1648,30 +1648,30 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       {/* Finalize Confirmation Modal */}
       {isFinalizeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-4">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mx-auto">
               <Lock className="w-6 h-6" />
             </div>
 
             <div className="text-center">
-              <h3 className="text-base font-bold text-slate-900">Finalize Payroll for {month}?</h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Finalize Payroll for {month}?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Finalizing locks the payroll snapshot, registers WPS recoverable balances, and deducts employee loans. Once finalized, salary payments can be disbursed.
               </p>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-slate-500">Total Net Salary:</span>
-                <strong className="text-slate-900 font-mono">OMR {formatOMR(payroll?.totalNetSalary)}</strong>
+                <span className="text-slate-500 dark:text-slate-400">Total Net Salary:</span>
+                <strong className="text-slate-900 dark:text-slate-100 font-mono">OMR {formatOMR(payroll?.totalNetSalary)}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">WPS Recoverable:</span>
-                <strong className="text-amber-600 font-mono">OMR {formatOMR(payroll?.totalRecoverableSalary)}</strong>
+                <span className="text-slate-500 dark:text-slate-400">WPS Recoverable:</span>
+                <strong className="text-amber-600 dark:text-amber-400 font-mono">OMR {formatOMR(payroll?.totalRecoverableSalary)}</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Employees Count:</span>
-                <strong className="text-slate-900">{payroll?.totalEmployees}</strong>
+                <span className="text-slate-500 dark:text-slate-400">Employees Count:</span>
+                <strong className="text-slate-900 dark:text-slate-100">{payroll?.totalEmployees}</strong>
               </div>
             </div>
 
@@ -1679,7 +1679,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               <button
                 type="button"
                 onClick={() => setIsFinalizeModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
               >
                 Cancel
               </button>
@@ -1698,20 +1698,20 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       {/* Revise Modal */}
       {isReviseModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto">
               <RotateCcw className="w-6 h-6" />
             </div>
 
             <div className="text-center">
-              <h3 className="text-base font-bold text-slate-900">Initiate Payroll Revision</h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Initiate Payroll Revision</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Unlocking this payroll will create Revision #{(payroll?.revisionNumber || 0) + 1} and preserve the current snapshot in audit history.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Mandatory Reason for Revision <span className="text-rose-500">*</span>
               </label>
               <textarea
@@ -1720,7 +1720,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
                 value={revisionReason}
                 onChange={(e) => setRevisionReason(e.target.value)}
                 placeholder="e.g. Corrected overtime hours for Worker EMP004 as per site engineer revised sheet..."
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-amber-500"
               />
             </div>
 
@@ -1728,7 +1728,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
               <button
                 type="button"
                 onClick={() => setIsReviseModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg"
               >
                 Cancel
               </button>
@@ -1747,15 +1747,15 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
       {/* Revision History Modal */}
       {isRevisionHistoryOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-slate-900 text-base">Revision Track Record for {month}</h3>
+                <History className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Revision Track Record for {month}</h3>
               </div>
               <button
                 onClick={() => setIsRevisionHistoryOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1763,34 +1763,34 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ initialMonth }) => {
 
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
               {revisionHistory.map((rev) => (
-                <div key={rev.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div key={rev.id} className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+                    <span className="font-bold text-xs text-blue-800 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded">
                       Revision #{rev.revisionNumber}
                     </span>
-                    <span className="text-xs text-slate-500">{formatDate(rev.revisionDate)} • By {rev.revisedBy}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{formatDate(rev.revisionDate)} • By {rev.revisedBy}</span>
                   </div>
-                  <p className="text-xs text-slate-700 font-medium">
-                    Reason: <span className="text-slate-900 font-normal">{rev.reason}</span>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                    Reason: <span className="text-slate-900 dark:text-slate-100 font-normal">{rev.reason}</span>
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-200/80">
                     <div>
-                      <span className="text-slate-500">Previous Net:</span>{' '}
-                      <strong className="text-slate-700 font-mono">OMR {formatOMR(rev.previousNet)}</strong>
+                      <span className="text-slate-500 dark:text-slate-400">Previous Net:</span>{' '}
+                      <strong className="text-slate-700 dark:text-slate-300 font-mono">OMR {formatOMR(rev.previousNet)}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-500">Revised Net:</span>{' '}
-                      <strong className="text-blue-700 font-mono">OMR {formatOMR(rev.newNet)}</strong>
+                      <span className="text-slate-500 dark:text-slate-400">Revised Net:</span>{' '}
+                      <strong className="text-blue-700 dark:text-blue-300 font-mono">OMR {formatOMR(rev.newNet)}</strong>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex justify-end">
               <button
                 onClick={() => setIsRevisionHistoryOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg"
               >
                 Close History
               </button>

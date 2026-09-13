@@ -77,11 +77,11 @@ export const EndOfServiceView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Scale className="w-5 h-5 text-indigo-600" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <Scale className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             End-of-Service Gratuity
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Accrued liability calculated from the employee master. Nothing here is posted to payroll —
             gratuity becomes payable only when service ends.
           </p>
@@ -89,15 +89,15 @@ export const EndOfServiceView: React.FC = () => {
         <button
           type="button"
           onClick={handleExport}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
         >
-          <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600" />
+          <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           Export Gratuity Schedule
         </button>
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -106,33 +106,33 @@ export const EndOfServiceView: React.FC = () => {
       {summary && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 shadow-xs">
-              <span className="text-xs font-semibold text-indigo-700">Total Accrued Liability</span>
-              <strong className="block text-xl font-bold text-indigo-800 mt-1 font-mono">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/30 shadow-xs">
+              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Total Accrued Liability</span>
+              <strong className="block text-xl font-bold text-indigo-800 dark:text-indigo-300 mt-1 font-mono">
                 OMR {formatOMR(summary.totalLiability)}
               </strong>
-              <span className="text-[11px] text-indigo-600 mt-0.5 block">
+              <span className="text-[11px] text-indigo-600 dark:text-indigo-400 mt-0.5 block">
                 {summary.entitledCount} entitled of {summary.employeeCount} employees
               </span>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <span className="text-xs font-medium text-slate-500">Still in Service</span>
-              <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Still in Service</span>
+              <strong className="block text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">
                 OMR {formatOMR(summary.activeLiability)}
               </strong>
-              <span className="text-[11px] text-slate-400 mt-0.5 block">Provision, not yet payable</span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 block">Provision, not yet payable</span>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
-              <span className="text-xs font-semibold text-amber-700">Payable on Exit</span>
-              <strong className="block text-xl font-bold text-amber-800 mt-1 font-mono">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/30 shadow-xs">
+              <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Payable on Exit</span>
+              <strong className="block text-xl font-bold text-amber-800 dark:text-amber-300 mt-1 font-mono">
                 OMR {formatOMR(summary.payableOnExit)}
               </strong>
-              <span className="text-[11px] text-amber-600 mt-0.5 block">Employees whose service has ended</span>
+              <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 block">Employees whose service has ended</span>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
-            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 flex items-start gap-2">
+            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
             <span>
               {summary.basis} {summary.omaniExcludedCount} Omani national(s) and{' '}
               {summary.notYetEntitledCount} employee(s) below the minimum service period are shown but
@@ -143,32 +143,32 @@ export const EndOfServiceView: React.FC = () => {
         </>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search employee…"
               aria-label="Search employees"
-              className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-56 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg w-56 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <label htmlFor="gr-asof" className="text-xs font-semibold text-slate-600 ml-2">Calculate as at</label>
+          <label htmlFor="gr-asof" className="text-xs font-semibold text-slate-600 dark:text-slate-400 ml-2">Calculate as at</label>
           <input
             id="gr-asof"
             type="date"
             value={asOf}
             onChange={e => setAsOf(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           />
           <select
             value={status}
             onChange={e => setStatus(e.target.value)}
             aria-label="Filter by employment status"
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="active">In service</option>
             <option value="former">Service ended</option>
@@ -178,7 +178,7 @@ export const EndOfServiceView: React.FC = () => {
             value={company}
             onChange={e => setCompany(e.target.value)}
             aria-label="Filter by company"
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">All companies</option>
             {['DGO', 'SMI', 'NC', 'Supplier', 'Azad'].map(c => (
@@ -189,7 +189,7 @@ export const EndOfServiceView: React.FC = () => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wide">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wide">
               <tr>
                 <th className="text-left font-semibold px-4 py-2.5">Employee</th>
                 <th className="text-left font-semibold px-4 py-2.5">Company</th>
@@ -202,31 +202,31 @@ export const EndOfServiceView: React.FC = () => {
                 <th className="text-left font-semibold px-4 py-2.5">Basis</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading && (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">Calculating…</td></tr>
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">Calculating…</td></tr>
               )}
               {!loading && visibleRows.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">No employees match the current filters.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">No employees match the current filters.</td></tr>
               )}
               {!loading && visibleRows.map(r => (
                 <tr key={r.employeeId} className={`hover:bg-slate-50/70 ${r.isEntitled ? '' : 'bg-slate-50/40'}`}>
                   <td className="px-4 py-2.5">
-                    <span className="font-semibold text-slate-800">{r.employeeId}</span>
-                    <span className="block text-slate-500">{r.employeeName}</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{r.employeeId}</span>
+                    <span className="block text-slate-500 dark:text-slate-400">{r.employeeName}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600">{r.employeeCompany}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{r.nationalityType}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{formatDate(r.dateOfJoining)}</td>
-                  <td className="px-4 py-2.5 text-slate-600">{formatDate(r.serviceEndDate)}</td>
-                  <td className="px-4 py-2.5 text-right font-mono text-slate-800">{r.serviceYears.toFixed(2)}</td>
-                  <td className="px-4 py-2.5 text-right font-mono text-slate-700">{formatOMR(r.monthlyBasicWage)}</td>
-                  <td className={`px-4 py-2.5 text-right font-mono font-semibold ${r.isEntitled ? 'text-indigo-800' : 'text-slate-400'}`}>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{r.employeeCompany}</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{r.nationalityType}</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{formatDate(r.dateOfJoining)}</td>
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{formatDate(r.serviceEndDate)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-slate-800 dark:text-slate-200">{r.serviceYears.toFixed(2)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-slate-700 dark:text-slate-300">{formatOMR(r.monthlyBasicWage)}</td>
+                  <td className={`px-4 py-2.5 text-right font-mono font-semibold ${r.isEntitled ? 'text-indigo-800 dark:text-indigo-300' : 'text-slate-400 dark:text-slate-500'}`}>
                     {formatOMR(r.gratuityAmount)}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-500 max-w-xs">
+                  <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400 max-w-xs">
                     <span className="block text-[10px]">{r.wageBasis}</span>
-                    <span className="block text-[10px] italic text-slate-400">{r.note}</span>
+                    <span className="block text-[10px] italic text-slate-400 dark:text-slate-500">{r.note}</span>
                   </td>
                 </tr>
               ))}

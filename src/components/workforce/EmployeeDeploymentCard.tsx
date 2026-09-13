@@ -195,14 +195,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         }
       }}
       title={onClick ? `Click to open Attendance Report for ${employeeName} (${employeeId})` : undefined}
-      className={`w-44 shrink-0 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col transition-all text-left ${
+      className={`w-44 shrink-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden flex flex-col transition-all text-left ${
         onClick
           ? 'cursor-pointer hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5 group focus:outline-hidden focus:ring-2 focus:ring-blue-500/50'
           : 'hover:shadow-xs hover:border-slate-300'
       }`}
     >
       {/* Photo Area: Displays camera selfie, top-left selfie date/time, top-right geofence location icon */}
-      <div className="relative h-56 shrink-0 bg-slate-100 flex items-center justify-center overflow-hidden">
+      <div className="relative h-56 shrink-0 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
         {/* 2. Top-Left Corner: Date and Time of Selfie Taken */}
         {selfieDateTimeStr ? (
           <div
@@ -272,7 +272,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
             </div>
           </div>
         ) : (
-          <UserRound className="w-20 h-20 text-slate-400 group-hover:scale-105 group-hover:text-slate-500 transition-all duration-200" />
+          <UserRound className="w-20 h-20 text-slate-400 dark:text-slate-500 group-hover:scale-105 group-hover:text-slate-500 transition-all duration-200" />
         )}
 
         {/* Color-Coded Status Badge on Bottom-Left of Photo */}
@@ -282,75 +282,75 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
       </div>
 
       {/* Name, then Staff/Worker : Code */}
-      <div className="px-2 pt-2 pb-1.5 text-center border-t border-slate-100 shrink-0">
-        <p className="text-xs font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors" title={employeeName}>
+      <div className="px-2 pt-2 pb-1.5 text-center border-t border-slate-100 dark:border-slate-800 shrink-0">
+        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 transition-colors" title={employeeName}>
           {employeeName}
         </p>
         <p className="text-[10px] mt-0.5 truncate">
-          <span className={employeeType === 'Staff' ? 'text-blue-700 font-semibold' : 'text-indigo-700 font-semibold'}>
+          <span className={employeeType === 'Staff' ? 'text-blue-700 dark:text-blue-300 font-semibold' : 'text-indigo-700 dark:text-indigo-300 font-semibold'}>
             {employeeType}
           </span>
-          <span className="text-slate-400"> : </span>
-          <span className="font-mono font-bold text-blue-600 group-hover:underline">{employeeId}</span>
+          <span className="text-slate-400 dark:text-slate-500"> : </span>
+          <span className="font-mono font-bold text-blue-600 dark:text-blue-400 group-hover:underline">{employeeId}</span>
         </p>
       </div>
 
       {/* Attendance details below photo following user card template */}
-      <div className="px-2 pb-2.5 pt-1.5 border-t border-slate-100 space-y-1.5 text-[10px] shrink-0 bg-slate-50/40">
+      <div className="px-2 pb-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-[10px] shrink-0 bg-slate-50/40">
         {/* 1. Start Time */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-emerald-700 font-semibold shrink-0">Start Time:</span>
+          <span className="text-emerald-700 dark:text-emerald-300 font-semibold shrink-0">Start Time:</span>
           {startTime ? (
-            <span className="font-mono font-bold text-emerald-700 truncate">{startTime}</span>
+            <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 truncate">{startTime}</span>
           ) : (
-            <span className="text-slate-400 italic truncate">-</span>
+            <span className="text-slate-400 dark:text-slate-500 italic truncate">-</span>
           )}
         </div>
 
         {/* 2. End Time */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-blue-700 font-semibold shrink-0">End Time:</span>
+          <span className="text-blue-700 dark:text-blue-300 font-semibold shrink-0">End Time:</span>
           {endTimeDisplay ? (
-            <span className={`font-mono font-bold truncate ${isOpen ? 'text-blue-600 italic' : 'text-blue-700'}`}>
+            <span className={`font-mono font-bold truncate ${isOpen ? 'text-blue-600 dark:text-blue-400 italic' : 'text-blue-700 dark:text-blue-300'}`}>
               {endTimeDisplay}
             </span>
           ) : (
-            <span className="text-slate-400 italic truncate">-</span>
+            <span className="text-slate-400 dark:text-slate-500 italic truncate">-</span>
           )}
         </div>
 
         {/* 3. Shift Duration */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Shift Duration:</span>
-          <span className="font-mono font-bold text-slate-800 truncate">{shiftDurationStr}</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Shift Duration:</span>
+          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">{shiftDurationStr}</span>
         </div>
 
         {/* 4. Total Work Today */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Total Work Today:</span>
-          <span className="font-mono font-bold text-indigo-700 truncate">{hoursWorkedTodayStr}</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Total Work Today:</span>
+          <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 truncate">{hoursWorkedTodayStr}</span>
         </div>
 
         {/* 5. Geofence (Inside Site Radius with Green color and outside with red color) */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Geofence:</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Geofence:</span>
           {isInsideGeofence === true ? (
-            <span className="font-bold text-emerald-600 truncate" title="Inside Site Radius">
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 truncate" title="Inside Site Radius">
               Inside Site Radius
             </span>
           ) : isInsideGeofence === false ? (
-            <span className="font-bold text-rose-600 truncate" title="Outside Site Radius">
+            <span className="font-bold text-rose-600 dark:text-rose-400 truncate" title="Outside Site Radius">
               Outside Site Radius
             </span>
           ) : (
-            <span className="text-slate-400 italic truncate">-</span>
+            <span className="text-slate-400 dark:text-slate-500 italic truncate">-</span>
           )}
         </div>
 
         {/* 6. Mobility (will setup later) */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Mobility:</span>
-          <span className="text-slate-400 italic truncate">Coming Soon</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Mobility:</span>
+          <span className="text-slate-400 dark:text-slate-500 italic truncate">Coming Soon</span>
         </div>
       </div>
 

@@ -567,16 +567,16 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
     return (
       <div className="space-y-4 animate-in fade-in duration-200">
         {/* Breadcrumb Navigation */}
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <button
             onClick={() => setIsComplianceModalOpen(false)}
-            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600"
+            className="hover:text-blue-600 font-semibold flex items-center gap-1 cursor-pointer transition-colors text-slate-600 dark:text-slate-400"
           >
             <ArrowLeft size={13} />
             <span>Employee Profile &amp; Ledger</span>
           </button>
           <span>/</span>
-          <span className="font-semibold text-slate-800">
+          <span className="font-semibold text-slate-800 dark:text-slate-200">
             {employee.employeeName} ({employee.employeeId})
           </span>
         </div>
@@ -602,15 +602,15 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 transition-colors shadow-2xs cursor-pointer"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back</span>
             </button>
           )}
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <IdCard className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <IdCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Individual Employee Profile &amp; Ledger
           </h2>
         </div>
@@ -626,26 +626,26 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
             <>
               <button
                 onClick={() => setIsComplianceModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/60 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shadow-2xs cursor-pointer"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Documents &amp; Compliance 360°
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Documents &amp; Compliance 360°
               </button>
               <button
                 onClick={() => setIsPrintModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-800 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-800 dark:text-blue-300 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors shadow-2xs cursor-pointer"
                 title="Print clean single-page profile summary PDF"
               >
-                <Printer className="w-3.5 h-3.5 text-blue-600" /> Print Summary PDF
+                <Printer className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Print Summary PDF
               </button>
               <button
                 onClick={handleExportPdf}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
               >
                 <FileDown className="w-3.5 h-3.5" /> Export Ledger PDF
               </button>
               <button
                 onClick={handleExportExcel}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" /> Export Excel
               </button>
@@ -658,22 +658,22 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
         <div
           className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-200 ${
             actionFeedback.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
+              ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
+              : 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800/60 text-rose-800 dark:text-rose-300'
           }`}
         >
           <div className="flex items-center gap-2">
             {actionFeedback.type === 'success' ? (
-              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
             ) : (
-              <AlertCircle size={16} className="text-rose-600 shrink-0" />
+              <AlertCircle size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
             )}
             <span className="font-semibold">{actionFeedback.message}</span>
           </div>
           <button
             type="button"
             onClick={() => setActionFeedback(null)}
-            className="text-slate-400 hover:text-slate-600 text-xs font-bold px-1.5 cursor-pointer"
+            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-xs font-bold px-1.5 cursor-pointer"
           >
             ✕
           </button>
@@ -681,16 +681,16 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
       )}
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs">{error}</div>
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs">{error}</div>
       )}
 
       {!selectedEmployeeId ? (
-        <div className="p-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
+        <div className="p-12 text-center text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
           <IdCard className="w-10 h-10 mx-auto mb-3 text-slate-300" />
           <p className="text-sm font-semibold">Select an employee above to view their Profile &amp; Ledger.</p>
         </div>
       ) : loading ? (
-        <p className="text-xs text-slate-400">Loading employee profile...</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">Loading employee profile...</p>
       ) : (
         <>
           {/* Profile header: photo on left + details */}
@@ -722,7 +722,7 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
             return (
               <div className="grid grid-cols-1 lg:grid-cols-10 gap-5">
                 {/* Profile Photo Widget (Ratio: 2 of 10) */}
-                <div className="lg:col-span-2 w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-center self-stretch">
+                <div className="lg:col-span-2 w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden flex flex-col justify-center self-stretch">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -781,10 +781,10 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
 
                     {/* Subtle Corner Camera Badge Indicator (visible by default, fades on hover) */}
                     <div
-                      className="absolute bottom-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-700 p-2 rounded-full shadow-md border border-slate-200/90 transition-all duration-200 group-hover:opacity-0 pointer-events-none"
+                      className="absolute bottom-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-700 dark:text-slate-300 p-2 rounded-full shadow-md border border-slate-200/90 transition-all duration-200 group-hover:opacity-0 pointer-events-none"
                       aria-hidden="true"
                     >
-                      <Camera size={13} className="text-slate-600" />
+                      <Camera size={13} className="text-slate-600 dark:text-slate-400" />
                     </div>
 
                     {/* Fit / Fill Switcher Button on hover */}
@@ -795,7 +795,7 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                           e.stopPropagation();
                           setPhotoFit((prev) => (prev === 'cover' ? 'contain' : 'cover'));
                         }}
-                        className="absolute top-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-700 px-2 py-1 rounded-md shadow-md border border-slate-200 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 cursor-pointer z-10"
+                        className="absolute top-2.5 right-2.5 bg-white/95 hover:bg-white text-slate-700 dark:text-slate-300 px-2 py-1 rounded-md shadow-md border border-slate-200 dark:border-slate-700 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 cursor-pointer z-10"
                         title={photoFit === 'cover' ? 'Fit entire image (Contain)' : 'Fill box (Cover)'}
                       >
                         <Maximize2 size={11} />
@@ -806,25 +806,25 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                 </div>
 
                 {/* Personal Information Card (Ratio: 4 of 10) */}
-                <div className="lg:col-span-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                <div className="lg:col-span-4 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
-                        <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                          <UserRound size={13} className="text-blue-600" />
+                        <h4 className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <UserRound size={13} className="text-blue-600 dark:text-blue-400" />
                           <span>Personal Information</span>
                         </h4>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setIsPrintModalOpen(true)}
-                            className="text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                            className="text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                             title="Print Personal Information Summary PDF"
                           >
-                            <Printer size={11} className="text-blue-600" />
+                            <Printer size={11} className="text-blue-600 dark:text-blue-400" />
                             <span>Print</span>
                           </button>
                           <button
                             onClick={() => setIsComplianceModalOpen(true)}
-                            className="text-[11px] font-semibold text-slate-600 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
+                            className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
                             title="Edit Personal Information"
                           >
                             <Edit3 size={11} />
@@ -835,33 +835,33 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
 
                       <dl className="space-y-1.5 text-xs">
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Employee ID</dt>
-                          <dd className="font-mono font-bold text-blue-600">{employee?.employeeId}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Employee ID</dt>
+                          <dd className="font-mono font-bold text-blue-600 dark:text-blue-400">{employee?.employeeId}</dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Full Name</dt>
-                          <dd className="font-semibold text-slate-900">{employee?.employeeName}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Full Name</dt>
+                          <dd className="font-semibold text-slate-900 dark:text-slate-100">{employee?.employeeName}</dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Father's Name</dt>
-                          <dd className="font-semibold text-slate-800">{personal?.fatherName || '—'}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Father's Name</dt>
+                          <dd className="font-semibold text-slate-800 dark:text-slate-200">{personal?.fatherName || '—'}</dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Nationality</dt>
-                          <dd className="font-medium text-slate-700">{employee?.nationalityType}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Nationality</dt>
+                          <dd className="font-medium text-slate-700 dark:text-slate-300">{employee?.nationalityType}</dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Civil ID / National ID</dt>
-                          <dd className="font-mono font-semibold text-slate-800 flex items-center gap-1.5">
+                          <dt className="text-slate-500 dark:text-slate-400">Civil ID / National ID</dt>
+                          <dd className="font-mono font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                             <span>{civilIdNumber || '—'}</span>
                             {civilIdStatus && (
                               <span
                                 className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
                                   civilIdStatus === 'Valid'
-                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
                                     : civilIdStatus === 'Expired'
-                                    ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                                    : 'bg-amber-100 text-amber-700 border border-amber-200'
+                                    ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+                                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
                                 }`}
                               >
                                 {civilIdStatus}
@@ -871,16 +871,16 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                         </div>
                         {(passportNumber || employee?.nationalityType === 'Expat') && (
                           <div className="flex justify-between items-center">
-                            <dt className="text-slate-500">Passport Number</dt>
-                            <dd className="font-mono text-slate-800">{passportNumber || '—'}</dd>
+                            <dt className="text-slate-500 dark:text-slate-400">Passport Number</dt>
+                            <dd className="font-mono text-slate-800 dark:text-slate-200">{passportNumber || '—'}</dd>
                           </div>
                         )}
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Date of Birth</dt>
-                          <dd className="text-slate-800">
+                          <dt className="text-slate-500 dark:text-slate-400">Date of Birth</dt>
+                          <dd className="text-slate-800 dark:text-slate-200">
                             {dob ? (
                               <span>
-                                {formatDate(dob)} {age !== null && <span className="text-slate-500 font-normal">({age} yrs)</span>}
+                                {formatDate(dob)} {age !== null && <span className="text-slate-500 dark:text-slate-400 font-normal">({age} yrs)</span>}
                               </span>
                             ) : (
                               '—'
@@ -888,16 +888,16 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                           </dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Gender / Marital</dt>
-                          <dd className="text-slate-800">
+                          <dt className="text-slate-500 dark:text-slate-400">Gender / Marital</dt>
+                          <dd className="text-slate-800 dark:text-slate-200">
                             {gender || '—'} {maritalStatus ? `• ${maritalStatus}` : ''}
                           </dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Blood Group</dt>
-                          <dd className="text-slate-800">
+                          <dt className="text-slate-500 dark:text-slate-400">Blood Group</dt>
+                          <dd className="text-slate-800 dark:text-slate-200">
                             {bloodGroup ? (
-                              <span className="font-bold px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px]">
+                              <span className="font-bold px-1.5 py-0.5 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 rounded text-[10px]">
                                 {bloodGroup}
                               </span>
                             ) : (
@@ -906,10 +906,10 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                           </dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Mobile Phone</dt>
-                          <dd className="text-slate-800">
+                          <dt className="text-slate-500 dark:text-slate-400">Mobile Phone</dt>
+                          <dd className="text-slate-800 dark:text-slate-200">
                             {mobile ? (
-                              <a href={`tel:${mobile}`} className="text-blue-600 hover:underline font-mono">
+                              <a href={`tel:${mobile}`} className="text-blue-600 dark:text-blue-400 hover:underline font-mono">
                                 {mobile}
                               </a>
                             ) : (
@@ -918,10 +918,10 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                           </dd>
                         </div>
                         <div className="flex justify-between items-center">
-                          <dt className="text-slate-500">Personal Email</dt>
-                          <dd className="text-slate-800 max-w-[190px] truncate text-right">
+                          <dt className="text-slate-500 dark:text-slate-400">Personal Email</dt>
+                          <dd className="text-slate-800 dark:text-slate-200 max-w-[190px] truncate text-right">
                             {email ? (
-                              <a href={`mailto:${email}`} className="text-blue-600 hover:underline">
+                              <a href={`mailto:${email}`} className="text-blue-600 dark:text-blue-400 hover:underline">
                                 {email}
                               </a>
                             ) : (
@@ -930,20 +930,20 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                           </dd>
                         </div>
                         <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-200/60">
-                          <dt className="text-slate-500 shrink-0">Residential Address</dt>
-                          <dd className="text-slate-700 text-right leading-snug text-[11px] max-w-[200px]">
+                          <dt className="text-slate-500 dark:text-slate-400 shrink-0">Residential Address</dt>
+                          <dd className="text-slate-700 dark:text-slate-300 text-right leading-snug text-[11px] max-w-[200px]">
                             {address || '—'}
                           </dd>
                         </div>
                         <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-200/60">
-                          <dt className="text-slate-500 shrink-0">Emergency Contact</dt>
-                          <dd className="text-slate-700 text-right leading-snug text-[11px] max-w-[200px]">
+                          <dt className="text-slate-500 dark:text-slate-400 shrink-0">Emergency Contact</dt>
+                          <dd className="text-slate-700 dark:text-slate-300 text-right leading-snug text-[11px] max-w-[200px]">
                             {emergencyName ? (
                               <div>
-                                <span className="font-semibold text-slate-900">{emergencyName}</span>
-                                {emergencyRelation && <span className="text-slate-500"> ({emergencyRelation})</span>}
+                                <span className="font-semibold text-slate-900 dark:text-slate-100">{emergencyName}</span>
+                                {emergencyRelation && <span className="text-slate-500 dark:text-slate-400"> ({emergencyRelation})</span>}
                                 {emergencyPhone && (
-                                  <div className="text-slate-600 font-mono mt-0.5">
+                                  <div className="text-slate-600 dark:text-slate-400 font-mono mt-0.5">
                                     <a href={`tel:${emergencyPhone}`} className="hover:text-blue-600">
                                       {emergencyPhone}
                                     </a>
@@ -960,46 +960,46 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                   </div>
 
                 {/* Employment Details Card (Ratio: 4 of 10) */}
-                <div className="lg:col-span-4 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+                <div className="lg:col-span-4 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between border-b border-slate-200/80 pb-2 mb-3">
-                      <h4 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                        <IdCard size={13} className="text-slate-500" />
+                      <h4 className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <IdCard size={13} className="text-slate-500 dark:text-slate-400" />
                         <span>Employment Details</span>
                       </h4>
                       <button
                         type="button"
                         onClick={() => setIsAssignProjectModalOpen(true)}
-                        className="text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                        className="text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
                       >
-                        <Briefcase size={11} className="text-blue-600" />
+                        <Briefcase size={11} className="text-blue-600 dark:text-blue-400" />
                         <span>Assign Project</span>
                       </button>
                     </div>
 
                     <dl className="space-y-1.5 text-xs">
-                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className={`font-semibold ${employee?.isActive ? 'text-emerald-600' : 'text-slate-500'}`}>{employee?.isActive ? 'Active' : 'Inactive'}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Employee Type</dt><dd className="text-slate-700">{employee?.employeeType}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Joining Date</dt><dd className="text-slate-700">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Company</dt><dd className="text-slate-700">{employee?.employeeCompany}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Designation</dt><dd className="text-slate-700">{employee?.designation}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Status</dt><dd className={`font-semibold ${employee?.isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>{employee?.isActive ? 'Active' : 'Inactive'}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Employee Type</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.employeeType}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Joining Date</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.dateOfJoining ? formatDate(employee.dateOfJoining) : '—'}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Company</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.employeeCompany}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Designation</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.designation}</dd></div>
                       <div className="flex justify-between items-center">
-                        <dt className="text-slate-500">Current Project</dt>
-                        <dd className="text-slate-700 flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-900">{currentProject}</span>
+                        <dt className="text-slate-500 dark:text-slate-400">Current Project</dt>
+                        <dd className="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{currentProject}</span>
                           <button
                             type="button"
                             onClick={() => setIsAssignProjectModalOpen(true)}
-                            className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.2 rounded border border-blue-200 cursor-pointer"
+                            className="text-[10px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-900 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-1.5 py-0.2 rounded border border-blue-200 dark:border-blue-800/60 cursor-pointer"
                             title="Reassign or change project"
                           >
                             Change
                           </button>
                         </dd>
                       </div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Pay By</dt><dd className="text-slate-700">{employee?.salaryPaidBy}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Wage Type</dt><dd className="text-slate-700">{employee?.wageType}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">WPS Status</dt><dd className="text-slate-700">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Pay By</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.salaryPaidBy}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">Wage Type</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.wageType}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500 dark:text-slate-400">WPS Status</dt><dd className="text-slate-700 dark:text-slate-300">{employee?.wpsEmployee === 'Yes' ? 'WPS' : 'Non-WPS'}</dd></div>
                     </dl>
                   </div>
                 </div>
@@ -1008,29 +1008,29 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
           })()}
 
           {/* Payroll Information summary */}
-          <div className="p-4 bg-white rounded-xl border border-slate-200">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
-              <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Payroll Information</h4>
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">
+              <h4 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Payroll Information</h4>
               <button
                 type="button"
                 onClick={() => setIsUpdateSalaryModalOpen(true)}
-                className="text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <TrendingUp size={12} className="text-emerald-600" />
+                <TrendingUp size={12} className="text-emerald-600 dark:text-emerald-400" />
                 <span>Update Salary / Rate</span>
               </button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-slate-500 block">Salary / Rate</span>
+                <span className="text-slate-500 dark:text-slate-400 block">Salary / Rate</span>
                 <div className="flex items-center gap-1.5">
-                  <strong className="font-mono text-slate-900">OMR {formatOMR(employee?.monthlySalaryOrRate)}</strong>
-                  <span className="text-[10px] text-slate-400">({employee?.wageType})</span>
+                  <strong className="font-mono text-slate-900 dark:text-slate-100">OMR {formatOMR(employee?.monthlySalaryOrRate)}</strong>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">({employee?.wageType})</span>
                 </div>
               </div>
-              <div><span className="text-slate-500 block">Current Gross</span><strong className="font-mono">{latestPayroll ? `OMR ${formatOMR(latestPayroll.grossSalary)}` : '—'}</strong></div>
-              <div><span className="text-slate-500 block">Current Net</span><strong className="font-mono text-blue-700">{latestPayroll ? `OMR ${formatOMR(latestPayroll.netSalary)}` : '—'}</strong></div>
-              <div><span className="text-slate-500 block">WPS Status</span><strong>{employee?.wpsEmployee === 'Yes' ? 'WPS Enrolled' : 'Non-WPS'}</strong></div>
+              <div><span className="text-slate-500 dark:text-slate-400 block">Current Gross</span><strong className="font-mono">{latestPayroll ? `OMR ${formatOMR(latestPayroll.grossSalary)}` : '—'}</strong></div>
+              <div><span className="text-slate-500 dark:text-slate-400 block">Current Net</span><strong className="font-mono text-blue-700 dark:text-blue-300">{latestPayroll ? `OMR ${formatOMR(latestPayroll.netSalary)}` : '—'}</strong></div>
+              <div><span className="text-slate-500 dark:text-slate-400 block">WPS Status</span><strong>{employee?.wpsEmployee === 'Yes' ? 'WPS Enrolled' : 'Non-WPS'}</strong></div>
             </div>
           </div>
 
@@ -1044,17 +1044,17 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
             const holder = personal?.accountHolderName || employee?.accountHolderName;
 
             return (
-              <div className="p-4 bg-white rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+              <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 bg-emerald-50 text-emerald-700 rounded-md">
+                    <div className="p-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-md">
                       <Landmark size={14} />
                     </div>
-                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                       Bank &amp; Wage Disbursal Details
                     </h4>
                     {iban && iban.trim().length === 23 && iban.toUpperCase().startsWith('OM') && (
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
                         CBO Verified
                       </span>
                     )}
@@ -1062,7 +1062,7 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                   <button
                     type="button"
                     onClick={() => setIsComplianceModalOpen(true)}
-                    className="text-[11px] font-semibold text-slate-600 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
                     title="Edit Bank & Personal Information"
                   >
                     <Edit3 size={11} />
@@ -1071,17 +1071,17 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Bank Name</span>
-                    <strong className="text-slate-900 font-semibold">{bankName || 'Not Registered'}</strong>
+                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Bank Name</span>
+                    <strong className="text-slate-900 dark:text-slate-100 font-semibold">{bankName || 'Not Registered'}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Account Number</span>
-                    <strong className="font-mono text-slate-900">{bankAcc || '—'}</strong>
+                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Account Number</span>
+                    <strong className="font-mono text-slate-900 dark:text-slate-100">{bankAcc || '—'}</strong>
                   </div>
                   <div className="sm:col-span-2 lg:col-span-1">
-                    <span className="text-slate-500 block text-[11px]">Oman IBAN</span>
+                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Oman IBAN</span>
                     <div className="flex items-center gap-1.5">
-                      <strong className="font-mono text-slate-900 tracking-wider">{iban || '—'}</strong>
+                      <strong className="font-mono text-slate-900 dark:text-slate-100 tracking-wider">{iban || '—'}</strong>
                       {iban && (
                         <button
                           type="button"
@@ -1089,7 +1089,7 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                             navigator.clipboard.writeText(iban.replace(/\s+/g, ''));
                             alert('IBAN copied to clipboard!');
                           }}
-                          className="text-slate-400 hover:text-blue-600 cursor-pointer p-0.5"
+                          className="text-slate-400 dark:text-slate-500 hover:text-blue-600 cursor-pointer p-0.5"
                           title="Copy IBAN"
                         >
                           <Copy size={12} />
@@ -1098,8 +1098,8 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                     </div>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[11px]">Branch / Account Holder</span>
-                    <span className="text-slate-700 truncate block">
+                    <span className="text-slate-500 dark:text-slate-400 block text-[11px]">Branch / Account Holder</span>
+                    <span className="text-slate-700 dark:text-slate-300 truncate block">
                       {holder ? holder : employee?.employeeName} {branch ? `• ${branch}` : ''}
                     </span>
                   </div>
@@ -1111,13 +1111,13 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
           {/* Ledger */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">Employee Salary &amp; Loan Ledger</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tight">Employee Salary &amp; Loan Ledger</h3>
               <button
                 type="button"
                 onClick={() => setIsAddLoanModalOpen(true)}
-                className="text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800/60 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <Landmark size={13} className="text-purple-600" />
+                <Landmark size={13} className="text-purple-600 dark:text-purple-400" />
                 <span>+ Issue Loan</span>
               </button>
             </div>
@@ -1125,59 +1125,59 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
               {[
-                { label: 'Total Salary Drawn', value: totals.totalSalaryDrawn, color: 'text-emerald-700' },
-                { label: 'Total Gross Salary', value: totals.totalGross, color: 'text-slate-900' },
-                { label: 'Total Deductions', value: totals.totalDeductions, color: 'text-rose-600' },
-                { label: 'Total Loan Taken', value: totals.totalLoanTaken, color: 'text-purple-700' },
-                { label: 'Total Loan Recovered', value: totals.totalLoanRecovered, color: 'text-emerald-700' },
-                { label: 'Outstanding Loan', value: totals.outstandingLoan, color: 'text-amber-700' },
-                { label: 'Outstanding Salary', value: totals.outstandingSalary, color: 'text-rose-600' },
+                { label: 'Total Salary Drawn', value: totals.totalSalaryDrawn, color: 'text-emerald-700 dark:text-emerald-300' },
+                { label: 'Total Gross Salary', value: totals.totalGross, color: 'text-slate-900 dark:text-slate-100' },
+                { label: 'Total Deductions', value: totals.totalDeductions, color: 'text-rose-600 dark:text-rose-400' },
+                { label: 'Total Loan Taken', value: totals.totalLoanTaken, color: 'text-purple-700 dark:text-purple-300' },
+                { label: 'Total Loan Recovered', value: totals.totalLoanRecovered, color: 'text-emerald-700 dark:text-emerald-300' },
+                { label: 'Outstanding Loan', value: totals.outstandingLoan, color: 'text-amber-700 dark:text-amber-300' },
+                { label: 'Outstanding Salary', value: totals.outstandingSalary, color: 'text-rose-600 dark:text-rose-400' },
               ].map((c) => (
-                <div key={c.label} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block leading-tight">{c.label}</span>
+                <div key={c.label} className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block leading-tight">{c.label}</span>
                   <strong className={`font-mono text-xs ${c.color}`}>OMR {formatOMR(c.value)}</strong>
                 </div>
               ))}
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200 mb-3 print:hidden">
+            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 mb-3 print:hidden">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs" title="From Date" />
-                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs" title="To Date" />
-                <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs" title="From Date" />
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs" title="To Date" />
+                <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
                   <option value="ALL">All Payroll Months</option>
                   {availableMonths.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
-                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
                   <option value="ALL">All Transaction Types</option>
                   <option value="Salary">Salary</option>
                   <option value="Salary Payment">Salary Payment</option>
                   <option value="Loan Disbursement">Loan Disbursement</option>
                   <option value="Loan Recovery">Loan Recovery</option>
                 </select>
-                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                <select value={paymentStatusFilter} onChange={(e) => setPaymentStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
                   <option value="ALL">All Payment Statuses</option>
                   {PAYMENT_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <select value={loanStatusFilter} onChange={(e) => setLoanStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                <select value={loanStatusFilter} onChange={(e) => setLoanStatusFilter(e.target.value)} className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
                   <option value="ALL">All Loan Statuses</option>
                   {LOAN_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <button
                 onClick={handleResetFilters}
-                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
               </button>
             </div>
 
             {/* Ledger table */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
                     <tr>
                       <th className="px-3 py-2">Date</th>
                       <th className="px-3 py-2">Type</th>
@@ -1192,20 +1192,20 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                       <th className="px-3 py-2 text-right">Loan Balance</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
                     {monthGroups.length === 0 ? (
-                      <tr><td colSpan={11} className="px-6 py-8 text-center text-slate-400">No ledger transactions match the current filters.</td></tr>
+                      <tr><td colSpan={11} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500">No ledger transactions match the current filters.</td></tr>
                     ) : (
                       monthGroups.map(([month, monthRows]) => {
                         const monthTotals = payrollRows.find((r) => r.payrollMonth === month);
                         return (
                           <React.Fragment key={month}>
-                            <tr className="bg-slate-50 font-bold">
+                            <tr className="bg-slate-50 dark:bg-slate-800/60 font-bold">
                               <td colSpan={11} className="px-3 py-2">
                                 <div className="flex items-center justify-between">
                                   <span>{month}</span>
                                   {monthTotals && (
-                                    <span className="font-normal text-[11px] text-slate-500">
+                                    <span className="font-normal text-[11px] text-slate-500 dark:text-slate-400">
                                       Gross OMR {formatOMR(monthTotals.grossSalary)} · Net OMR {formatOMR(monthTotals.netSalary)} · Paid OMR {monthTotals.totalPaid === null ? '—' : formatOMR(monthTotals.totalPaid)} · Outstanding {monthTotals.outstanding === null ? '—' : `OMR ${formatOMR(monthTotals.outstanding)}`}
                                     </span>
                                   )}
@@ -1217,22 +1217,22 @@ export const EmployeeProfileLedgerView: React.FC<EmployeeProfileLedgerViewProps>
                                 <td className="px-3 py-2">{r.date ? formatDate(r.date) : '—'}</td>
                                 <td className="px-3 py-2">
                                   <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    r.type === 'Salary' ? 'bg-blue-100 text-blue-700' :
-                                    r.type === 'Salary Payment' ? 'bg-emerald-100 text-emerald-700' :
-                                    r.type === 'Loan Disbursement' ? 'bg-purple-100 text-purple-700' :
-                                    'bg-amber-100 text-amber-700'
+                                    r.type === 'Salary' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' :
+                                    r.type === 'Salary Payment' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                                    r.type === 'Loan Disbursement' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' :
+                                    'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
                                   }`}>
                                     {r.type}{r.reversed ? ' (Reversed)' : ''}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-slate-500">{r.description}{r.status && r.type !== 'Salary' ? ` • ${r.status}` : ''}</td>
+                                <td className="px-3 py-2 text-slate-500 dark:text-slate-400">{r.description}{r.status && r.type !== 'Salary' ? ` • ${r.status}` : ''}</td>
                                 <td className="px-3 py-2 text-right font-mono">{r.gross !== undefined ? formatOMR(r.gross) : '—'}</td>
-                                <td className="px-3 py-2 text-right font-mono text-emerald-600">{r.additions !== undefined ? formatOMR(r.additions) : '—'}</td>
-                                <td className="px-3 py-2 text-right font-mono text-rose-600">{r.deductions !== undefined ? formatOMR(r.deductions) : '—'}</td>
-                                <td className="px-3 py-2 text-right font-mono text-purple-700">{r.loanDrawn !== undefined ? formatOMR(r.loanDrawn) : '—'}</td>
-                                <td className="px-3 py-2 text-right font-mono text-amber-700">{r.loanRecovery !== undefined && r.loanRecovery > 0 ? formatOMR(r.loanRecovery) : '—'}</td>
-                                <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">{r.net !== undefined ? formatOMR(r.net) : '—'}</td>
-                                <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">{r.amountPaid !== undefined ? formatOMR(r.amountPaid) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono text-emerald-600 dark:text-emerald-400">{r.additions !== undefined ? formatOMR(r.additions) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono text-rose-600 dark:text-rose-400">{r.deductions !== undefined ? formatOMR(r.deductions) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono text-purple-700 dark:text-purple-300">{r.loanDrawn !== undefined ? formatOMR(r.loanDrawn) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono text-amber-700 dark:text-amber-300">{r.loanRecovery !== undefined && r.loanRecovery > 0 ? formatOMR(r.loanRecovery) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{r.net !== undefined ? formatOMR(r.net) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700 dark:text-emerald-300">{r.amountPaid !== undefined ? formatOMR(r.amountPaid) : '—'}</td>
                                 <td className="px-3 py-2 text-right font-mono">{formatOMR(r.runningLoanBalance)}</td>
                               </tr>
                             ))}

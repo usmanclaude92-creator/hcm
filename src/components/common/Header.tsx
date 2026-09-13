@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   LogOut,
@@ -16,33 +16,13 @@ import { NotificationBell } from './NotificationBell';
 interface HeaderProps {
   onToggleSidebar?: () => void;
   onNavigate?: (view: string, params?: Record<string, any>) => void;
+  isDark: boolean;
+  toggleTheme: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onNavigate }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onNavigate, isDark, toggleTheme }) => {
   const { user, logout, isAdmin, isDemoMode } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('artify_theme');
-      if (saved) return saved === 'dark';
-      return document.documentElement.classList.contains('dark');
-    }
-    return false;
-  });
-
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('artify_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('artify_theme', 'light');
-    }
-  }, [isDark]);
-
-  const toggleTheme = () => {
-    setIsDark(prev => !prev);
-  };
 
   const getRoleBadgeColor = (role?: string) => {
     switch (role) {
