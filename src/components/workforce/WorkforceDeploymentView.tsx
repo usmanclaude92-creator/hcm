@@ -5,7 +5,7 @@ import { MultiSelectDropdown, MultiSelectOption } from '../common/MultiSelectDro
 import { EmployeeDeploymentCard, type WorkforceShiftStatus } from './EmployeeDeploymentCard';
 import { EmployeeAttendanceReportModal } from './EmployeeAttendanceReportModal';
 import { Search, RotateCcw, Building, RefreshCw } from 'lucide-react';
-import { isShiftDateToday } from '../../utils/workforceShiftUtils';
+import { isShiftDateToday, businessDateStr } from '../../utils/workforceShiftUtils';
 
 const HO0001_CODE = 'HO0001';
 const POLL_INTERVAL_MS = 60000;
@@ -196,7 +196,10 @@ export const WorkforceDeploymentView = forwardRef<WorkforceDeploymentViewHandle,
     // Non-fatal if this endpoint isn't reachable for the current role -- everyone just
     // falls back to the Present/Absent classification.
     try {
-      const todayStr = new Date().toISOString().slice(0, 10);
+      // Business-local (Oman) date, not raw UTC -- consistent with how shift_date/
+      // isShiftDateToday determine "today" elsewhere on this dashboard, so a leave day's
+      // boundary doesn't disagree with the shift/selfie boundary by the same few hours.
+      const todayStr = businessDateStr();
       const leaveData = await apiRequest(`/api/leave/requests?year=${todayStr.slice(0, 4)}&status=Approved`);
       const ids = new Set<string>();
       (leaveData?.requests || []).forEach((r: any) => {
