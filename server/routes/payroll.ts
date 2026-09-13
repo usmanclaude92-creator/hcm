@@ -288,7 +288,7 @@ router.post('/calculate', verifyAuth, requireWritePermission, async (req: AuthRe
       });
     }
 
-    const activeEmployees = db.employees.getAll().filter(e => e.isActive);
+    const activeEmployees = (await db.employees.getAll()).filter(e => e.isActive);
     const attendanceRecords = db.attendance.getByMonth(month);
     const activeLoans = db.loans.getAll().filter(l => l.status === 'Active');
     // Only Approved leave touches pay. A request still awaiting a decision must never

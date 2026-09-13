@@ -114,7 +114,7 @@ export async function createApp(): Promise<Express> {
     }
   });
 
-  app.get('/api/system/status', verifyAuth, (req, res) => {
+  app.get('/api/system/status', verifyAuth, async (req, res) => {
     try {
       // Report the ACTUAL live connection state (db.getStatus()'s isPostgresConnected),
       // not merely whether a Postgres env var string is present. A set-but-unreachable
@@ -122,8 +122,8 @@ export async function createApp(): Promise<Express> {
       // while the app had silently fallen back to the ephemeral local JSON file --
       // exactly the kind of silent split-brain this endpoint exists to catch.
       const dbStatus = db.getStatus();
-      const employeesCount = db.employees.getAll().length;
-      const projectsCount = db.projects.getAll().length;
+      const employeesCount = (await db.employees.getAll()).length;
+      const projectsCount = (await db.projects.getAll()).length;
       const payrollsCount = db.payroll.getAll().length;
       const paymentsCount = db.salaryPayments.getAll().length;
       const loansCount = db.loans.getAll().length;

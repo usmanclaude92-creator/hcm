@@ -277,7 +277,7 @@ router.post('/requests', verifyAuth, requireWritePermission, async (req: AuthReq
     }
 
     const normId = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(normId);
+    const emp = await db.employees.findByEmployeeId(normId);
     if (!emp) return res.status(404).json({ error: `Employee '${normId}' not found.` });
     if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
       return res.status(404).json({ error: `Employee '${normId}' not found.` });
@@ -598,14 +598,13 @@ router.post('/requests/:id/cancel', verifyAuth, requireWritePermission, async (r
 // ==================== Balances ====================
 
 // GET /api/leave/balances?year=YYYY&employeeId=
-router.get('/balances', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/balances', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
     const employeeIdFilter = req.query.employeeId ? normalizeEmployeeId(String(req.query.employeeId)) : null;
     const scope = companyScopeOf(req.user);
 
-    const employees = db.employees
-      .getAll()
+    const employees = (await db.employees.getAll())
       .filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany))
       .filter(e => !employeeIdFilter || normalizeEmployeeId(e.employeeId) === employeeIdFilter);
 

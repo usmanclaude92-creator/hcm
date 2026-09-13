@@ -67,7 +67,7 @@ router.post('/', verifyAuth, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Employee ID is required.' });
     }
 
-    const emp = db.employees.findByEmployeeId(employeeId);
+    const emp = await db.employees.findByEmployeeId(employeeId);
     if (!emp) {
       return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
     }
@@ -83,7 +83,7 @@ router.post('/', verifyAuth, async (req: AuthRequest, res: Response) => {
     }
 
     const projectId = req.body.projectId || 'proj-hq';
-    const project = db.projects.findById(projectId) || db.projects.findByCode(req.body.projectCode || '');
+    const project = (await db.projects.findById(projectId)) || (await db.projects.findByCode(req.body.projectCode || ''));
     const projectCode = project?.projectCode || req.body.projectCode || emp.assignedProjectCode || 'HQ-GEN';
     const projectName = project?.projectName || req.body.projectName || 'General Operations';
 
@@ -142,7 +142,7 @@ router.put('/:id', verifyAuth, async (req: AuthRequest, res: Response) => {
     if (req.body.workDate) updates.workDate = req.body.workDate;
     if (req.body.description != null) updates.description = String(req.body.description).trim();
     if (req.body.projectCode) {
-      const p = db.projects.findByCode(req.body.projectCode);
+      const p = await db.projects.findByCode(req.body.projectCode);
       if (p) {
         updates.projectId = p.id;
         updates.projectCode = p.projectCode;

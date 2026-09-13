@@ -46,8 +46,8 @@ router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
 
     const scope = companyScopeOf(req.user);
     const attendanceRecords = db.attendance.getByMonth(String(month));
-    const employees = db.employees.getAll().filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany));
-    const projects = db.projects.getAll();
+    const employees = (await db.employees.getAll()).filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany));
+    const projects = await db.projects.getAll();
     const monthStatus = await db.attendanceMonths.getOrCreate(String(month));
 
     // Group attendance by employee for easier UI rendering and project allocation
@@ -143,8 +143,8 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       }
 
       const normEmpId = normalizeEmployeeId(r.employeeId);
-      const emp = db.employees.findByEmployeeId(normEmpId);
-      const proj = db.projects.findById(r.projectId) || db.projects.findByCode(r.projectId);
+      const emp = await db.employees.findByEmployeeId(normEmpId);
+      const proj = (await db.projects.findById(r.projectId)) || (await db.projects.findByCode(r.projectId));
 
       if (!emp) { rejectedRows.push(`Employee '${normEmpId}' does not exist.`); continue; }
       if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
@@ -262,8 +262,8 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
     const { month } = req.query;
     const payrollMonth = String(month || new Date().toISOString().slice(0, 7));
 
-    const activeEmployees = db.employees.getAll().filter(e => e.isActive);
-    const activeProjects = db.projects.getAll().filter(p => p.status === 'Active');
+    const activeEmployees = (await db.employees.getAll()).filter(e => e.isActive);
+    const activeProjects = (await db.projects.getAll()).filter(p => p.status === 'Active');
 
     const projectByRef = new Map<string, string>();
     activeProjects.forEach(p => {
@@ -369,7 +369,7 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
 });
 
 // POST /api/attendance/import/validate - Validate uploaded attendance Excel
-router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/import/validate', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { fileData, month } = req.body;
     if (!fileData || !month) {
@@ -409,8 +409,8 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       const rawPayBy = String(r['Pay By'] || r['PayBy'] || '').trim();
 
       const normEmpId = normalizeEmployeeId(rawId);
-      const emp = db.employees.findByEmployeeId(normEmpId);
-      const proj = db.projects.findByCode(rawProj);
+      const emp = await db.employees.findByEmployeeId(normEmpId);
+      const proj = await db.projects.findByCode(rawProj);
 
       let status: 'Valid' | 'Invalid' = 'Valid';
       let reason = 'Ready';
@@ -548,11 +548,11 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
     for (const r of validRows) {
       try {
         // Defense-in-depth: re-validate server-side, never trust the client-echoed status.
-        const emp = db.employees.findByEmployeeId(r.employeeId);
+        const emp = await db.employees.findByEmployeeId(r.employeeId);
         if (!emp || !emp.isActive) {
           throw new Error(`Employee '${r.employeeId}' not found or inactive.`);
         }
-        const proj = db.projects.findById(r.projectId) || db.projects.findByCode(r.projectCode);
+        const proj = (await db.projects.findById(r.projectId)) || (await db.projects.findByCode(r.projectCode));
         if (!proj || proj.status !== 'Active') {
           throw new Error(`Project '${r.projectCode}' not found or inactive.`);
         }
@@ -650,11 +650,11 @@ router.post('/:month/assign', verifyAuth, requireWritePermission, async (req: Au
       return res.status(400).json({ error: `Attendance for ${month} is Finalized. Use Revert before making changes.` });
     }
 
-    const emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
+    const emp = await db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
     if (!emp) return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
     if (!emp.isActive) return res.status(400).json({ error: `Employee '${emp.employeeId}' is inactive.` });
 
-    const proj = db.projects.findById(projectId) || db.projects.findByCode(projectId);
+    const proj = (await db.projects.findById(projectId)) || (await db.projects.findByCode(projectId));
     if (!proj) return res.status(404).json({ error: 'Project not found.' });
     if (proj.status !== 'Active') return res.status(400).json({ error: `Project '${proj.projectCode}' is Inactive.` });
 
@@ -732,12 +732,12 @@ router.get('/:month/status', verifyAuth, async (req: AuthRequest, res: Response)
 });
 
 // GET /api/attendance/:month/dashboard - Real derived summary + exceptions, no fabricated data
-router.get('/:month/dashboard', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/:month/dashboard', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const month = req.params.month;
     const records = db.attendance.getByMonth(month);
-    const activeEmployees = db.employees.getAll().filter(e => e.isActive);
-    const projects = db.projects.getAll();
+    const activeEmployees = (await db.employees.getAll()).filter(e => e.isActive);
+    const projects = await db.projects.getAll();
 
     const empProjectCount = new Map<string, Set<string>>();
     const empOvertime = new Map<string, number>();
@@ -985,7 +985,7 @@ function getMonthWorkingDates(month: string, targetCount: number): string[] {
 router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const rawId = req.params.employeeId;
-    const emp = db.employees.findByEmployeeId(rawId) || db.employees.findByEmployeeId(normalizeEmployeeId(rawId));
+    const emp = (await db.employees.findByEmployeeId(rawId)) || (await db.employees.findByEmployeeId(normalizeEmployeeId(rawId)));
     if (!emp) {
       return res.status(404).json({ error: `Employee '${rawId}' not found.` });
     }
@@ -997,7 +997,7 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
 
     const personal = db.personalDetails.get(emp.employeeId);
     const projectCode = emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
-    const proj = db.projects.findByCode(projectCode) || db.projects.findById(projectCode);
+    const proj = (await db.projects.findByCode(projectCode)) || (await db.projects.findById(projectCode));
 
     // If attendance record exists for month but punches were not created yet, populate daily punches
     if (records.length > 0 && punches.length === 0) {
@@ -1129,7 +1129,7 @@ router.post('/employee/:employeeId/approve-all-punches', verifyAuth, requireWrit
 router.post('/employee/:employeeId/make-report', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const rawId = req.params.employeeId;
-    const emp = db.employees.findByEmployeeId(rawId) || db.employees.findByEmployeeId(normalizeEmployeeId(rawId));
+    const emp = (await db.employees.findByEmployeeId(rawId)) || (await db.employees.findByEmployeeId(normalizeEmployeeId(rawId)));
     if (!emp) {
       return res.status(404).json({ error: `Employee '${rawId}' not found.` });
     }
@@ -1148,9 +1148,9 @@ router.post('/employee/:employeeId/make-report', verifyAuth, requireWritePermiss
     // Determine project
     const personal = db.personalDetails.get(emp.employeeId);
     const targetProjectCode = req.body.projectCode || req.body.projectId || emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
-    let proj = db.projects.findByCode(targetProjectCode) || db.projects.findById(targetProjectCode);
+    let proj = (await db.projects.findByCode(targetProjectCode)) || (await db.projects.findById(targetProjectCode));
     if (!proj) {
-      proj = db.projects.getAll().find(p => p.status === 'Active') || ({
+      proj = (await db.projects.getAll()).find(p => p.status === 'Active') || ({
         id: 'proj-ho',
         projectCode: 'HO0001',
         projectName: 'Head Office',
@@ -1266,7 +1266,7 @@ router.post('/punches/check-in', verifyAuth, async (req: AuthRequest, res: Respo
       return res.status(400).json({ error: 'Employee ID is required.' });
     }
 
-    const emp = db.employees.findByEmployeeId(employeeId);
+    const emp = await db.employees.findByEmployeeId(employeeId);
     if (!emp) {
       return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
     }

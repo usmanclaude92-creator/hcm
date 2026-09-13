@@ -58,7 +58,7 @@ router.get('/export/template', verifyAuth, requirePermission('cif.upload'), asyn
 });
 
 // POST /api/cif/import/validate - Parse + validate uploaded CIF file (no writes)
-router.post('/import/validate', verifyAuth, requirePermission('cif.upload'), (req: AuthRequest, res: Response) => {
+router.post('/import/validate', verifyAuth, requirePermission('cif.upload'), async (req: AuthRequest, res: Response) => {
   try {
     const { fileData, payrollMonth, company } = req.body;
     if (!fileData || !payrollMonth) {
@@ -92,7 +92,7 @@ router.post('/import/validate', verifyAuth, requirePermission('cif.upload'), (re
       const rawReference = String(r['Reference'] || '').trim();
 
       const normEmpId = normalizeEmployeeId(rawId);
-      const emp = db.employees.findByEmployeeId(normEmpId);
+      const emp = await db.employees.findByEmployeeId(normEmpId);
       const line = payroll.lines?.find(l => normalizeEmployeeId(l.employeeId) === normEmpId
         && (!company || l.employeeCompany === company));
       const numAmount = Number(rawAmount) || 0;

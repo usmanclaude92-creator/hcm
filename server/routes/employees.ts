@@ -53,13 +53,13 @@ router.param('employeeId', (req: AuthRequest, res: Response, next, value: string
       .catch(() => undefined)
       .then(async () => {
         const norm = normalizeEmployeeId(String(value));
-        let emp = db.employees.findByEmployeeId(norm) || db.employees.findById(String(value));
+        let emp = (await db.employees.findByEmployeeId(norm)) || (await db.employees.findById(String(value)));
 
         // If not found, a mutation may have occurred on another serverless container
         // or within the READ_FRESHNESS_MS window. Fallback to an immediate fresh sync.
         if (!emp) {
           await db.syncFromDurableStore(0).catch(() => undefined);
-          emp = db.employees.findByEmployeeId(norm) || db.employees.findById(String(value));
+          emp = (await db.employees.findByEmployeeId(norm)) || (await db.employees.findById(String(value)));
         }
 
         if (emp && !canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
@@ -84,10 +84,10 @@ router.param('employeeId', (req: AuthRequest, res: Response, next, value: string
 // with immediate fallback to a fresh sync (maxAgeMs: 0) to eliminate any READ_FRESHNESS_MS window delay.
 async function resolveEmployee(idOrCode: string): Promise<Employee | null> {
   const norm = normalizeEmployeeId(idOrCode);
-  let emp = db.employees.findByEmployeeId(norm) || db.employees.findById(idOrCode);
+  let emp = (await db.employees.findByEmployeeId(norm)) || (await db.employees.findById(idOrCode));
   if (!emp) {
     await db.syncFromDurableStore(0).catch(() => undefined);
-    emp = db.employees.findByEmployeeId(norm) || db.employees.findById(idOrCode);
+    emp = (await db.employees.findByEmployeeId(norm)) || (await db.employees.findById(idOrCode));
   }
   return emp;
 }
@@ -303,11 +303,11 @@ function validateEmployeeFields(f: {
 router.get('/me/dashboard', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     let empId = String(req.query.employeeId || req.user?.employeeId || '').trim();
-    const allEmps = db.employees.getAll();
+    const allEmps = await db.employees.getAll();
 
     let emp: Employee | undefined | null = null;
     if (empId) {
-      emp = db.employees.findByEmployeeId(normalizeEmployeeId(empId));
+      emp = await db.employees.findByEmployeeId(normalizeEmployeeId(empId));
     }
     if (!emp && req.user?.username) {
       emp = allEmps.find(e => e.employeeId.toLowerCase() === req.user!.username.toLowerCase());
@@ -640,7 +640,7 @@ router.get('/:employeeId/payslips/:month', verifyAuth, async (req: AuthRequest, 
 });
 
 // GET /api/employees - List employees with filters
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const {
       search,
@@ -660,7 +660,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     // Company isolation is applied before every other filter, so a scoped account cannot
     // widen its view by clearing the company filter in the UI.
     const scope = companyScopeOf(req.user);
-    let employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
+    let employees = (await db.employees.getAll()).filter(e => canSeeCompany(scope, e.employeeCompany));
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -1241,14 +1241,15 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
 });
 
 // GET /api/employees/export/data - Export all/filtered employees to Excel or CSV with full profile & ledger details
-router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/export/data', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const isCsv = String(req.query.format || '').toLowerCase() === 'csv';
     // Company isolation: an account scoped to specific companies must not be able to
     // export bank/IBAN/salary details for employees outside its scope by hitting this
     // endpoint directly, even though it cannot see them in the list view.
     const scope = companyScopeOf(req.user);
-    const employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
+    const employees = (await db.employees.getAll()).filter(e => canSeeCompany(scope, e.employeeCompany));
+    const projectByCode = new Map((await db.projects.getAll()).map(p => [p.projectCode, p]));
 
     // Column names/order match the comprehensive import template exactly, so an exported file can be
     // re-imported unmodified.
@@ -1277,7 +1278,7 @@ router.get('/export/data', verifyAuth, (req: AuthRequest, res: Response) => {
         'Date of Joining': e.dateOfJoining,
         'Date of Leaving': e.dateOfLeaving || '',
         'Employment Status': e.isActive ? 'Active' : 'Inactive',
-        'Assigned Project': (e.assignedProjectCode && db.projects.findByCode(e.assignedProjectCode)?.projectName) || personal.assignedProject || '',
+        'Assigned Project': (e.assignedProjectCode && projectByCode.get(e.assignedProjectCode)?.projectName) || personal.assignedProject || '',
         'Wage Type': e.wageType,
         'Monthly Salary / Wage Rate': roundOMR(e.monthlySalaryOrRate).toFixed(3),
         'WPS Employee': e.wpsEmployee,
@@ -1360,11 +1361,11 @@ router.get('/:id', verifyAuth, async (req: AuthRequest, res: Response) => {
       req.headers['cache-control']?.includes('no-cache');
     await db.syncFromDurableStore(isFresh ? 0 : 1500);
     const { id } = req.params;
-    let employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    let employee = (await db.employees.findById(id)) || (await db.employees.findByEmployeeId(id));
     if (!employee) {
       // Fallback: immediate fresh sync (maxAgeMs: 0) to eliminate any READ_FRESHNESS_MS delay
       await db.syncFromDurableStore(0).catch(() => undefined);
-      employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+      employee = (await db.employees.findById(id)) || (await db.employees.findByEmployeeId(id));
     }
     if (!employee) {
       console.error(`[employees] fetch: ${id} absent after durable sync (${db.describeLoadedState()}).`);
@@ -1437,7 +1438,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       return res.status(400).json({ error: 'Employee ID cannot be empty.' });
     }
 
-    const existing = db.employees.findByEmployeeId(normalizedId);
+    const existing = await db.employees.findByEmployeeId(normalizedId);
     if (existing) {
       return res.status(400).json({ error: `Employee ID '${normalizedId}' already exists in the system.` });
     }
@@ -1463,7 +1464,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     // text -- resolve and validate it here so a typo or stale code can never be saved.
     let resolvedProjectCode: string | null = null;
     if (assignedProjectCode) {
-      const proj = db.projects.findByCode(String(assignedProjectCode));
+      const proj = await db.projects.findByCode(String(assignedProjectCode));
       if (!proj) {
         return res.status(400).json({ error: `Assigned Project '${assignedProjectCode}' was not found in Project Master Data.` });
       }
@@ -1590,10 +1591,10 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     // missing when it was created or last edited by a different instance.
     await db.syncFromDurableStore(0);
     const { id } = req.params;
-    let employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    let employee = (await db.employees.findById(id)) || (await db.employees.findByEmployeeId(id));
     if (!employee) {
       await db.syncFromDurableStore(0).catch(() => undefined);
-      employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+      employee = (await db.employees.findById(id)) || (await db.employees.findByEmployeeId(id));
     }
     if (!employee) {
       console.error(`[employees] update: ${id} absent after durable sync (${db.describeLoadedState()}).`);
@@ -1651,7 +1652,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       if (!assignedProjectCode) {
         updates.assignedProjectCode = null;
       } else {
-        const proj = db.projects.findByCode(String(assignedProjectCode));
+        const proj = await db.projects.findByCode(String(assignedProjectCode));
         if (!proj) {
           return res.status(400).json({ error: `Assigned Project '${assignedProjectCode}' was not found in Project Master Data.` });
         }
@@ -1770,10 +1771,10 @@ router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (re
     // See syncFromDurableStore()'s comment in db.ts.
     await db.syncFromDurableStore(0);
     const { id } = req.params;
-    let employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+    let employee = (await db.employees.findById(id)) || (await db.employees.findByEmployeeId(id));
     if (!employee) {
       await db.syncFromDurableStore(0).catch(() => undefined);
-      employee = db.employees.findById(id) || db.employees.findByEmployeeId(id);
+      employee = (await db.employees.findById(id)) || (await db.employees.findByEmployeeId(id));
     }
     if (!employee) {
       console.error(`[employees] toggle-active: ${id} absent after durable sync (${db.describeLoadedState()}).`);
@@ -2087,7 +2088,7 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
       }
 
       const normId = normalizeEmployeeId(r.employeeId);
-      const existing = db.employees.findByEmployeeId(normId);
+      const existing = await db.employees.findByEmployeeId(normId);
 
       try {
         if (existing) {
@@ -2358,10 +2359,10 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
 router.get('/:employeeId/compliance', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.params;
-    let emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId)) || db.employees.findById(employeeId);
+    let emp = (await db.employees.findByEmployeeId(normalizeEmployeeId(employeeId))) || (await db.employees.findById(employeeId));
     if (!emp) {
       await db.syncFromDurableStore(0).catch(() => undefined);
-      emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId)) || db.employees.findById(employeeId);
+      emp = (await db.employees.findByEmployeeId(normalizeEmployeeId(employeeId))) || (await db.employees.findById(employeeId));
     }
     if (!emp) {
       return res.status(404).json({ error: `Employee ${employeeId} not found.` });
@@ -3121,10 +3122,10 @@ const handleSavePersonalDetails = async (req: AuthRequest, res: Response) => {
     await db.syncFromDurableStore(0);
     const { employeeId } = req.params;
     const norm = normalizeEmployeeId(employeeId);
-    let emp = db.employees.findByEmployeeId(norm) || db.employees.findById(employeeId);
+    let emp = (await db.employees.findByEmployeeId(norm)) || (await db.employees.findById(employeeId));
     if (!emp) {
       await db.syncFromDurableStore(0).catch(() => undefined);
-      emp = db.employees.findByEmployeeId(norm) || db.employees.findById(employeeId);
+      emp = (await db.employees.findByEmployeeId(norm)) || (await db.employees.findById(employeeId));
     }
     if (!emp) {
       // Say which store was consulted and what it held. "Employee not found." on its own

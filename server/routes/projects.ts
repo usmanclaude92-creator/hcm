@@ -7,10 +7,10 @@ import type { Project } from '../../src/types/index';
 const router = Router();
 
 // GET /api/projects - List projects with filters
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { search, status } = req.query;
-    let projects = db.projects.getAll();
+    let projects = await db.projects.getAll();
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -54,7 +54,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
     }
 
     const normCode = projectCode.trim().toUpperCase();
-    const existing = db.projects.findByCode(normCode);
+    const existing = await db.projects.findByCode(normCode);
     if (existing) {
       return res.status(400).json({ error: `Project with code '${normCode}' already exists.` });
     }
@@ -99,7 +99,7 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
 router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const project = db.projects.findById(id);
+    const project = await db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
     const {
@@ -118,7 +118,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
 
     if (projectCode) {
       const normCode = projectCode.trim().toUpperCase();
-      const existing = db.projects.findByCode(normCode);
+      const existing = await db.projects.findByCode(normCode);
       if (existing && existing.id !== id) {
         return res.status(400).json({ error: `Project Code '${normCode}' is already used by another project.` });
       }
@@ -169,7 +169,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
 router.patch('/:id/toggle-status', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const project = db.projects.findById(id);
+    const project = await db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
     const newStatus = project.status === 'Active' ? 'Inactive' : 'Active';

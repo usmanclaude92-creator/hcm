@@ -34,9 +34,9 @@ const router = Router();
 // governed list; the employee record still stores the title as text, so nothing had to be
 // migrated and an existing record is never invalidated by a rename here.
 
-function usageCount(title: string): number {
+async function usageCount(title: string): Promise<number> {
   const norm = title.trim().toLowerCase();
-  return db.employees.getAll().filter(e => String(e.designation || '').trim().toLowerCase() === norm).length;
+  return (await db.employees.getAll()).filter(e => String(e.designation || '').trim().toLowerCase() === norm).length;
 }
 
 // GET /api/masters/departments
@@ -180,6 +180,11 @@ router.get('/designations', verifyAuth, async (req: AuthRequest, res: Response) 
   try {
     const includeInactive = String(req.query.includeInactive || '') === 'true';
     const departments = await db.departments.getAll();
+    const allEmployees = await db.employees.getAll();
+    const countByTitle = (title: string) => {
+      const norm = title.trim().toLowerCase();
+      return allEmployees.filter(e => String(e.designation || '').trim().toLowerCase() === norm).length;
+    };
     const designations = (await db.designations.getAll())
       .filter(d => includeInactive || d.isActive)
       .map(d => ({
@@ -187,7 +192,7 @@ router.get('/designations', verifyAuth, async (req: AuthRequest, res: Response) 
         departmentName: departments.find(dep => dep.id === d.departmentId)?.name || null,
         // How many employees currently carry this title, so a role cannot be retired
         // blindly and an unused one is visible as such.
-        employeeCount: usageCount(d.title),
+        employeeCount: countByTitle(d.title),
       }))
       .sort((a, b) => a.title.localeCompare(b.title));
     res.json(designations);
@@ -264,7 +269,7 @@ router.put('/designations/:id', verifyAuth, requireRoles('Administrator', 'Payro
       // Retiring a title that people still hold would leave those employees pointing at a
       // role no longer offered for selection, so it is refused with the count that proves it.
       if (!nextActive && existing.isActive) {
-        const inUse = usageCount(existing.title);
+        const inUse = await usageCount(existing.title);
         if (inUse > 0) {
           return res.status(400).json({
             error: `'${existing.title}' is still held by ${inUse} employee(s). Move them to another designation before retiring this one.`,
@@ -297,7 +302,7 @@ router.delete('/designations/:id', verifyAuth, requireRoles('Administrator', 'Pa
     const existing = await db.designations.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Designation not found.' });
 
-    const inUse = usageCount(existing.title);
+    const inUse = await usageCount(existing.title);
     if (inUse > 0) {
       return res.status(400).json({
         error: `Cannot delete designation '${existing.title}': it is currently assigned to ${inUse} employee(s). Reassign them first.`
@@ -328,7 +333,7 @@ router.patch('/designations/:id/toggle-status', verifyAuth, requireRoles('Admini
 
     const newStatus = !existing.isActive;
     if (!newStatus) {
-      const inUse = usageCount(existing.title);
+      const inUse = await usageCount(existing.title);
       if (inUse > 0) {
         return res.status(400).json({
           error: `'${existing.title}' is still held by ${inUse} employee(s). Move them to another designation before deactivating this one.`

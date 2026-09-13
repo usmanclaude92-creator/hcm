@@ -14,8 +14,7 @@ const router = Router();
 router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const scope = companyScopeOf(req.user);
-    const activeEmployees = db.employees
-      .getAll()
+    const activeEmployees = (await db.employees.getAll())
       .filter((e) => e.isActive && canSeeCompany(scope, e.employeeCompany));
 
     const employeeIdByCivilId = new Map<string, string>();
@@ -88,7 +87,7 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
 // Pushes active employees into the Artify Workforce app's eligibility list
 router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), async (req: AuthRequest, res: Response) => {
   try {
-    const activeEmployees = db.employees.getAll().filter((e) => e.isActive);
+    const activeEmployees = (await db.employees.getAll()).filter((e) => e.isActive);
 
     const records: WorkforceEligibilityRecord[] = [];
     const skippedNoCivilId: string[] = [];
@@ -105,7 +104,7 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
 
       const personal = db.personalDetails.get(e.employeeId);
       const projectCode = e.assignedProjectCode || personal?.assignedProject || null;
-      const project = projectCode ? db.projects.findByCode(projectCode) : undefined;
+      const project = projectCode ? await db.projects.findByCode(projectCode) : undefined;
 
       records.push({
         civilId,

@@ -62,6 +62,18 @@ export function normalizeEmployeeId(id: string): string {
   return id.trim().toUpperCase();
 }
 
+// SQL-backed findById/update/delete on the tables migrated off app_state take a real
+// Postgres uuid primary key. Several callers still pass legacy fallback values that were
+// never uuids (e.g. 'proj-hq', or a project CODE tried against findById before
+// findByCode) -- against a plain in-memory array that was a harmless non-match, but a raw
+// `WHERE id = $1` against Postgres throws (invalid input syntax for type uuid) instead of
+// just not matching. Short-circuiting on an obviously-non-uuid id keeps findById's
+// "not found" contract intact.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function looksLikeUuid(id: string): boolean {
+  return typeof id === 'string' && UUID_RE.test(id);
+}
+
 // --- Wage basis ---------------------------------------------------------------------
 // wageType used to be stored and displayed but never consulted: attendance capture and
 // the payroll calculation both branched on employeeType, so a Staff employee marked
@@ -388,6 +400,66 @@ function rowToPayGrade(row: any): PayGrade {
     standardAllowance: Number(row.standard_allowance),
     description: row.description ?? '',
     isActive: row.is_active,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function dateOrNull(v: any): string | null {
+  if (v === null || v === undefined) return null;
+  return v instanceof Date ? v.toISOString().slice(0, 10) : String(v);
+}
+
+function rowToProject(row: any): Project {
+  return {
+    id: row.id,
+    projectCode: row.project_code,
+    projectName: row.project_name,
+    status: row.status,
+    startDate: dateOrNull(row.start_date),
+    endDate: dateOrNull(row.end_date),
+    remarks: row.remarks ?? undefined,
+    allowedCompanies: Array.isArray(row.allowed_companies) && row.allowed_companies.length > 0
+      ? row.allowed_companies
+      : undefined,
+    latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
+    longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
+    radiusMeters: row.geofence_radius_meters !== null && row.geofence_radius_meters !== undefined
+      ? Number(row.geofence_radius_meters)
+      : null,
+    geofenceName: row.geofence_name ?? null,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToEmployee(row: any): Employee {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
+    photoUrl: row.photo_url ?? undefined,
+    avatarUrl: row.avatar_url ?? undefined,
+    employeeType: row.employee_type,
+    nationalityType: row.nationality_type,
+    wageType: row.wage_type,
+    dateOfJoining: dateOrNull(row.date_of_joining) as string,
+    dateOfLeaving: dateOrNull(row.date_of_leaving),
+    designation: row.designation,
+    employeeCompany: row.employee_company,
+    assignedProjectCode: row.assigned_project_code ?? null,
+    salaryPaidBy: row.salary_paid_by,
+    monthlySalaryOrRate: Number(row.monthly_salary_or_rate),
+    wpsEmployee: row.wps_employee,
+    wpsSalary: Number(row.wps_salary),
+    actualSalary: Number(row.actual_salary),
+    recoverFrom: row.recover_from ?? '',
+    isActive: row.is_active,
+    bankName: row.bank_name ?? undefined,
+    bankAccountNumber: row.bank_account_number ?? undefined,
+    iban: row.iban ?? undefined,
+    bankBranch: row.bank_branch ?? undefined,
+    accountHolderName: row.account_holder_name ?? undefined,
     createdAt: isoOrNow(row.created_at),
     updatedAt: isoOrNow(row.updated_at),
   };
@@ -1219,64 +1291,92 @@ class DatabaseManager {
     };
   }
 
+  // Employees and Projects query the normalized `employees` / `projects` Postgres tables
+  // directly when connected -- the same tables Workforce-App's mobile Edge Functions read
+  // and write -- instead of the app_state-backed in-memory array, which used to be a second,
+  // divergeable copy of the same data. assignedProjectCode/allowedCompanies are resolved via
+  // joins against `projects` / `project_allowed_companies` rather than stored redundantly.
+  // designationHistory/salaryHistory remain app_state-resident (no SQL table exists for them
+  // yet) and are written through `persist()` regardless of which employees path is active.
+  private employeesProjectSelect =
+    `SELECT e.*, p.project_code AS assigned_project_code FROM employees e
+     LEFT JOIN projects p ON p.id = e.assigned_project_id`;
+
   public get employees() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.employees],
-      findById: (id: string) => this.inMemoryData.employees.find(e => e.id === id),
-      findByEmployeeId: (empId: string) => {
+      getAll: async (): Promise<Employee[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query(`${this.employeesProjectSelect} ORDER BY e.employee_name`);
+          return res.rows.map(rowToEmployee);
+        }
+        return [...this.inMemoryData.employees];
+      },
+      findById: async (id: string): Promise<Employee | undefined> => {
+        if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
+          const res = await this.pgPool!.query(`${this.employeesProjectSelect} WHERE e.id = $1`, [id]);
+          return res.rows[0] ? rowToEmployee(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.employees.find(e => e.id === id);
+      },
+      findByEmployeeId: async (empId: string): Promise<Employee | undefined> => {
         const norm = normalizeEmployeeId(empId);
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `${this.employeesProjectSelect} WHERE upper(trim(e.employee_id)) = upper(trim($1))`, [norm]
+          );
+          return res.rows[0] ? rowToEmployee(res.rows[0]) : undefined;
+        }
         return this.inMemoryData.employees.find(e => normalizeEmployeeId(e.employeeId) === norm);
       },
-      create: async (emp: Employee) => {
+      create: async (emp: Employee): Promise<Employee> => {
         emp.employeeId = normalizeEmployeeId(emp.employeeId);
+        emp.monthlySalaryOrRate = roundOMR(emp.monthlySalaryOrRate);
+        emp.wpsSalary = roundOMR(emp.wpsSalary);
+        emp.actualSalary = roundOMR(emp.actualSalary);
+        if (sql) {
+          try {
+            const res = await this.pgPool!.query(
+              `INSERT INTO employees (
+                 id, employee_id, employee_name, employee_type, nationality_type, wage_type,
+                 date_of_joining, date_of_leaving, designation, employee_company, salary_paid_by,
+                 assigned_project_id, monthly_salary_or_rate, wps_employee, wps_salary, actual_salary,
+                 recover_from, is_active, bank_name, bank_account_number, iban, bank_branch,
+                 account_holder_name, photo_url, avatar_url, created_at, updated_at
+               ) VALUES (
+                 $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+                 (SELECT id FROM projects WHERE upper(trim(project_code)) = upper(trim($12))),
+                 $13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27
+               ) RETURNING id`,
+              [emp.id, emp.employeeId, emp.employeeName, emp.employeeType, emp.nationalityType, emp.wageType,
+               emp.dateOfJoining, emp.dateOfLeaving ?? null, emp.designation, emp.employeeCompany, emp.salaryPaidBy,
+               emp.assignedProjectCode ?? null,
+               emp.monthlySalaryOrRate, emp.wpsEmployee, emp.wpsSalary, emp.actualSalary,
+               emp.recoverFrom ?? null, emp.isActive, emp.bankName ?? null, emp.bankAccountNumber ?? null,
+               emp.iban ?? null, emp.bankBranch ?? null, emp.accountHolderName ?? null,
+               emp.photoUrl ?? null, emp.avatarUrl ?? null, emp.createdAt, emp.updatedAt]
+            );
+            const res2 = await this.pgPool!.query(`${this.employeesProjectSelect} WHERE e.id = $1`, [res.rows[0].id]);
+            return rowToEmployee(res2.rows[0]);
+          } catch (e: any) {
+            if (e?.code === '23505') {
+              throw new Error(`Employee ID '${emp.employeeId}' already exists in the system.`);
+            }
+            throw e;
+          }
+        }
         // Enforced here (not just in the route handler) so the uniqueness
         // invariant holds regardless of caller — the model layer is the
         // closest equivalent to a DB unique constraint in this architecture.
         if (this.inMemoryData.employees.some(e => normalizeEmployeeId(e.employeeId) === emp.employeeId)) {
           throw new Error(`Employee ID '${emp.employeeId}' already exists in the system.`);
         }
-        emp.monthlySalaryOrRate = roundOMR(emp.monthlySalaryOrRate);
-        emp.wpsSalary = roundOMR(emp.wpsSalary);
-        emp.actualSalary = roundOMR(emp.actualSalary);
         this.inMemoryData.employees.push(emp);
         await this.persist();
         return emp;
       },
-      update: async (id: string, updates: Partial<Employee>, user?: string) => {
-        const index = this.inMemoryData.employees.findIndex(e => e.id === id);
-        if (index === -1) return null;
-        const current = this.inMemoryData.employees[index];
-
-        // Track designation change history
-        if (updates.designation && updates.designation !== current.designation) {
-          this.inMemoryData.designationHistory.push({
-            id: crypto.randomUUID(),
-            employeeId: current.employeeId,
-            previousDesignation: current.designation,
-            newDesignation: updates.designation,
-            effectiveDate: new Date().toISOString().split('T')[0],
-            changedBy: user || 'System',
-            createdAt: new Date().toISOString(),
-          });
-        }
-
-        // Track salary change history
-        if (
-          (updates.monthlySalaryOrRate !== undefined && roundOMR(updates.monthlySalaryOrRate) !== roundOMR(current.monthlySalaryOrRate)) ||
-          (updates.wageType !== undefined && updates.wageType !== current.wageType)
-        ) {
-          this.inMemoryData.salaryHistory.push({
-            id: crypto.randomUUID(),
-            employeeId: current.employeeId,
-            previousSalary: current.monthlySalaryOrRate,
-            newSalary: updates.monthlySalaryOrRate !== undefined ? roundOMR(updates.monthlySalaryOrRate) : current.monthlySalaryOrRate,
-            wageType: updates.wageType || current.wageType,
-            effectiveDate: new Date().toISOString().split('T')[0],
-            changedBy: user || 'System',
-            createdAt: new Date().toISOString(),
-          });
-        }
-
+      update: async (id: string, updates: Partial<Employee>, user?: string): Promise<Employee | null> => {
         if (updates.employeeId) {
           updates.employeeId = normalizeEmployeeId(updates.employeeId);
         }
@@ -1288,6 +1388,98 @@ class DatabaseManager {
         }
         if (updates.actualSalary !== undefined) {
           updates.actualSalary = roundOMR(updates.actualSalary);
+        }
+
+        if (sql) {
+          if (!looksLikeUuid(id)) return null;
+          const existingRes = await this.pgPool!.query(`${this.employeesProjectSelect} WHERE e.id = $1`, [id]);
+          if (!existingRes.rows[0]) return null;
+          const current = rowToEmployee(existingRes.rows[0]);
+          let historyChanged = false;
+
+          if (updates.designation && updates.designation !== current.designation) {
+            this.inMemoryData.designationHistory.push({
+              id: crypto.randomUUID(),
+              employeeId: current.employeeId,
+              previousDesignation: current.designation,
+              newDesignation: updates.designation,
+              effectiveDate: new Date().toISOString().split('T')[0],
+              changedBy: user || 'System',
+              createdAt: new Date().toISOString(),
+            });
+            historyChanged = true;
+          }
+          if (
+            (updates.monthlySalaryOrRate !== undefined && roundOMR(updates.monthlySalaryOrRate) !== roundOMR(current.monthlySalaryOrRate)) ||
+            (updates.wageType !== undefined && updates.wageType !== current.wageType)
+          ) {
+            this.inMemoryData.salaryHistory.push({
+              id: crypto.randomUUID(),
+              employeeId: current.employeeId,
+              previousSalary: current.monthlySalaryOrRate,
+              newSalary: updates.monthlySalaryOrRate !== undefined ? updates.monthlySalaryOrRate : current.monthlySalaryOrRate,
+              wageType: updates.wageType || current.wageType,
+              effectiveDate: new Date().toISOString().split('T')[0],
+              changedBy: user || 'System',
+              createdAt: new Date().toISOString(),
+            });
+            historyChanged = true;
+          }
+          if (historyChanged) {
+            await this.persist();
+          }
+
+          const merged = { ...current, ...updates };
+          await this.pgPool!.query(
+            `UPDATE employees SET
+               employee_id=$2, employee_name=$3, employee_type=$4, nationality_type=$5, wage_type=$6,
+               date_of_joining=$7, date_of_leaving=$8, designation=$9, employee_company=$10, salary_paid_by=$11,
+               assigned_project_id=(SELECT id FROM projects WHERE upper(trim(project_code)) = upper(trim($12))),
+               monthly_salary_or_rate=$13, wps_employee=$14, wps_salary=$15, actual_salary=$16,
+               recover_from=$17, is_active=$18, bank_name=$19, bank_account_number=$20, iban=$21,
+               bank_branch=$22, account_holder_name=$23, photo_url=$24, avatar_url=$25, updated_at=now()
+             WHERE id=$1`,
+            [id, merged.employeeId, merged.employeeName, merged.employeeType, merged.nationalityType, merged.wageType,
+             merged.dateOfJoining, merged.dateOfLeaving ?? null, merged.designation, merged.employeeCompany, merged.salaryPaidBy,
+             merged.assignedProjectCode ?? null,
+             merged.monthlySalaryOrRate, merged.wpsEmployee, merged.wpsSalary, merged.actualSalary,
+             merged.recoverFrom ?? null, merged.isActive, merged.bankName ?? null, merged.bankAccountNumber ?? null,
+             merged.iban ?? null, merged.bankBranch ?? null, merged.accountHolderName ?? null,
+             merged.photoUrl ?? null, merged.avatarUrl ?? null]
+          );
+          const res2 = await this.pgPool!.query(`${this.employeesProjectSelect} WHERE e.id = $1`, [id]);
+          return rowToEmployee(res2.rows[0]);
+        }
+
+        const index = this.inMemoryData.employees.findIndex(e => e.id === id);
+        if (index === -1) return null;
+        const current = this.inMemoryData.employees[index];
+
+        if (updates.designation && updates.designation !== current.designation) {
+          this.inMemoryData.designationHistory.push({
+            id: crypto.randomUUID(),
+            employeeId: current.employeeId,
+            previousDesignation: current.designation,
+            newDesignation: updates.designation,
+            effectiveDate: new Date().toISOString().split('T')[0],
+            changedBy: user || 'System',
+            createdAt: new Date().toISOString(),
+          });
+        }
+        if (
+          (updates.monthlySalaryOrRate !== undefined && roundOMR(updates.monthlySalaryOrRate) !== roundOMR(current.monthlySalaryOrRate)) ||
+          (updates.wageType !== undefined && updates.wageType !== current.wageType)
+        ) {
+          this.inMemoryData.salaryHistory.push({
+            id: crypto.randomUUID(),
+            employeeId: current.employeeId,
+            previousSalary: current.monthlySalaryOrRate,
+            newSalary: updates.monthlySalaryOrRate !== undefined ? updates.monthlySalaryOrRate : current.monthlySalaryOrRate,
+            wageType: updates.wageType || current.wageType,
+            effectiveDate: new Date().toISOString().split('T')[0],
+            changedBy: user || 'System',
+            createdAt: new Date().toISOString(),
+          });
         }
 
         this.inMemoryData.employees[index] = {
@@ -1309,23 +1501,103 @@ class DatabaseManager {
     };
   }
 
+  private async setProjectAllowedCompanies(projectId: string, codes: string[] | undefined): Promise<void> {
+    if (codes === undefined) return;
+    const client = await this.pgPool!.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM project_allowed_companies WHERE project_id = $1', [projectId]);
+      for (const code of codes) {
+        await client.query(
+          'INSERT INTO project_allowed_companies (project_id, company_code) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [projectId, code]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  private projectSelect =
+    `SELECT p.*, coalesce(array_agg(pac.company_code) FILTER (WHERE pac.company_code IS NOT NULL), '{}') AS allowed_companies
+     FROM projects p LEFT JOIN project_allowed_companies pac ON pac.project_id = p.id`;
+
   public get projects() {
+    const sql = this.isPostgresConnected && this.pgPool;
     return {
-      getAll: () => [...this.inMemoryData.projects],
-      findById: (id: string) => this.inMemoryData.projects.find(p => p.id === id),
-      findByCode: (code: string) => this.inMemoryData.projects.find(p => p.projectCode.trim().toUpperCase() === code.trim().toUpperCase()),
-      create: async (proj: Project) => {
+      getAll: async (): Promise<Project[]> => {
+        if (sql) {
+          const res = await this.pgPool!.query(`${this.projectSelect} GROUP BY p.id ORDER BY p.project_name`);
+          return res.rows.map(rowToProject);
+        }
+        return [...this.inMemoryData.projects];
+      },
+      findById: async (id: string): Promise<Project | undefined> => {
+        if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
+          const res = await this.pgPool!.query(`${this.projectSelect} WHERE p.id = $1 GROUP BY p.id`, [id]);
+          return res.rows[0] ? rowToProject(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.projects.find(p => p.id === id);
+      },
+      findByCode: async (code: string): Promise<Project | undefined> => {
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `${this.projectSelect} WHERE upper(trim(p.project_code)) = upper(trim($1)) GROUP BY p.id`, [code]
+          );
+          return res.rows[0] ? rowToProject(res.rows[0]) : undefined;
+        }
+        return this.inMemoryData.projects.find(p => p.projectCode.trim().toUpperCase() === code.trim().toUpperCase());
+      },
+      create: async (proj: Project): Promise<Project> => {
         proj.projectCode = proj.projectCode.trim().toUpperCase();
+        if (sql) {
+          const res = await this.pgPool!.query(
+            `INSERT INTO projects (id, project_code, project_name, status, start_date, end_date, remarks,
+                                    latitude, longitude, geofence_radius_meters, geofence_name, created_at, updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+            [proj.id, proj.projectCode, proj.projectName, proj.status, proj.startDate ?? null, proj.endDate ?? null,
+             proj.remarks ?? null, proj.latitude ?? null, proj.longitude ?? null, proj.radiusMeters ?? null,
+             proj.geofenceName ?? null, proj.createdAt, proj.updatedAt]
+          );
+          await this.setProjectAllowedCompanies(res.rows[0].id, proj.allowedCompanies);
+          const res2 = await this.pgPool!.query(`${this.projectSelect} WHERE p.id = $1 GROUP BY p.id`, [res.rows[0].id]);
+          return rowToProject(res2.rows[0]);
+        }
         this.inMemoryData.projects.push(proj);
         await this.persist();
         return proj;
       },
-      update: async (id: string, updates: Partial<Project>) => {
-        const index = this.inMemoryData.projects.findIndex(p => p.id === id);
-        if (index === -1) return null;
+      update: async (id: string, updates: Partial<Project>): Promise<Project | null> => {
         if (updates.projectCode) {
           updates.projectCode = updates.projectCode.trim().toUpperCase();
         }
+        if (sql) {
+          if (!looksLikeUuid(id)) return null;
+          const existingRes = await this.pgPool!.query(`${this.projectSelect} WHERE p.id = $1 GROUP BY p.id`, [id]);
+          if (!existingRes.rows[0]) return null;
+          const merged = { ...rowToProject(existingRes.rows[0]), ...updates };
+          await this.pgPool!.query(
+            `UPDATE projects SET project_code=$2, project_name=$3, status=$4, start_date=$5, end_date=$6,
+                                  remarks=$7, latitude=$8, longitude=$9, geofence_radius_meters=$10,
+                                  geofence_name=$11, updated_at=now()
+             WHERE id=$1`,
+            [id, merged.projectCode, merged.projectName, merged.status, merged.startDate ?? null, merged.endDate ?? null,
+             merged.remarks ?? null, merged.latitude ?? null, merged.longitude ?? null, merged.radiusMeters ?? null,
+             merged.geofenceName ?? null]
+          );
+          if (updates.allowedCompanies !== undefined) {
+            await this.setProjectAllowedCompanies(id, updates.allowedCompanies);
+          }
+          const res2 = await this.pgPool!.query(`${this.projectSelect} WHERE p.id = $1 GROUP BY p.id`, [id]);
+          return rowToProject(res2.rows[0]);
+        }
+        const index = this.inMemoryData.projects.findIndex(p => p.id === id);
+        if (index === -1) return null;
         this.inMemoryData.projects[index] = {
           ...this.inMemoryData.projects[index],
           ...updates,
@@ -1488,10 +1760,11 @@ class DatabaseManager {
     };
   }
 
-  // Synchronize mobile attendance punches to the monthly attendance grid
-  private syncPunchesToMonthlyAttendance(employeeId: string, month: string) {
+  // Synchronize mobile attendance punches to the monthly attendance grid. `emp` is resolved
+  // by the caller (an async lookup) before entering withOptimisticRetry's synchronous mutate
+  // callback, since that retry loop cannot itself await.
+  private syncPunchesToMonthlyAttendance(emp: Employee | undefined, employeeId: string, month: string) {
     const norm = normalizeEmployeeId(employeeId);
-    const emp = this.employees.findByEmployeeId(norm);
     if (!emp) return;
 
     const monthPunches = (this.inMemoryData.attendancePunches || []).filter(
@@ -1570,16 +1843,19 @@ class DatabaseManager {
         ) || null;
       },
       create: async (punch: AttendancePunch) => {
+        const emp = await this.employees.findByEmployeeId(punch.employeeId);
         return this.withOptimisticRetry(() => {
           if (!this.inMemoryData.attendancePunches) {
             this.inMemoryData.attendancePunches = [];
           }
           this.inMemoryData.attendancePunches.push(punch);
-          this.syncPunchesToMonthlyAttendance(punch.employeeId, punch.punchDate.slice(0, 7));
+          this.syncPunchesToMonthlyAttendance(emp, punch.employeeId, punch.punchDate.slice(0, 7));
           return { changed: true, value: punch };
         });
       },
       update: async (id: string, updates: Partial<AttendancePunch>) => {
+        const existingForEmp = (this.inMemoryData.attendancePunches || []).find(p => p.id === id);
+        const emp = existingForEmp ? await this.employees.findByEmployeeId(existingForEmp.employeeId) : undefined;
         return this.withOptimisticRetry(() => {
           if (!this.inMemoryData.attendancePunches) this.inMemoryData.attendancePunches = [];
           const index = this.inMemoryData.attendancePunches.findIndex(p => p.id === id);
@@ -1590,7 +1866,7 @@ class DatabaseManager {
             updatedAt: new Date().toISOString()
           };
           this.inMemoryData.attendancePunches[index] = updated;
-          this.syncPunchesToMonthlyAttendance(updated.employeeId, updated.punchDate.slice(0, 7));
+          this.syncPunchesToMonthlyAttendance(emp, updated.employeeId, updated.punchDate.slice(0, 7));
           return { changed: true, value: updated };
         });
       },
@@ -2217,6 +2493,7 @@ class DatabaseManager {
       },
       findById: async (id: string): Promise<Department | undefined> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
           const res = await this.pgPool!.query('SELECT * FROM departments WHERE id = $1', [id]);
           return res.rows[0] ? rowToDepartment(res.rows[0]) : undefined;
         }
@@ -2249,6 +2526,7 @@ class DatabaseManager {
       },
       update: async (id: string, updates: Partial<Department>): Promise<Department | null> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return null;
           const existingRes = await this.pgPool!.query('SELECT * FROM departments WHERE id = $1', [id]);
           if (!existingRes.rows[0]) return null;
           const merged = { ...rowToDepartment(existingRes.rows[0]), ...updates };
@@ -2272,6 +2550,7 @@ class DatabaseManager {
       },
       delete: async (id: string): Promise<boolean> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return false;
           const res = await this.pgPool!.query('DELETE FROM departments WHERE id = $1', [id]);
           return (res.rowCount ?? 0) > 0;
         }
@@ -2297,6 +2576,7 @@ class DatabaseManager {
       },
       findById: async (id: string): Promise<Designation | undefined> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
           const res = await this.pgPool!.query('SELECT * FROM designations WHERE id = $1', [id]);
           return res.rows[0] ? rowToDesignation(res.rows[0]) : undefined;
         }
@@ -2329,6 +2609,7 @@ class DatabaseManager {
       },
       update: async (id: string, updates: Partial<Designation>): Promise<Designation | null> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return null;
           const existingRes = await this.pgPool!.query('SELECT * FROM designations WHERE id = $1', [id]);
           if (!existingRes.rows[0]) return null;
           const merged = { ...rowToDesignation(existingRes.rows[0]), ...updates };
@@ -2352,6 +2633,7 @@ class DatabaseManager {
       },
       delete: async (id: string): Promise<boolean> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return false;
           const res = await this.pgPool!.query('DELETE FROM designations WHERE id = $1', [id]);
           return (res.rowCount ?? 0) > 0;
         }
@@ -2382,6 +2664,7 @@ class DatabaseManager {
       },
       findById: async (id: string): Promise<CompanyMaster | undefined> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
           const res = await this.pgPool!.query('SELECT * FROM companies WHERE id = $1', [id]);
           return res.rows[0] ? rowToCompany(res.rows[0]) : undefined;
         }
@@ -2417,6 +2700,7 @@ class DatabaseManager {
       },
       update: async (id: string, updates: Partial<CompanyMaster>): Promise<CompanyMaster | null> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return null;
           const existingRes = await this.pgPool!.query('SELECT * FROM companies WHERE id = $1', [id]);
           if (!existingRes.rows[0]) return null;
           const merged = { ...rowToCompany(existingRes.rows[0]), ...updates };
@@ -2444,6 +2728,7 @@ class DatabaseManager {
       },
       delete: async (id: string): Promise<boolean> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return false;
           const res = await this.pgPool!.query('DELETE FROM companies WHERE id = $1', [id]);
           return (res.rowCount ?? 0) > 0;
         }
@@ -2469,6 +2754,7 @@ class DatabaseManager {
       },
       findById: async (id: string): Promise<TradeMaster | undefined> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
           const res = await this.pgPool!.query('SELECT * FROM trades WHERE id = $1', [id]);
           return res.rows[0] ? rowToTrade(res.rows[0]) : undefined;
         }
@@ -2501,6 +2787,7 @@ class DatabaseManager {
       },
       update: async (id: string, updates: Partial<TradeMaster>): Promise<TradeMaster | null> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return null;
           const existingRes = await this.pgPool!.query('SELECT * FROM trades WHERE id = $1', [id]);
           if (!existingRes.rows[0]) return null;
           const merged = { ...rowToTrade(existingRes.rows[0]), ...updates };
@@ -2524,6 +2811,7 @@ class DatabaseManager {
       },
       delete: async (id: string): Promise<boolean> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return false;
           const res = await this.pgPool!.query('DELETE FROM trades WHERE id = $1', [id]);
           return (res.rowCount ?? 0) > 0;
         }
@@ -2549,6 +2837,7 @@ class DatabaseManager {
       },
       findById: async (id: string): Promise<PayGrade | undefined> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
           const res = await this.pgPool!.query('SELECT * FROM pay_grades WHERE id = $1', [id]);
           return res.rows[0] ? rowToPayGrade(res.rows[0]) : undefined;
         }
@@ -2583,6 +2872,7 @@ class DatabaseManager {
       },
       update: async (id: string, updates: Partial<PayGrade>): Promise<PayGrade | null> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return null;
           const existingRes = await this.pgPool!.query('SELECT * FROM pay_grades WHERE id = $1', [id]);
           if (!existingRes.rows[0]) return null;
           const merged = { ...rowToPayGrade(existingRes.rows[0]), ...updates };
@@ -2608,6 +2898,7 @@ class DatabaseManager {
       },
       delete: async (id: string): Promise<boolean> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return false;
           const res = await this.pgPool!.query('DELETE FROM pay_grades WHERE id = $1', [id]);
           return (res.rowCount ?? 0) > 0;
         }
@@ -2636,6 +2927,7 @@ class DatabaseManager {
       },
       findById: async (id: string): Promise<ProjectGeofenceLocation | undefined> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return undefined;
           const res = await this.pgPool!.query('SELECT * FROM project_geofence_locations WHERE id = $1', [id]);
           return res.rows[0] ? rowToGeofence(res.rows[0]) : undefined;
         }
@@ -2682,6 +2974,7 @@ class DatabaseManager {
       },
       update: async (id: string, updates: Partial<ProjectGeofenceLocation>): Promise<ProjectGeofenceLocation | null> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return null;
           const client = await this.pgPool!.connect();
           try {
             await client.query('BEGIN');
@@ -2740,6 +3033,7 @@ class DatabaseManager {
       },
       delete: async (id: string): Promise<boolean> => {
         if (sql) {
+          if (!looksLikeUuid(id)) return false;
           const res = await this.pgPool!.query('DELETE FROM project_geofence_locations WHERE id = $1', [id]);
           return (res.rowCount ?? 0) > 0;
         }

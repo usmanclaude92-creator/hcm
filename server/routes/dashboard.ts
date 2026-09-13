@@ -37,7 +37,7 @@ function formatMonthLabel(month: string): string {
 }
 
 // GET /api/dashboard - Aggregated stats and real-time trends for dashboard
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const periodMode: PeriodMode = (req.query.periodMode as PeriodMode) || 'month';
     const monthParam = (req.query.month as string) || '';
@@ -47,15 +47,16 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     // Company isolation. Every figure below is derived from these collections, so scoping
     // them here scopes the whole dashboard -- headcount, payroll, payments, WPS and loans.
     const scope = companyScopeOf(req.user);
+    const allEmployees = await db.employees.getAll();
     const inScopeEmployeeIds = new Set(
-      db.employees.getAll()
+      allEmployees
         .filter(e => canSeeCompany(scope, e.employeeCompany))
         .map(e => normalizeEmployeeId(e.employeeId))
     );
     const employeeInScope = (employeeId: string) =>
       scope === null || inScopeEmployeeIds.has(normalizeEmployeeId(employeeId));
 
-    const employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
+    const employees = allEmployees.filter(e => canSeeCompany(scope, e.employeeCompany));
     const activeEmployees = employees.filter(e => e.isActive);
     const workers = activeEmployees.filter(e => e.employeeType === 'Worker');
     const staff = activeEmployees.filter(e => e.employeeType === 'Staff');

@@ -136,7 +136,7 @@ export function computeGratuity(emp: Employee, asOf: string): GratuityLine {
   };
 }
 
-function buildRows(req: AuthRequest): { rows: GratuityLine[]; asOf: string; error?: string } {
+async function buildRows(req: AuthRequest): Promise<{ rows: GratuityLine[]; asOf: string; error?: string }> {
   const asOfRaw = String(req.query.asOf || '').trim();
   const asOf = asOfRaw || new Date().toISOString().slice(0, 10);
   if (asOfRaw && !isValidDate(asOfRaw)) {
@@ -146,7 +146,7 @@ function buildRows(req: AuthRequest): { rows: GratuityLine[]; asOf: string; erro
   const { company, status, employeeId, nationality } = req.query as Record<string, string>;
   const scope = companyScopeOf(req.user);
 
-  let employees = db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
+  let employees = (await db.employees.getAll()).filter(e => canSeeCompany(scope, e.employeeCompany));
   if (company && company !== 'ALL') employees = employees.filter(e => e.employeeCompany === company);
   if (nationality && nationality !== 'ALL') employees = employees.filter(e => e.nationalityType === nationality);
   if (status === 'active') employees = employees.filter(e => e.isActive);
@@ -164,9 +164,9 @@ function buildRows(req: AuthRequest): { rows: GratuityLine[]; asOf: string; erro
 }
 
 // GET /api/gratuity?asOf=&company=&status=&nationality=&employeeId=
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { rows, asOf, error } = buildRows(req);
+    const { rows, asOf, error } = await buildRows(req);
     if (error) return res.status(400).json({ error });
 
     const entitled = rows.filter(r => r.isEntitled);
@@ -198,9 +198,9 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/gratuity/export
-router.get('/export', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/export', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { rows, asOf, error } = buildRows(req);
+    const { rows, asOf, error } = await buildRows(req);
     if (error) return res.status(400).json({ error });
 
     const data = rows.map((r, idx) => ({
