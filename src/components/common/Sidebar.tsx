@@ -25,8 +25,6 @@ import {
   FolderOpen,
   Search,
   X,
-  ChevronsUpDown,
-  ChevronsDownUp,
   Layers,
 } from 'lucide-react';
 
@@ -62,7 +60,10 @@ export interface NavCategory {
   items: NavItem[];
 }
 
-const STORAGE_KEY = 'hcms_sidebar_expanded_sections_v2';
+// v3: switched from independently-toggled categories to a single-open accordion (only
+// one category expanded at a time, first category open by default) -- bumped so an
+// old v2 value with several categories saved as expanded doesn't load in violating that.
+const STORAGE_KEY = 'hcms_sidebar_expanded_sections_v3';
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
@@ -141,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         id: 'master-data',
         title: 'ORGANISATION & MASTER DATA',
         icon: Building2,
-        defaultOpen: true,
+        defaultOpen: false,
         items: [
           {
             id: 'master-data-hub',
@@ -158,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         id: 'payroll',
         title: 'FINANCIAL & PAYROLL',
         icon: Calculator,
-        defaultOpen: true,
+        defaultOpen: false,
         items: [
           {
             id: 'payroll',
@@ -221,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         id: 'intelligence',
         title: 'INTELLIGENCE & AUDIT',
         icon: FileBarChart,
-        defaultOpen: true,
+        defaultOpen: false,
         items: [
           {
             id: 'reports',
@@ -286,10 +287,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return initial;
   });
 
-  // Save expanded states
+  // Single-open accordion: expanding a category collapses every other one. Clicking the
+  // already-open category just closes it (so an all-collapsed state is reachable too).
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories((prev) => {
-      const updated = { ...prev, [categoryId]: !prev[categoryId] };
+      const opening = !prev[categoryId];
+      const updated: Record<string, boolean> = {};
+      categories.forEach((c) => {
+        updated[c.id] = c.id === categoryId ? opening : false;
+      });
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       } catch {
@@ -297,28 +303,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
       return updated;
     });
-  };
-
-  const expandAll = () => {
-    const allOpen: Record<string, boolean> = {};
-    categories.forEach((c) => (allOpen[c.id] = true));
-    setExpandedCategories(allOpen);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(allOpen));
-    } catch {
-      // ignore
-    }
-  };
-
-  const collapseAll = () => {
-    const allClosed: Record<string, boolean> = {};
-    categories.forEach((c) => (allClosed[c.id] = false));
-    setExpandedCategories(allClosed);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(allClosed));
-    } catch {
-      // ignore
-    }
   };
 
   // Helper to determine if an item is currently active
@@ -357,13 +341,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return false;
   };
 
-  // Auto-expand category containing the active item
+  // Auto-expand the category containing the active item -- and, to preserve the
+  // single-open accordion, collapse every other category at the same time (navigating
+  // to a different section's page should switch which panel is open, not add to it).
   useEffect(() => {
     for (const category of categories) {
       const hasActive = category.items.some((item) => isItemActive(item));
       if (hasActive && !expandedCategories[category.id]) {
-        setExpandedCategories((prev) => {
-          const updated = { ...prev, [category.id]: true };
+        setExpandedCategories(() => {
+          const updated: Record<string, boolean> = {};
+          categories.forEach((c) => {
+            updated[c.id] = c.id === category.id;
+          });
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           } catch {
@@ -410,11 +399,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       })
       .filter((cat) => cat.visibleItems.length > 0);
   }, [categories, searchQuery, isAdmin, isManager, hasPermission]);
-
-  // Total matching items count
-  const totalItemCount = useMemo(() => {
-    return filteredCategories.reduce((acc, cat) => acc + cat.visibleItems.length, 0);
-  }, [filteredCategories]);
 
   return (
     <>
@@ -465,33 +449,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <X className="w-3 h-3" />
               </button>
             )}
-          </div>
-
-          <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
-            <span className="font-mono text-[10px] text-slate-400">
-              {searchQuery ? `${totalItemCount} match${totalItemCount === 1 ? '' : 'es'}` : `${totalItemCount} modules`}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={expandAll}
-                className="text-[10px] text-slate-400 hover:text-slate-200 hover:underline flex items-center gap-0.5 cursor-pointer"
-                title="Expand all categories"
-              >
-                <ChevronsUpDown className="w-2.5 h-2.5" />
-                <span>Expand</span>
-              </button>
-              <span className="text-slate-700">|</span>
-              <button
-                type="button"
-                onClick={collapseAll}
-                className="text-[10px] text-slate-400 hover:text-slate-200 hover:underline flex items-center gap-0.5 cursor-pointer"
-                title="Collapse all categories"
-              >
-                <ChevronsDownUp className="w-2.5 h-2.5" />
-                <span>Collapse</span>
-              </button>
-            </div>
           </div>
         </div>
 
