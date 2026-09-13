@@ -481,8 +481,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => toggleCategory(category.id)}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors cursor-pointer group select-none border ${
                     hasActiveItem
-                      ? 'bg-slate-950/80 border-blue-800/50 text-blue-300'
-                      : 'bg-slate-950/60 border-slate-800/60 text-slate-300 hover:bg-slate-950/80 hover:text-white'
+                      ? 'bg-gradient-to-r from-slate-900 to-indigo-950 border-blue-800/50 text-white'
+                      : 'bg-gradient-to-r from-slate-900 to-indigo-950 border-slate-800/60 text-white hover:from-slate-800 hover:to-indigo-900 hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
