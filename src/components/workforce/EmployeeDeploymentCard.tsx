@@ -214,7 +214,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
         {/* 3. Top-Right Corner: Location Icon (Green when inside geofence, Red when outside) */}
         <div
-          className={`absolute top-2 right-2 p-1 rounded-full shadow-xs border z-10 ${
+          className={`absolute top-2 right-2 p-1 rounded-full border z-10 ${
             isInsideGeofence === true
               ? 'bg-white/95 border-emerald-500/40 text-emerald-600'
               : isInsideGeofence === false
@@ -290,9 +290,6 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
                 alt="Shift End Selfie"
                 className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
               />
-              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
-                End
-              </span>
               <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
                 <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
                   <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
@@ -357,7 +354,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
             {employeeType}
           </span>
           <span className="text-slate-400"> : </span>
-          <span className="font-mono font-bold text-blue-600 group-hover:underline">{employeeId}</span>
+          <span className="font-bold text-blue-600 group-hover:underline">{employeeId}</span>
         </p>
       </div>
 
@@ -367,7 +364,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         <div className="flex items-center justify-between gap-2">
           <span className="text-emerald-700 font-semibold shrink-0">Start Time:</span>
           {startTime ? (
-            <span className="font-mono font-bold text-emerald-700 truncate">{startTime}</span>
+            <span className="font-bold text-emerald-700 truncate">{startTime}</span>
           ) : (
             <span className="text-slate-400 italic truncate">-</span>
           )}
@@ -377,7 +374,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         <div className="flex items-center justify-between gap-2">
           <span className="text-blue-700 font-semibold shrink-0">End Time:</span>
           {endTimeDisplay ? (
-            <span className={`font-mono font-bold truncate ${isOpen ? 'text-blue-600 italic' : 'text-blue-700'}`}>
+            <span className={`font-bold truncate ${isOpen ? 'text-blue-600 italic' : 'text-blue-700'}`}>
               {endTimeDisplay}
             </span>
           ) : (
@@ -388,13 +385,13 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         {/* 3. Shift Duration */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-600 font-medium shrink-0">Shift Duration:</span>
-          <span className="font-mono font-bold text-slate-800 truncate">{shiftDurationStr}</span>
+          <span className="font-bold text-slate-800 truncate">{shiftDurationStr}</span>
         </div>
 
         {/* 4. Total Work Today */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-slate-600 font-medium shrink-0">Total Work Today:</span>
-          <span className="font-mono font-bold text-indigo-700 truncate">{hoursWorkedTodayStr}</span>
+          <span className="font-bold text-indigo-700 truncate">{hoursWorkedTodayStr}</span>
         </div>
 
         {/* 5. Geofence (Inside Site Radius with Green color and outside with red color) */}
