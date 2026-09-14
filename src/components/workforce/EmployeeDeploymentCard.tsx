@@ -262,9 +262,6 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
                 alt="Shift Start Selfie"
                 className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
               />
-              <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-slate-900/75 text-[8px] font-bold text-white z-10">
-                Start
-              </span>
               <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
                 <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
                   <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
