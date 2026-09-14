@@ -135,18 +135,30 @@ export async function fetchWorkforceShiftStatuses(
         endPhoto = `https://jpsiafvbyupofnbqonkq.supabase.co/storage/v1/object/public/attendance-selfies/${cleanEndPath}`;
       }
 
-      // Geofence status
+      // Geofence status. Checked FIRST against the explicit tri-state geofence_status
+      // string (INSIDE / OUTSIDE / UNKNOWN), because the shift-status function always
+      // includes this field once it has resolved an employee -- including the real
+      // "we could not evaluate this" case, UNKNOWN. The previous `else if
+      // (raw.geofence_status)` check treated ANY non-empty string as truthy and then
+      // compared it to 'INSIDE', so raw.geofence_status === 'UNKNOWN' resolved to
+      // isInside = false -- rendering the Employee Card's location pin RED for a
+      // shift whose location was simply never evaluated (no project GPS configured, no
+      // device coordinates sent), identical to a genuine outside-geofence breach. The
+      // trailing `else if (raw.status === 'OPEN' || raw.status === 'CLOSED') isInside =
+      // true` fallback below it was worse still: it assumed "has a shift" means "inside
+      // the geofence" with no location evidence at all. Both are removed; an
+      // unevaluated location now correctly stays null (grey), never guessed as
+      // compliant or non-compliant.
       let isInside: boolean | null = null;
-      if (raw.is_inside_geofence !== undefined && raw.is_inside_geofence !== null) {
+      if (typeof raw.geofence_status === 'string') {
+        const gs = raw.geofence_status.toUpperCase();
+        isInside = gs === 'INSIDE' ? true : gs === 'OUTSIDE' ? false : null;
+      } else if (raw.is_inside_geofence !== undefined && raw.is_inside_geofence !== null) {
         isInside = Boolean(raw.is_inside_geofence);
       } else if (raw.within_geofence !== undefined && raw.within_geofence !== null) {
         isInside = Boolean(raw.within_geofence);
-      } else if (raw.geofence_status) {
-        isInside = String(raw.geofence_status).toUpperCase() === 'INSIDE';
       } else if (raw.is_geofence_exception !== undefined && raw.is_geofence_exception !== null) {
         isInside = !raw.is_geofence_exception;
-      } else if (raw.status === 'OPEN' || raw.status === 'CLOSED') {
-        isInside = true;
       }
 
       statuses[civilId] = {

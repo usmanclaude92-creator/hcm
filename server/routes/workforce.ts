@@ -18,11 +18,25 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
       .getAll()
       .filter((e) => e.isActive && canSeeCompany(scope, e.employeeCompany));
 
+    // Only a GENUINE Civil ID may be sent to Workforce. Substituting the HCMS
+    // employeeId when an employee has no Civil ID on file is what made one employee's
+    // shift appear on another's card: HCMS employee 12345678 has no Civil ID, so its
+    // employeeId was sent as a Civil ID -- and 12345678 really is the Civil ID of a
+    // DIFFERENT person (employee_code EMP-001) in the Workforce database. Workforce
+    // resolved it correctly, to the wrong human, and HCMS then rendered that person's
+    // selfie, GPS and shift times on the 12345678 card.
+    //
+    // An employee with no Civil ID is simply not linked to Workforce yet. It is
+    // reported as such (see `unlinkedEmployeeIds` below) rather than guessed at.
     const employeeIdByCivilId = new Map<string, string>();
+    const unlinkedEmployeeIds: string[] = [];
     for (const e of activeEmployees) {
-      // Fall back to employeeId (55667788) if no secondary civilId entry exists
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber || e.employeeId;
-      if (civilId) employeeIdByCivilId.set(civilId, normalizeEmployeeId(e.employeeId));
+      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber?.trim();
+      if (civilId) {
+        employeeIdByCivilId.set(civilId, normalizeEmployeeId(e.employeeId));
+      } else {
+        unlinkedEmployeeIds.push(normalizeEmployeeId(e.employeeId));
+      }
     }
 
     const result = await fetchWorkforceShiftStatuses(Array.from(employeeIdByCivilId.keys()));
@@ -76,6 +90,9 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
       available: result.available,
       reason: result.reason,
       statuses,
+      // Active employees with no Civil ID on file. They cannot be matched to a
+      // Workforce registration at all, so their cards legitimately show no shift.
+      unlinkedEmployeeIds,
     });
   } catch (err: any) {
     res.json({ configured: false, available: false, reason: err.message || 'Failed to fetch Workforce shift status.', statuses: {} });
@@ -89,10 +106,16 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
     const activeEmployees = db.employees.getAll().filter((e) => e.isActive);
 
     const records: WorkforceEligibilityRecord[] = [];
+    const skippedNoCivilId: string[] = [];
     for (const e of activeEmployees) {
-      // Fall back to employeeId (55667788) if no secondary civilId entry exists
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber || e.employeeId;
-      if (!civilId) continue;
+      // Genuine Civil ID only -- never the employeeId as a stand-in. Pushing an
+      // employeeId into Workforce's civil_id_lookup would let an unrelated employee
+      // register against this record (see the shift-status handler above).
+      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber?.trim();
+      if (!civilId) {
+        skippedNoCivilId.push(normalizeEmployeeId(e.employeeId));
+        continue;
+      }
 
       const personal = db.personalDetails.get(e.employeeId);
       const projectCode = e.assignedProjectCode || personal?.assignedProject || null;
@@ -128,11 +151,11 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
       action: 'WORKFORCE_ELIGIBILITY_SYNC',
       module: 'Workforce Integration',
       recordId: 'sync-eligibility',
-      description: `Synced ${records.length} employee(s) with the Artify Workforce app.`,
+      description: `Synced ${records.length} employee(s) with the Artify Workforce app.${skippedNoCivilId.length ? ` Skipped ${skippedNoCivilId.length} without a Civil ID: ${skippedNoCivilId.join(', ')}.` : ''}`,
       ipAddress: req.ip,
     });
 
-    res.json({ synced: records.length, summary: result.summary });
+    res.json({ synced: records.length, summary: result.summary, skippedNoCivilId });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to sync with Workforce.' });
   }
