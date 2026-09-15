@@ -16,9 +16,13 @@ The application still stores everything in a single JSONB document
 | Applied to a staging Supabase project | Done — `hcm-staging`, PostgreSQL 17.6 |
 | Integrity test suite | Done — 43/43 assertions pass on staging |
 | 001 applied to production | Done — 43 tables, 60/61 FKs, 84 checks, 105 indexes |
-| 001e + 002 + 003 applied to production | **Not yet** — see below |
+| 001e + 002 + 003 applied to production | Done (verified via `supabase migrations list` 2026-09-12 — this doc previously understated progress here) |
+| 004 (link Workforce Civil ID) applied to production | Done |
 | Data backfilled from `app_state` | Not yet |
 | Application reads/writes switched over | Not yet |
+| 005–006 (revoke dangerous anon RPC grants, function search_path hardening) | Applied 2026-09-12 — verified via `information_schema.role_routine_grants` (005) and security advisor (006, `function_search_path_mutable` no longer flagged) |
+| 007 (view security_invoker) | Applied 2026-09-12 |
+| 008 (geofence + PIN-lockout columns) | Applied 2026-09-12 |
 
 ### What is live in production right now
 

@@ -41,6 +41,21 @@ export interface LeaveType {
   updatedAt: string;
 }
 
+// A fixed public/national holiday for a given calendar year. Recorded so payroll and
+// attendance can treat the date as non-working without an employee having to file leave.
+export interface PublicHoliday {
+  id: string;
+  name: string;
+  // ISO date (YYYY-MM-DD) the holiday falls on.
+  date: string;
+  year: number;
+  // True for a holiday that lands on the same calendar date every year (e.g. National Day).
+  isRecurringAnnually?: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LeaveRequest {
   id: string;
   employeeId: string;
@@ -463,6 +478,11 @@ export interface Project {
   // Undefined/empty = unrestricted (every existing project keeps its current unrestricted
   // behavior). When populated, only employees from a listed company may be allocated here.
   allowedCompanies?: EmployeeCompany[];
+  // Geofence coordinate settings
+  latitude?: number | null;
+  longitude?: number | null;
+  radiusMeters?: number | null;
+  geofenceName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -563,9 +583,19 @@ export interface AttendancePunch {
   // Geofence evaluation (non-blocking exception logging)
   isGeofenceException?: boolean;
   exceptionReason?: string | null;
+  // True when this punch was auto-generated to match a manually-entered monthly summary
+  // (days/hours worked) that has no real daily punch-level data behind it -- i.e. it was
+  // never a real GPS/selfie-verified check-in/out. Lets the UI label it honestly instead
+  // of presenting it as indistinguishable from a real captured punch.
+  isSynthesized?: boolean;
   status: 'Checked In' | 'Checked Out' | 'Exception';
   notes?: string | null;
   idempotencyKey?: string | null;
+  // Selfie captures (from a real mobile clock-in/out, or a legacy check-in/out photo)
+  selfieUrl?: string | null;
+  startSelfieUrl?: string | null;
+  endSelfieUrl?: string | null;
+  supervisorApproved?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -1014,3 +1044,110 @@ export interface NotificationSummary {
   birthdayCount: number;
   urgentCount: number;
 }
+
+// ==========================================
+// CENTRAL MASTER DATA ARCHITECTURE TYPES
+// ==========================================
+
+export interface CompanyMaster {
+  id: string;
+  companyCode: string;
+  companyName: string;
+  legalName?: string;
+  crNumber?: string;
+  country: string;
+  currency: string;
+  taxId?: string;
+  address?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayByEntityMaster {
+  id: string;
+  entityCode: string;
+  entityName: string;
+  entityType: 'Company' | 'Project' | 'Client' | 'Third Party' | 'Other';
+  linkedCompanyId?: string;
+  linkedProjectId?: string;
+  isActive: boolean;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TradeMaster {
+  id: string;
+  tradeCode: string;
+  tradeName: string;
+  category: 'Civil' | 'Electrical' | 'Mechanical' | 'Logistics' | 'General';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShiftMaster {
+  id: string;
+  shiftCode: string;
+  shiftName: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  workHours: number;
+  isNightShift: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectGeofenceLocation {
+  id: string;
+  projectId: string;
+  locationCode: string;
+  locationName: string;
+  locationType: 'Main Gate' | 'Work Zone' | 'Office' | 'Camp' | 'Checkpoint';
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  isPrimary: boolean;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeProjectAssignment {
+  id: string;
+  employeeId: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  roleOnProject?: string;
+  startDate: string;
+  endDate?: string;
+  isPrimary: boolean;
+  allocationPercentage: number;
+  assignmentStatus: 'Active' | 'Completed' | 'Transferred' | 'Planned';
+  assignedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayGrade {
+  id: string;
+  gradeCode: string;
+  gradeName: string;
+  minimumSalary: number;
+  maximumSalary: number;
+  currency: string;
+  standardAllowance?: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+

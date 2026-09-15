@@ -47,7 +47,7 @@ npm run build    # vite build + esbuild server bundle
 | `SUPABASE_DOCUMENTS_BUCKET` | Optional | Defaults to `employee-documents`. |
 | `SUPABASE_RECEIPTS_BUCKET` | Optional | Defaults to `salary-payment-receipts`. |
 | `GEMINI_API_KEY` | Optional | Enables the compliance assistant. Without it, a deterministic rule-based responder is used instead. |
-| `WORKFORCE_FUNCTIONS_URL` / `WORKFORCE_INTEGRATION_SECRET` | Optional | Links to the Artify Workforce app by Civil ID (see "Workforce app integration" below): populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard, and lets Administrators sync eligible employees over so they can register there. Without these, cards show "Not Tracked" as before and the sync endpoint is disabled. |
+| `WORKFORCE_FUNCTIONS_URL` / `WORKFORCE_INTEGRATION_SECRET` / `SUPABASE_ANON_KEY` | Optional, but all three are required together | Links to the Artify Workforce app by Civil ID (see "Workforce app integration" below): populates "Shift Start"/"Shift End" on the Workforce Deployment dashboard, and lets Administrators sync eligible employees over so they can register there. Without all three set, cards show "Not Tracked" and the sync endpoint returns 400 -- there is no fallback URL/key/secret baked in. |
 | `DB_CONNECT_TIMEOUT_MS` | Optional | Database connect timeout, default 10000. |
 | `ALLOW_DEMO_SEED` | Optional | Set to `false` to suppress the demonstration dataset outside production. |
 

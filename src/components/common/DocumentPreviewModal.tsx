@@ -241,11 +241,11 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   // Category Icon helper
   const getDocIcon = () => {
     const cat = (category || documentType || '').toLowerCase();
-    if (cat.includes('civil') || cat.includes('national')) return <CreditCard className="w-5 h-5 text-blue-600" />;
-    if (cat.includes('visa') || cat.includes('passport') || cat.includes('immigration')) return <Globe className="w-5 h-5 text-emerald-600" />;
-    if (cat.includes('driving') || cat.includes('license') || cat.includes('licence')) return <Car className="w-5 h-5 text-amber-600" />;
-    if (cat.includes('contract') || cat.includes('agreement')) return <FileBadge className="w-5 h-5 text-purple-600" />;
-    return <FileText className="w-5 h-5 text-indigo-600" />;
+    if (cat.includes('civil') || cat.includes('national')) return <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
+    if (cat.includes('visa') || cat.includes('passport') || cat.includes('immigration')) return <Globe className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />;
+    if (cat.includes('driving') || cat.includes('license') || cat.includes('licence')) return <Car className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
+    if (cat.includes('contract') || cat.includes('agreement')) return <FileBadge className="w-5 h-5 text-purple-600 dark:text-purple-400" />;
+    return <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />;
   };
 
   // Expiry Status Badge helper
@@ -255,7 +255,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
     if (normalized.includes('valid')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
           <ShieldCheck className="w-3.5 h-3.5" />
           Valid
         </span>
@@ -263,7 +263,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     }
     if (normalized.includes('expiring') || normalized.includes('soon')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 shadow-2xs">
           <AlertTriangle className="w-3.5 h-3.5" />
           Expiring Soon
         </span>
@@ -271,7 +271,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     }
     if (normalized.includes('urgent')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-800 border border-orange-300 shadow-2xs">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border border-orange-300 dark:border-orange-700 shadow-2xs">
           <AlertTriangle className="w-3.5 h-3.5" />
           Urgent Expiry
         </span>
@@ -279,7 +279,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     }
     if (normalized.includes('expired')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-300 shadow-2xs">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 shadow-2xs">
           <AlertTriangle className="w-3.5 h-3.5" />
           Expired
         </span>
@@ -287,14 +287,14 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     }
     if (normalized.includes('permanent') || normalized.includes('lifetime')) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 shadow-2xs">
           <Sparkles className="w-3.5 h-3.5" />
           Permanent
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
         {status}
       </span>
     );
@@ -314,14 +314,14 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       }`}
     >
       <div
-        className={`bg-white shadow-2xl flex flex-col border border-slate-200 overflow-hidden transition-all duration-200 ${
+        className={`bg-white dark:bg-slate-900 shadow-2xl flex flex-col border border-slate-200 dark:border-slate-700 overflow-hidden transition-all duration-200 ${
           isFullscreen
             ? 'w-screen h-screen rounded-none border-none'
             : 'w-full max-w-6xl h-[94vh] max-h-[920px] rounded-2xl'
         }`}
       >
         {/* ================= MODAL TOP HEADER ================= */}
-        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-900 text-white shrink-0">
           {/* Left: Document Info & Badges */}
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
@@ -335,10 +335,10 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 {getStatusBadge()}
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-400 mt-0.5 flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex-wrap">
                 {employeeName && (
                   <span className="flex items-center gap-1 font-medium text-slate-300">
-                    <User className="w-3 h-3 text-slate-400" />
+                    <User className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                     {employeeName} {employeeId ? `(${employeeId})` : ''}
                   </span>
                 )}
@@ -348,8 +348,8 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                   </span>
                 )}
                 {expiryDate && (
-                  <span className="flex items-center gap-1 text-slate-400">
-                    <Calendar className="w-3 h-3 text-slate-500" />
+                  <span className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
+                    <Calendar className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                     Exp: {formatDate(expiryDate)}
                   </span>
                 )}
@@ -449,7 +449,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-rose-600 transition-colors cursor-pointer ml-1"
+              className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-white rounded-lg hover:bg-rose-600 transition-colors cursor-pointer ml-1"
               title="Close Quick-View (Esc)"
             >
               <X className="w-5 h-5" />
@@ -459,26 +459,26 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
         {/* ================= SECONDARY VIEWER TOOLBAR (For Images/PDFs) ================= */}
         {isImage && (
-          <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between gap-2 overflow-x-auto text-xs text-slate-700 shrink-0">
+          <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 overflow-x-auto text-xs text-slate-700 dark:text-slate-300 shrink-0">
             {/* Zoom Controls */}
-            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-1.5 py-1 shadow-2xs">
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-1.5 py-1 shadow-2xs">
               <button
                 type="button"
                 onClick={handleZoomOut}
                 disabled={zoom <= 40}
-                className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors disabled:opacity-40"
+                className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-40"
                 title="Zoom Out (-)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
-              <span className="font-mono font-semibold text-slate-700 px-1.5 min-w-[45px] text-center select-none text-[11px]">
+              <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 px-1.5 min-w-[45px] text-center select-none text-[11px]">
                 {zoom}%
               </span>
               <button
                 type="button"
                 onClick={handleZoomIn}
                 disabled={zoom >= 350}
-                className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors disabled:opacity-40"
+                className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-40"
                 title="Zoom In (+)"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
@@ -486,11 +486,11 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
             </div>
 
             {/* Rotation Controls */}
-            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-1.5 py-1 shadow-2xs">
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-1.5 py-1 shadow-2xs">
               <button
                 type="button"
                 onClick={handleRotateCcw}
-                className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+                className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                 title="Rotate Counter-Clockwise"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -498,12 +498,12 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <button
                 type="button"
                 onClick={handleRotateCw}
-                className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+                className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                 title="Rotate Clockwise (R)"
               >
                 <RotateCw className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[10px] text-slate-500 font-mono pl-1 select-none">{rotation}°</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono pl-1 select-none">{rotation}°</span>
             </div>
 
             {/* Scan Enhancement Filter Toggle */}
@@ -512,12 +512,12 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               onClick={() => setIsScanEnhanced(!isScanEnhanced)}
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors shadow-2xs cursor-pointer ${
                 isScanEnhanced
-                  ? 'bg-amber-100 text-amber-900 border-amber-300 font-semibold'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-semibold'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
               title="Enhance scan contrast and sharpness for faint text"
             >
-              <SunMedium className="w-3.5 h-3.5 text-amber-600" />
+              <SunMedium className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>{isScanEnhanced ? 'High Contrast: ON' : 'Enhance Scan'}</span>
             </button>
 
@@ -526,14 +526,14 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <button
                 type="button"
                 onClick={handleResetTransforms}
-                className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 shadow-2xs cursor-pointer transition-colors"
+                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 px-2 py-1 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800/60 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/40 shadow-2xs cursor-pointer transition-colors"
               >
                 Reset View (0)
               </button>
             )}
 
             {/* Hint */}
-            <span className="hidden xl:inline text-[10px] text-slate-500 italic ml-auto">
+            <span className="hidden xl:inline text-[10px] text-slate-500 dark:text-slate-400 italic ml-auto">
               Shortcuts: + / - Zoom • R Rotate • Esc Close • ← / → Next Doc
             </span>
           </div>
@@ -554,7 +554,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           >
             {/* 1. PDF VIEWER */}
             {isPdf && activeUrl ? (
-              <div className="w-full h-full flex flex-col bg-white rounded-xl shadow-lg border border-slate-300 overflow-hidden">
+              <div className="w-full h-full flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-300 dark:border-slate-600 overflow-hidden">
                 <iframe
                   src={`${activeUrl}#toolbar=1&navpanes=0&scrollbar=1`}
                   title={cleanName}
@@ -573,13 +573,13 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                     transition: isDragging ? 'none' : 'transform 0.15s ease-out',
                     filter: isScanEnhanced ? 'contrast(1.6) brightness(0.95) saturate(0.6)' : 'none',
                   }}
-                  className="max-h-[82vh] max-w-full object-contain rounded-lg shadow-2xl bg-white border border-slate-700 pointer-events-auto select-none"
+                  className="max-h-[82vh] max-w-full object-contain rounded-lg shadow-2xl bg-white dark:bg-slate-900 border border-slate-700 pointer-events-auto select-none"
                   draggable={false}
                 />
               </div>
             ) : (
               /* 3. DIGITAL STATUTORY DOSSIER / CERTIFICATE GENERATOR (When no raw binary is attached or metadata-only record) */
-              <div className="max-w-2xl w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-fadeIn">
+              <div className="max-w-2xl w-full bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fadeIn">
                 {/* Official Top Seal Header */}
                 <div className="bg-linear-to-r from-slate-900 via-blue-950 to-slate-900 text-white p-6 relative overflow-hidden">
                   <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-6 pointer-events-none">
@@ -611,9 +611,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 {/* Body Details & Certificate Matrix */}
                 <div className="p-6 space-y-6">
                   {/* Reference & Employee Banner */}
-                  <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="bg-blue-50/60 border border-blue-100 dark:border-blue-800/60 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
-                      <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                      <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                         Document Reference Number
                       </div>
                       <div className="text-base font-mono font-bold text-blue-950 flex items-center gap-2 mt-0.5">
@@ -622,10 +622,10 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleCopy(documentNumber, 'docNo')}
-                            className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-100 rounded transition-colors cursor-pointer"
+                            className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded transition-colors cursor-pointer"
                             title="Copy Reference Number"
                           >
-                            {copiedField === 'docNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedField === 'docNo' ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         )}
                       </div>
@@ -633,10 +633,10 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
                     {employeeId && (
                       <div className="sm:text-right border-t sm:border-t-0 sm:border-l border-blue-200/60 pt-2 sm:pt-0 sm:pl-4">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Employee Identifier
                         </div>
-                        <div className="text-sm font-mono font-bold text-slate-800 mt-0.5">
+                        <div className="text-sm font-mono font-bold text-slate-800 dark:text-slate-200 mt-0.5">
                           {employeeId}
                         </div>
                       </div>
@@ -645,50 +645,50 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
                   {/* Two-Column Credential Attributes */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                      <h4 className="font-bold text-slate-900 text-xs border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-blue-600" />
+                    <div className="space-y-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/80">
+                      <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs border-b border-slate-200 dark:border-slate-700 pb-1.5 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         <span>Holder Identity</span>
                       </h4>
                       <dl className="space-y-1.5">
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Employee Name:</dt>
-                          <dd className="font-semibold text-slate-900">{employeeName || '—'}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Employee Name:</dt>
+                          <dd className="font-semibold text-slate-900 dark:text-slate-100">{employeeName || '—'}</dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Corporate Entity:</dt>
-                          <dd className="font-medium text-slate-800">{employeeCompany || 'All Companies'}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Corporate Entity:</dt>
+                          <dd className="font-medium text-slate-800 dark:text-slate-200">{employeeCompany || 'All Companies'}</dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Designation:</dt>
-                          <dd className="font-medium text-slate-800">{designation || 'Staff'}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Designation:</dt>
+                          <dd className="font-medium text-slate-800 dark:text-slate-200">{designation || 'Staff'}</dd>
                         </div>
                         {department && (
                           <div className="flex justify-between">
-                            <dt className="text-slate-500">Department:</dt>
-                            <dd className="font-medium text-slate-800">{department}</dd>
+                            <dt className="text-slate-500 dark:text-slate-400">Department:</dt>
+                            <dd className="font-medium text-slate-800 dark:text-slate-200">{department}</dd>
                           </div>
                         )}
                       </dl>
                     </div>
 
-                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                      <h4 className="font-bold text-slate-900 text-xs border-b border-slate-200 pb-1.5 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                    <div className="space-y-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/80">
+                      <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs border-b border-slate-200 dark:border-slate-700 pb-1.5 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         <span>Validity &amp; Expiry</span>
                       </h4>
                       <dl className="space-y-1.5">
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Issue Date:</dt>
-                          <dd className="font-medium text-slate-800">{issueDate ? formatDate(issueDate) : '—'}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Issue Date:</dt>
+                          <dd className="font-medium text-slate-800 dark:text-slate-200">{issueDate ? formatDate(issueDate) : '—'}</dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Expiry Date:</dt>
-                          <dd className="font-bold text-slate-900">{expiryDate ? formatDate(expiryDate) : 'Permanent / Lifetime'}</dd>
+                          <dt className="text-slate-500 dark:text-slate-400">Expiry Date:</dt>
+                          <dd className="font-bold text-slate-900 dark:text-slate-100">{expiryDate ? formatDate(expiryDate) : 'Permanent / Lifetime'}</dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Days Remaining:</dt>
-                          <dd className="font-semibold text-slate-800">
+                          <dt className="text-slate-500 dark:text-slate-400">Days Remaining:</dt>
+                          <dd className="font-semibold text-slate-800 dark:text-slate-200">
                             {daysRemaining !== undefined && daysRemaining !== null
                               ? daysRemaining > 0
                                 ? `${daysRemaining} days left`
@@ -699,7 +699,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                           </dd>
                         </div>
                         <div className="flex justify-between">
-                          <dt className="text-slate-500">Compliance Status:</dt>
+                          <dt className="text-slate-500 dark:text-slate-400">Compliance Status:</dt>
                           <dd className="font-semibold">{getStatusBadge()}</dd>
                         </div>
                       </dl>
@@ -708,24 +708,24 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
                   {/* Remarks Box if any */}
                   {remarks && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                      <span className="font-bold text-slate-700 block mb-0.5">Notes &amp; Remarks:</span>
-                      <p className="text-slate-600 italic">"{remarks}"</p>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block mb-0.5">Notes &amp; Remarks:</span>
+                      <p className="text-slate-600 dark:text-slate-400 italic">"{remarks}"</p>
                     </div>
                   )}
 
                   {/* Security Verification Bar */}
-                  <div className="pt-2 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <span>Verified Digital Record • Centralized Employee Repository</span>
                     </div>
                     <button
                       type="button"
                       onClick={handlePrint}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                     >
-                      <Printer className="w-3.5 h-3.5 text-slate-500" />
+                      <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                       Print Dossier
                     </button>
                   </div>
@@ -736,16 +736,16 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
           {/* ================= COLLAPSIBLE METADATA SIDEBAR ================= */}
           {isDetailsOpen && (
-            <div className="w-80 lg:w-96 bg-white border-l border-slate-200 flex flex-col h-full shrink-0 shadow-lg z-20 animate-fadeIn overflow-y-auto">
-              <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <Info className="w-4 h-4 text-blue-600" />
+            <div className="w-80 lg:w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex flex-col h-full shrink-0 shadow-lg z-20 animate-fadeIn overflow-y-auto">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span>Document Specifications</span>
                 </h4>
                 <button
                   type="button"
                   onClick={() => setIsDetailsOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-200 transition-colors"
+                  className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                   title="Hide sidebar"
                 >
                   <X className="w-4 h-4" />
@@ -754,30 +754,30 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
               <div className="p-4 space-y-5 text-xs">
                 {/* Holder Identity Card */}
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 space-y-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
                       {employeeName ? employeeName.charAt(0).toUpperCase() : 'E'}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-bold text-slate-900 text-xs truncate">{employeeName || 'General Record'}</div>
-                      <div className="text-[11px] font-mono text-slate-500">{employeeId || 'ID: —'}</div>
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate">{employeeName || 'General Record'}</div>
+                      <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">{employeeId || 'ID: —'}</div>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200 space-y-1 text-[11px]">
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-1 text-[11px]">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Company:</span>
-                      <span className="font-medium text-slate-800">{employeeCompany || '—'}</span>
+                      <span className="text-slate-500 dark:text-slate-400">Company:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{employeeCompany || '—'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Designation:</span>
-                      <span className="font-medium text-slate-800">{designation || 'Staff'}</span>
+                      <span className="text-slate-500 dark:text-slate-400">Designation:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{designation || 'Staff'}</span>
                     </div>
                     {department && (
                       <div className="flex justify-between">
-                        <span className="text-slate-500">Department:</span>
-                        <span className="font-medium text-slate-800">{department}</span>
+                        <span className="text-slate-500 dark:text-slate-400">Department:</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{department}</span>
                       </div>
                     )}
                   </div>
@@ -785,29 +785,29 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
                 {/* Document Information */}
                 <div className="space-y-2.5">
-                  <h5 className="font-bold text-slate-900 text-xs border-b border-slate-200 pb-1 flex items-center justify-between">
+                  <h5 className="font-bold text-slate-900 dark:text-slate-100 text-xs border-b border-slate-200 dark:border-slate-700 pb-1 flex items-center justify-between">
                     <span>Document Details</span>
-                    <span className="text-[10px] text-slate-400 font-normal">{category || 'General'}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">{category || 'General'}</span>
                   </h5>
 
                   <dl className="space-y-2">
                     <div>
-                      <dt className="text-slate-500 text-[11px]">Document Type</dt>
-                      <dd className="font-semibold text-slate-900 mt-0.5">{documentType || title}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400 text-[11px]">Document Type</dt>
+                      <dd className="font-semibold text-slate-900 dark:text-slate-100 mt-0.5">{documentType || title}</dd>
                     </div>
 
                     {documentNumber && (
                       <div>
-                        <dt className="text-slate-500 text-[11px]">Document / Reference #</dt>
-                        <dd className="font-mono font-bold text-blue-900 mt-0.5 flex items-center justify-between bg-blue-50/70 p-1.5 rounded-md border border-blue-100">
+                        <dt className="text-slate-500 dark:text-slate-400 text-[11px]">Document / Reference #</dt>
+                        <dd className="font-mono font-bold text-blue-900 dark:text-blue-300 mt-0.5 flex items-center justify-between bg-blue-50/70 p-1.5 rounded-md border border-blue-100 dark:border-blue-800/60">
                           <span>{documentNumber}</span>
                           <button
                             type="button"
                             onClick={() => handleCopy(documentNumber, 'sideDocNo')}
-                            className="text-blue-600 hover:text-blue-800 p-0.5 rounded cursor-pointer"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 p-0.5 rounded cursor-pointer"
                             title="Copy number"
                           >
-                            {copiedField === 'sideDocNo' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedField === 'sideDocNo' ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         </dd>
                       </div>
@@ -815,21 +815,21 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div>
-                        <dt className="text-slate-500 text-[11px]">Issue Date</dt>
-                        <dd className="font-medium text-slate-800 mt-0.5">{issueDate ? formatDate(issueDate) : '—'}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400 text-[11px]">Issue Date</dt>
+                        <dd className="font-medium text-slate-800 dark:text-slate-200 mt-0.5">{issueDate ? formatDate(issueDate) : '—'}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500 text-[11px]">Expiry Date</dt>
-                        <dd className="font-bold text-slate-900 mt-0.5">{expiryDate ? formatDate(expiryDate) : 'Permanent'}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400 text-[11px]">Expiry Date</dt>
+                        <dd className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{expiryDate ? formatDate(expiryDate) : 'Permanent'}</dd>
                       </div>
                     </div>
 
                     <div>
-                      <dt className="text-slate-500 text-[11px]">Expiry Compliance Status</dt>
+                      <dt className="text-slate-500 dark:text-slate-400 text-[11px]">Expiry Compliance Status</dt>
                       <dd className="mt-1 flex items-center justify-between">
                         {getStatusBadge()}
                         {daysRemaining !== undefined && daysRemaining !== null && (
-                          <span className="text-[11px] font-semibold text-slate-600">
+                          <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                             {daysRemaining > 0 ? `${daysRemaining} days` : `${Math.abs(daysRemaining)}d ago`}
                           </span>
                         )}
@@ -839,37 +839,37 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 </div>
 
                 {/* Storage & File Details */}
-                <div className="space-y-2.5 pt-2 border-t border-slate-200">
-                  <h5 className="font-bold text-slate-900 text-xs">Storage &amp; File Metadata</h5>
+                <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <h5 className="font-bold text-slate-900 dark:text-slate-100 text-xs">Storage &amp; File Metadata</h5>
                   <dl className="space-y-1.5 text-[11px]">
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">File Name:</dt>
-                      <dd className="font-mono text-slate-800 truncate max-w-[170px]" title={cleanName}>
+                      <dt className="text-slate-500 dark:text-slate-400">File Name:</dt>
+                      <dd className="font-mono text-slate-800 dark:text-slate-200 truncate max-w-[170px]" title={cleanName}>
                         {cleanName}
                       </dd>
                     </div>
                     {fileSize && (
                       <div className="flex justify-between">
-                        <dt className="text-slate-500">File Size:</dt>
-                        <dd className="font-medium text-slate-800">{formatBytes(fileSize)}</dd>
+                        <dt className="text-slate-500 dark:text-slate-400">File Size:</dt>
+                        <dd className="font-medium text-slate-800 dark:text-slate-200">{formatBytes(fileSize)}</dd>
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Uploaded On:</dt>
-                      <dd className="text-slate-700">{uploadedAt ? formatDate(uploadedAt) : '—'}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400">Uploaded On:</dt>
+                      <dd className="text-slate-700 dark:text-slate-300">{uploadedAt ? formatDate(uploadedAt) : '—'}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-slate-500">Uploaded By:</dt>
-                      <dd className="text-slate-700">{uploadedBy || 'Admin'}</dd>
+                      <dt className="text-slate-500 dark:text-slate-400">Uploaded By:</dt>
+                      <dd className="text-slate-700 dark:text-slate-300">{uploadedBy || 'Admin'}</dd>
                     </div>
                   </dl>
                 </div>
 
                 {/* Remarks & Notes */}
                 {remarks && (
-                  <div className="pt-2 border-t border-slate-200">
-                    <span className="font-bold text-slate-900 text-xs block mb-1">Remarks:</span>
-                    <p className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200 italic">
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <span className="font-bold text-slate-900 dark:text-slate-100 text-xs block mb-1">Remarks:</span>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 italic">
                       "{remarks}"
                     </p>
                   </div>
@@ -877,7 +877,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               </div>
 
               {/* Sidebar Footer Actions */}
-              <div className="p-4 border-t border-slate-200 bg-slate-50 mt-auto space-y-2">
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 mt-auto space-y-2">
                 <button
                   type="button"
                   onClick={handleDownload}
@@ -889,9 +889,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
                 >
-                  <Printer className="w-3.5 h-3.5 text-slate-500" />
+                  <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   Print Document
                 </button>
               </div>
@@ -900,7 +900,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
         </div>
 
         {/* ================= MODAL FOOTER ================= */}
-        <div className="px-4 sm:px-6 py-2.5 border-t border-slate-200 bg-white flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div className="px-4 sm:px-6 py-2.5 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
             <span className="hidden sm:inline">Encrypted Object Storage • Verified Document Scanner</span>
@@ -909,14 +909,14 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
 
           <div className="flex items-center gap-3">
             {hasNavigation && (
-              <span className="text-[11px] text-slate-600 font-medium">
+              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                 Doc <strong>{currentIndex! + 1}</strong> of <strong>{documentsList!.length}</strong>
               </span>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              className="px-3.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer"
             >
               Close
             </button>

@@ -164,8 +164,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
         );
       }
       return (
-        <div className="w-8 h-8 rounded-lg bg-pink-100 text-pink-700 border border-pink-200 flex items-center justify-center shrink-0">
-          <Cake className="w-4 h-4 text-pink-600" />
+        <div className="w-8 h-8 rounded-lg bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800/60 flex items-center justify-center shrink-0">
+          <Cake className="w-4 h-4 text-pink-600 dark:text-pink-400" />
         </div>
       );
     }
@@ -173,13 +173,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
     if (item.category === 'visa') {
       if (item.type === 'visa_expired' || item.severity === 'urgent') {
         return (
-          <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
             <AlertOctagon className="w-4 h-4" />
           </div>
         );
       }
       return (
-        <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
           <Clock className="w-4 h-4" />
         </div>
       );
@@ -188,13 +188,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
     if (item.category === 'payroll') {
       if (item.type === 'payroll_revision') {
         return (
-          <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-4 h-4" />
           </div>
         );
       }
       return (
-        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
           <DollarSign className="w-4 h-4" />
         </div>
       );
@@ -202,7 +202,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
 
     // Attendance
     return (
-      <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+      <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
         <CalendarCheck className="w-4 h-4" />
       </div>
     );
@@ -219,15 +219,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
         );
       }
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">
-          <Clock className="w-3 h-3 text-purple-600" />
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
+          <Clock className="w-3 h-3 text-purple-600 dark:text-purple-400" />
           {item.status || 'This Week'}
         </span>
       );
     }
     if (item.type === 'visa_expired') {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-200">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
           Expired
         </span>
       );
@@ -236,8 +236,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
       return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
           item.severity === 'urgent'
-            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-            : 'bg-amber-50 text-amber-800 border border-amber-200'
+            ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+            : 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
         }`}>
           {item.daysRemaining !== undefined ? `${item.daysRemaining}d left` : 'Expiring Soon'}
         </span>
@@ -245,21 +245,21 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
     }
     if (item.type === 'payroll_draft') {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
           Draft (Pending Approval)
         </span>
       );
     }
     if (item.type === 'payroll_revision') {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
           In Revision
         </span>
       );
     }
     if (item.type === 'attendance_approval') {
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
           Submitted
         </span>
       );
@@ -281,10 +281,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
         }}
         className={`relative p-2 rounded-xl transition-all duration-150 border cursor-pointer ${
           isOpen
-            ? 'bg-slate-100 border-slate-300 text-slate-900 shadow-inner'
+            ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 shadow-inner'
             : hasBirthdayToday
-            ? 'bg-white hover:bg-pink-50/50 border-pink-300 text-slate-700 hover:text-pink-700 ring-2 ring-pink-300/50'
-            : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300'
+            ? 'bg-white dark:bg-slate-900 hover:bg-pink-50/50 border-pink-300 dark:border-pink-700 text-slate-700 dark:text-slate-300 hover:text-pink-700 ring-2 ring-pink-300/50'
+            : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:border-slate-300'
         }`}
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}${birthdayCount > 0 ? `, ${birthdayCount} birthdays this week` : ''}`}
         title={`Notifications: ${unreadCount} unread, ${birthdayCount} employee birthday${birthdayCount !== 1 ? 's' : ''} this week`}
@@ -325,7 +325,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
       {isOpen && (
         <div
           id="notification-panel"
-          className="absolute right-0 mt-2.5 w-84 sm:w-96 md:w-[440px] rounded-2xl bg-white border border-slate-200 shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-150"
+          className="absolute right-0 mt-2.5 w-84 sm:w-96 md:w-[440px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-150"
           style={{ maxHeight: 'calc(100vh - 100px)' }}
         >
           {/* Header */}
@@ -336,7 +336,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
               </div>
               <div>
                 <h3 className="text-sm font-semibold leading-none">Notifications &amp; Alerts</h3>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
                   Expiring visas, payroll approvals &amp; birthdays this week
                 </p>
               </div>
@@ -348,7 +348,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                   e.stopPropagation();
                   fetchNotifications();
                 }}
-                className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ${
+                className={`p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer ${
                   loading ? 'animate-spin text-amber-400' : ''
                 }`}
                 title="Refresh alerts"
@@ -372,11 +372,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
           </div>
 
           {/* Quick Metrics Strip */}
-          <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-slate-900">{notifications.length} Total</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{notifications.length} Total</span>
               {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                   {unreadCount} Unread
                 </span>
               )}
@@ -390,22 +390,22 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
                     activeFilter === 'birthday'
                       ? 'bg-pink-600 text-white shadow-xs'
-                      : 'bg-pink-100 text-pink-800 hover:bg-pink-200 border border-pink-200'
+                      : 'bg-pink-100 dark:bg-pink-900/40 text-pink-800 dark:text-pink-300 hover:bg-pink-200 border border-pink-200 dark:border-pink-800/60'
                   }`}
                   title="View birthdays this week"
                 >
-                  <Cake className="w-3 h-3 text-pink-600" />
+                  <Cake className="w-3 h-3 text-pink-600 dark:text-pink-400" />
                   <span>{birthdayCount} Birthday{birthdayCount > 1 ? 's' : ''}</span>
                 </button>
               )}
             </div>
 
-            <label className="flex items-center gap-1.5 cursor-pointer select-none text-slate-600 text-[11px] shrink-0">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none text-slate-600 dark:text-slate-400 text-[11px] shrink-0">
               <input
                 type="checkbox"
                 checked={unreadOnly}
                 onChange={(e) => setUnreadOnly(e.target.checked)}
-                className="rounded text-indigo-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                className="rounded text-indigo-600 dark:text-indigo-400 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
               />
               <span>Unread only</span>
             </label>
@@ -419,8 +419,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
               className="bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 border-b border-pink-200/80 px-4 py-2.5 flex items-center justify-between gap-2.5 cursor-pointer hover:bg-pink-100/60 transition-colors"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-600 border border-pink-200 flex items-center justify-center shrink-0 shadow-2xs">
-                  <Cake className="w-4 h-4 text-pink-600 animate-bounce" />
+                <div className="w-8 h-8 rounded-xl bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400 border border-pink-200 dark:border-pink-800/60 flex items-center justify-center shrink-0 shadow-2xs">
+                  <Cake className="w-4 h-4 text-pink-600 dark:text-pink-400 animate-bounce" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-pink-950 flex items-center gap-1.5 truncate">
@@ -444,7 +444,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                   e.stopPropagation();
                   setActiveFilter('birthday');
                 }}
-                className="px-2.5 py-1 text-[11px] font-semibold text-pink-700 hover:text-pink-900 bg-white hover:bg-pink-100 border border-pink-300 rounded-lg shadow-2xs transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 text-[11px] font-semibold text-pink-700 dark:text-pink-300 hover:text-pink-900 bg-white dark:bg-slate-900 hover:bg-pink-100 dark:hover:bg-pink-900/50 border border-pink-300 dark:border-pink-700 rounded-lg shadow-2xs transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 <span>View</span>
                 <ArrowRight className="w-3 h-3" />
@@ -453,18 +453,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
           )}
 
           {/* Category Filter Tabs */}
-          <div className="flex border-b border-slate-200 bg-white px-2 pt-1.5 gap-1">
+          <div className="flex border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 pt-1.5 gap-1">
             <button
               id="notification-tab-all"
               onClick={() => setActiveFilter('all')}
               className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 cursor-pointer ${
                 activeFilter === 'all'
-                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <span>All</span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/80 text-slate-700 font-semibold">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/80 text-slate-700 dark:text-slate-300 font-semibold">
                 {notifications.length}
               </span>
             </button>
@@ -474,13 +474,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
               onClick={() => setActiveFilter('visa')}
               className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 cursor-pointer ${
                 activeFilter === 'visa'
-                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <span>Visas</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
-                summary.visaAlertsCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                summary.visaAlertsCount > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}>
                 {summary.visaAlertsCount}
               </span>
@@ -491,13 +491,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
               onClick={() => setActiveFilter('payroll')}
               className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 cursor-pointer ${
                 activeFilter === 'payroll'
-                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
               <span>Payroll</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
-                summary.payrollApprovalsCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                summary.payrollApprovalsCount > 0 ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}>
                 {summary.payrollApprovalsCount}
               </span>
@@ -509,8 +509,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
               onClick={() => setActiveFilter('birthday')}
               className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-t-lg transition-colors flex items-center justify-center gap-1.5 border-b-2 cursor-pointer ${
                 activeFilter === 'birthday'
-                  ? 'border-pink-600 text-pink-600 bg-pink-50/50 font-bold'
-                  : 'border-transparent text-slate-600 hover:text-pink-700 hover:bg-pink-50/30'
+                  ? 'border-pink-600 text-pink-600 dark:text-pink-400 bg-pink-50/50 font-bold'
+                  : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-pink-700 hover:bg-pink-50/30'
               }`}
             >
               <Cake className="w-3.5 h-3.5 text-pink-500" />
@@ -519,8 +519,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                 birthdayCount > 0
                   ? hasBirthdayToday
                     ? 'bg-pink-600 text-white font-bold animate-pulse'
-                    : 'bg-pink-100 text-pink-800 font-bold'
-                  : 'bg-slate-100 text-slate-600'
+                    : 'bg-pink-100 dark:bg-pink-900/40 text-pink-800 dark:text-pink-300 font-bold'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}>
                 {birthdayCount}
               </span>
@@ -528,16 +528,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
           </div>
 
           {/* List Area */}
-          <div className="overflow-y-auto max-h-[380px] divide-y divide-slate-100 bg-slate-50/30">
+          <div className="overflow-y-auto max-h-[380px] divide-y divide-slate-100 dark:divide-slate-800 bg-slate-50/30">
             {filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center bg-white flex flex-col items-center justify-center">
+              <div className="p-8 text-center bg-white dark:bg-slate-900 flex flex-col items-center justify-center">
                 {activeFilter === 'birthday' ? (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center mb-3">
+                    <div className="w-12 h-12 rounded-full bg-pink-50 dark:bg-pink-900/30 text-pink-500 flex items-center justify-center mb-3">
                       <Cake className="w-6 h-6" />
                     </div>
-                    <h4 className="text-sm font-semibold text-slate-900">No Birthdays This Week</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-[260px]">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">No Birthdays This Week</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[260px]">
                       {unreadOnly
                         ? 'No unread birthday notifications.'
                         : 'None of the active employees have birthdays scheduled in the current week.'}
@@ -545,11 +545,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                   </>
                 ) : (
                   <>
-                    <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    <h4 className="text-sm font-semibold text-slate-900">All Caught Up!</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-[260px]">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">All Caught Up!</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[260px]">
                       {unreadOnly
                         ? 'No unread notifications matching this filter.'
                         : 'There are no active notifications matching this category at this time.'}
@@ -559,7 +559,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                 {unreadOnly && (
                   <button
                     onClick={() => setUnreadOnly(false)}
-                    className="mt-3 text-xs text-indigo-600 font-semibold hover:underline cursor-pointer"
+                    className="mt-3 text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
                   >
                     Show all notifications
                   </button>
@@ -580,13 +580,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                       isBirthday
                         ? isToday
                           ? isRead
-                            ? 'bg-pink-50/30 hover:bg-pink-50/60 border-l-4 border-pink-400'
+                            ? 'bg-pink-50/30 hover:bg-pink-50/60 border-l-4 border-pink-400 dark:border-pink-600'
                             : 'bg-gradient-to-r from-pink-50/80 to-rose-50/50 hover:bg-pink-100/70 border-l-4 border-pink-500 shadow-2xs'
                           : isRead
-                          ? 'bg-purple-50/20 hover:bg-purple-50/50 border-l-3 border-purple-300'
+                          ? 'bg-purple-50/20 hover:bg-purple-50/50 border-l-3 border-purple-300 dark:border-purple-700'
                           : 'bg-purple-50/40 hover:bg-purple-50/70 border-l-3 border-purple-500'
                         : isRead
-                        ? 'bg-white hover:bg-slate-50'
+                        ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'
                         : 'bg-amber-50/30 hover:bg-amber-50/70 border-l-3 border-amber-500'
                     }`}
                   >
@@ -602,56 +602,56 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                             : isBirthday
                             ? 'text-purple-950 font-bold'
                             : isRead
-                            ? 'text-slate-800 font-semibold'
-                            : 'text-slate-900 font-bold'
+                            ? 'text-slate-800 dark:text-slate-200 font-semibold'
+                            : 'text-slate-900 dark:text-slate-100 font-bold'
                         }`}>
                           {item.title}
                         </h4>
                         {getStatusBadge(item)}
                       </div>
 
-                      <p className="text-[11px] text-slate-600 mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
                         {item.message}
                       </p>
 
                       {/* Metadata Chips */}
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
                         {item.metadata?.employeeId && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono">
-                            <User className="w-3 h-3 text-slate-400" />
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
+                            <User className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                             {item.metadata.employeeId}
                           </span>
                         )}
                         {item.metadata?.designation && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             {item.metadata.designation}
                           </span>
                         )}
                         {item.metadata?.company && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                            <Building2 className="w-3 h-3 text-slate-400" />
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            <Building2 className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                             {item.metadata.company}
                           </span>
                         )}
                         {isBirthday && item.metadata?.turningAge && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-pink-100 text-pink-800 font-semibold">
-                            <Gift className="w-3 h-3 text-pink-600" />
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-pink-100 dark:bg-pink-900/40 text-pink-800 dark:text-pink-300 font-semibold">
+                            <Gift className="w-3 h-3 text-pink-600 dark:text-pink-400" />
                             Age {item.metadata.turningAge}
                           </span>
                         )}
                         {isBirthday && item.metadata?.formattedDate && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-100 text-purple-800">
-                            <Calendar className="w-3 h-3 text-purple-600" />
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300">
+                            <Calendar className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                             {item.metadata.dayName ? `${item.metadata.dayName}, ` : ''}{item.metadata.formattedDate}
                           </span>
                         )}
                         {item.metadata?.totalNetSalary !== undefined && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold font-mono">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 font-semibold font-mono">
                             OMR {Number(item.metadata.totalNetSalary).toFixed(3)}
                           </span>
                         )}
                         {item.metadata?.totalEmployees !== undefined && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             {item.metadata.totalEmployees} employees
                           </span>
                         )}
@@ -666,14 +666,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                               e.stopPropagation();
                               handleNotificationClick(item);
                             }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-pink-700 hover:text-pink-900 bg-pink-100/90 hover:bg-pink-200/90 border border-pink-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-pink-700 dark:text-pink-300 hover:text-pink-900 bg-pink-100/90 hover:bg-pink-200/90 border border-pink-300 dark:border-pink-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
                             title={`Navigate to profile for ${item.metadata?.employeeName || 'employee'}`}
                           >
                             <span>View Profile &amp; Ledger</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         ) : (
-                          <span className="text-[11px] font-medium text-indigo-600 group-hover:text-indigo-700 flex items-center gap-1">
+                          <span className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-700 flex items-center gap-1">
                             <span>{item.action?.label || 'View Details'}</span>
                             <ArrowRight className="w-3 h-3 transform group-hover:translate-x-0.5 transition-transform" />
                           </span>
@@ -686,7 +686,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                               e.stopPropagation();
                               markAsRead(item.id);
                             }}
-                            className="text-[10px] text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded hover:bg-slate-200/60 transition-colors cursor-pointer"
+                            className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 px-1.5 py-0.5 rounded hover:bg-slate-200/60 transition-colors cursor-pointer"
                             title="Mark as read"
                           >
                             Dismiss
@@ -701,13 +701,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
           </div>
 
           {/* Quick Footer Links */}
-          <div className="p-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] flex-wrap gap-1">
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-[11px] flex-wrap gap-1">
             <button
               onClick={() => {
                 setIsOpen(false);
                 if (onNavigate) onNavigate('employees');
               }}
-              className="text-slate-600 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-slate-200/50 transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-slate-600 dark:text-slate-400 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-slate-200/50 transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>Employee Master</span>
               <ChevronRight className="w-3 h-3" />
@@ -718,7 +718,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                 setIsOpen(false);
                 if (onNavigate) onNavigate('compliance', { tab: 'alerts' });
               }}
-              className="text-slate-600 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-slate-200/50 transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-slate-600 dark:text-slate-400 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-slate-200/50 transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>Compliance</span>
               <ChevronRight className="w-3 h-3" />
@@ -729,7 +729,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
                 setIsOpen(false);
                 if (onNavigate) onNavigate('payroll');
               }}
-              className="text-slate-600 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-slate-200/50 transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-slate-600 dark:text-slate-400 hover:text-indigo-600 font-medium px-2 py-1 rounded hover:bg-slate-200/50 transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>Payroll</span>
               <ChevronRight className="w-3 h-3" />

@@ -61,33 +61,33 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen(o => !o)}
-        className="w-full flex items-center justify-between gap-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+        className="w-full flex items-center justify-between gap-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
       >
         <span className="truncate">{displayLabel}</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-20 mt-1 min-w-full w-max max-w-64 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto py-1">
-          <label className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-800 border-b border-slate-100 hover:bg-slate-50 cursor-pointer">
+        <div className="absolute z-20 mt-1 min-w-full w-max max-w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-64 overflow-y-auto py-1">
+          <label className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
             <input
               type="checkbox"
               checked={allSelected}
               onChange={toggleSelectAll}
-              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 cursor-pointer"
             />
             Select All
           </label>
           {options.map(opt => (
             <label
               key={opt.value}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
             >
               <input
                 type="checkbox"
                 checked={selected.includes(opt.value)}
                 onChange={() => toggleOption(opt.value)}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 cursor-pointer"
               />
               {opt.label}
             </label>

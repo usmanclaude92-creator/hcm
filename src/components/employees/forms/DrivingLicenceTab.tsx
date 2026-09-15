@@ -53,17 +53,17 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
   return (
     <div className="space-y-6">
       {/* SECTION 1: Overview & Details */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Car size={22} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 Oman Driving Licence &amp; Equipment Operator Authorization
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 ROP Directorate General of Traffic Authorization Records
               </p>
             </div>
@@ -76,7 +76,7 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
             <button
               type="button"
               onClick={onOpenHistoryModal}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <History size={14} />
               <span>Version History</span>
@@ -99,42 +99,42 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
         {currentDrivingLicence ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Licence Number */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Licence Number
               </span>
-              <strong className="font-mono text-base font-bold text-blue-700 tracking-wider">
+              <strong className="font-mono text-base font-bold text-blue-700 dark:text-blue-300 tracking-wider">
                 {currentDrivingLicence.licenceNumber}
               </strong>
             </div>
 
             {/* Category */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Licence Category
               </span>
-              <strong className="text-sm font-bold text-slate-800">
+              <strong className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 {currentDrivingLicence.category}
               </strong>
             </div>
 
             {/* Expiry Date & Countdown */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Expiration Date
               </span>
               <div className="flex items-center gap-2">
-                <strong className="text-sm font-bold text-slate-800">
+                <strong className="text-sm font-bold text-slate-800 dark:text-slate-200">
                   {formatDate(currentDrivingLicence.expiryDate)}
                 </strong>
                 {daysLeft !== null && (
                   <span
                     className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                       daysLeft < 0
-                        ? 'bg-rose-100 text-rose-800'
+                        ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                         : daysLeft <= 30
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                        : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                     }`}
                   >
                     {daysLeft < 0
@@ -146,20 +146,20 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
             </div>
 
             {/* Vehicle Class & Restrictions */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase block mb-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                 Class / Restrictions
               </span>
-              <span className="text-xs font-semibold text-slate-700">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {currentDrivingLicence.vehicleClass || 'Light Vehicle'}
                 {currentDrivingLicence.restrictions ? ` (${currentDrivingLicence.restrictions})` : ''}
               </span>
             </div>
           </div>
         ) : (
-          <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
-            <Car className="w-8 h-8 mx-auto text-slate-400" />
-            <p className="text-xs font-semibold text-slate-600">
+          <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 space-y-2">
+            <Car className="w-8 h-8 mx-auto text-slate-400 dark:text-slate-500" />
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
               No active Driving Licence record registered for this employee.
             </p>
             {canWrite && (
@@ -178,27 +178,27 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
 
       {/* SECTION 2: Document Scans */}
       {currentDrivingLicence && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
             <div className="flex items-center gap-2">
-              <FileCheck className="text-amber-600" size={18} />
-              <h3 className="font-bold text-slate-800 text-sm">
+              <FileCheck className="text-amber-600 dark:text-amber-400" size={18} />
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 Driving Licence Digital Scans
               </h3>
             </div>
           </div>
 
           {currentDrivingLicence.documentAttachment ? (
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
+                <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-xs">
                   PDF / IMG
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     Driving Licence Scan ({currentDrivingLicence.licenceNumber})
                   </p>
-                  <p className="text-[11px] font-mono text-slate-500 truncate max-w-md">
+                  <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate max-w-md">
                     {currentDrivingLicence.documentAttachment}
                   </p>
                 </div>
@@ -213,7 +213,7 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
                       `Licence_${currentDrivingLicence.licenceNumber}`
                     )
                   }
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Eye size={13} />
                   <span>Preview</span>
@@ -221,7 +221,7 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
                 <a
                   href={buildStorageFileUrl(currentDrivingLicence.documentAttachment) || undefined}
                   download={`Licence_${currentDrivingLicence.licenceNumber}`}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Download size={13} />
                   <span>Download</span>
@@ -229,8 +229,8 @@ export const DrivingLicenceTab: React.FC<DrivingLicenceTabProps> = ({
               </div>
             </div>
           ) : (
-            <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-center space-y-2">
-              <p className="text-xs text-slate-500">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-center space-y-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 No digital scan attached yet for this Driving Licence.
               </p>
               {employee && canWrite && (

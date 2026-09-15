@@ -31,7 +31,7 @@ export interface NotificationItem {
 }
 
 // GET /api/notifications - Real-time alerts for expiring visas & pending payroll approvals
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -41,7 +41,7 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
     // ==========================================
     // 1. Expiring & Expired Visas
     // ==========================================
-    const employees = db.employees.getAll().filter((e) => e.isActive);
+    const employees = (await db.employees.getAll()).filter((e) => e.isActive);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);
 
     for (const emp of employees) {

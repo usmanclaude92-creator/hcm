@@ -9,9 +9,9 @@ const router = Router();
 // Company isolation for every report in this file. Reports read straight from payroll
 // lines and employee records, so each entry point applies the caller's scope before any
 // user-supplied filter -- clearing the company filter can never widen the result set.
-function scopedEmployees(req: AuthRequest) {
+async function scopedEmployees(req: AuthRequest) {
   const scope = companyScopeOf(req.user);
-  return db.employees.getAll().filter(e => canSeeCompany(scope, e.employeeCompany));
+  return (await db.employees.getAll()).filter(e => canSeeCompany(scope, e.employeeCompany));
 }
 
 function lineInScope(req: AuthRequest, line: { employeeCompany?: string }): boolean {
@@ -19,10 +19,10 @@ function lineInScope(req: AuthRequest, line: { employeeCompany?: string }): bool
 }
 
 // GET /api/reports/employee - Employee category reports
-router.get('/employee', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/employee', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { reportType, company, nationality, wageType, exportFormat } = req.query;
-    let employees = scopedEmployees(req);
+    let employees = await scopedEmployees(req);
 
     if (reportType === 'active') employees = employees.filter(e => e.isActive);
     else if (reportType === 'former') employees = employees.filter(e => !e.isActive);
@@ -354,14 +354,14 @@ router.get('/loans', verifyAuth, (req: AuthRequest, res: Response) => {
 // so the timesheet half of every figure below was permanently zero while the report
 // presented it as a real number. The dead half has been removed rather than left to imply
 // data that cannot exist. Attendance already carries per-project days and hours.
-router.get('/project-costing', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/project-costing', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { month, projectId } = req.query as { month?: string; projectId?: string };
     if (!month) return res.status(400).json({ error: 'month is required (YYYY-MM)' });
 
-    const projects = db.projects.getAll().filter(p => !projectId || p.id === projectId);
+    const projects = (await db.projects.getAll()).filter(p => !projectId || p.id === projectId);
     const attendanceRecords = db.attendance.getByMonth(month);
-    const employees = scopedEmployees(req);
+    const employees = await scopedEmployees(req);
     const employeeById = new Map(employees.map(e => [normalizeEmployeeId(e.employeeId), e]));
 
     const rows = projects.map(project => {
@@ -695,7 +695,7 @@ function computeReportAnalytics(rows: any[]) {
   };
 }
 
-function computeReportExceptions(rows: any[], query: any, scope: EmployeeCompany[] | null = null) {
+async function computeReportExceptions(rows: any[], query: any, scope: EmployeeCompany[] | null = null) {
   const exceptions: { type: string; severity: 'critical' | 'warning'; employeeId: string; payrollMonth: string; message: string }[] = [];
 
   rows.forEach(r => {
@@ -763,7 +763,7 @@ function computeReportExceptions(rows: any[], query: any, scope: EmployeeCompany
     const nationality = parseMultiParam(query.nationality);
     const designation = parseMultiParam(query.designation);
 
-    const candidateEmployees = db.employees.getAll().filter(e => {
+    const candidateEmployees = (await db.employees.getAll()).filter(e => {
       if (!e.isActive) return false;
       if (!canSeeCompany(scope, e.employeeCompany)) return false;
       if (company && !company.includes(e.employeeCompany)) return false;
@@ -836,13 +836,13 @@ const DEFAULT_DETAIL_COLUMNS = [
 ];
 
 // GET /api/reports/salary-payroll - Comprehensive Salary & Payroll Report (Summary + Details)
-router.get('/salary-payroll', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/salary-payroll', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const query = req.query as any;
     const allRows = buildUnifiedReportRows(companyScopeOf(req.user));
     const filteredRows = applyReportFilters(allRows, query);
     const analytics = computeReportAnalytics(filteredRows);
-    const exceptions = computeReportExceptions(filteredRows, query, companyScopeOf(req.user));
+    const exceptions = await computeReportExceptions(filteredRows, query, companyScopeOf(req.user));
     const sortedRows = sortReportRows(filteredRows, query.sortBy, query.sortDir);
 
     if (query.exportFormat === 'excel') {

@@ -181,23 +181,23 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+            <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-800/60">
               <Crop size={16} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-800 leading-tight">{title}</h3>
-              <p className="text-[11px] text-slate-500">Drag to center and zoom to frame your picture</p>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">{title}</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Drag to center and zoom to frame your picture</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
             aria-label="Close modal"
           >
             <X size={18} />
@@ -309,12 +309,12 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-slate-50 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2.5 px-5 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+            className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
           >
             Cancel
           </button>

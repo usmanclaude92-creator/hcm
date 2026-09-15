@@ -84,6 +84,15 @@ export async function createApp(): Promise<Express> {
   app.use('/api/leave', leaveRouter);
   app.use('/api/gratuity', gratuityRouter);
   app.use('/api/masters', mastersRouter);
+  app.use('/api/master', mastersRouter);
+  app.use('/api/departments', (req, res, next) => {
+    req.url = '/departments' + (req.url === '/' ? '' : req.url);
+    mastersRouter(req, res, next);
+  });
+  app.use('/api/designations', (req, res, next) => {
+    req.url = '/designations' + (req.url === '/' ? '' : req.url);
+    mastersRouter(req, res, next);
+  });
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/workforce', workforceRouter);
   app.use('/api/timesheets', timesheetsRouter);
@@ -105,7 +114,7 @@ export async function createApp(): Promise<Express> {
     }
   });
 
-  app.get('/api/system/status', verifyAuth, (req, res) => {
+  app.get('/api/system/status', verifyAuth, async (req, res) => {
     try {
       // Report the ACTUAL live connection state (db.getStatus()'s isPostgresConnected),
       // not merely whether a Postgres env var string is present. A set-but-unreachable
@@ -113,8 +122,8 @@ export async function createApp(): Promise<Express> {
       // while the app had silently fallen back to the ephemeral local JSON file --
       // exactly the kind of silent split-brain this endpoint exists to catch.
       const dbStatus = db.getStatus();
-      const employeesCount = db.employees.getAll().length;
-      const projectsCount = db.projects.getAll().length;
+      const employeesCount = (await db.employees.getAll()).length;
+      const projectsCount = (await db.projects.getAll()).length;
       const payrollsCount = db.payroll.getAll().length;
       const paymentsCount = db.salaryPayments.getAll().length;
       const loansCount = db.loans.getAll().length;

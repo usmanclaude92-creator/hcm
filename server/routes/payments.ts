@@ -22,7 +22,7 @@ import type {
 const router = Router();
 
 // Helper to calculate payment summary across all finalized payroll lines
-function getGroupedPaymentSummaries(filters: {
+async function getGroupedPaymentSummaries(filters: {
   search?: string;
   month?: string;
   status?: string;
@@ -39,7 +39,7 @@ function getGroupedPaymentSummaries(filters: {
 }) {
   const allPayrolls = db.payroll.getAll().filter(p => p.status === 'Finalized');
   const allPayments = db.salaryPayments.getAll().filter(p => !p.isReversed);
-  const allEmployees = db.employees.getAll();
+  const allEmployees = await db.employees.getAll();
 
   const empMap = new Map<string, any>();
   for (const emp of allEmployees) {
@@ -167,10 +167,10 @@ function getGroupedPaymentSummaries(filters: {
 }
 
 // GET /api/payments/summary - Overall stats for dashboard and payments overview
-router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
+router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), async (req: AuthRequest, res: Response) => {
   try {
     const { month, company, paidBy, status, search, wps, wageType, receiptStatus, type, job } = req.query;
-    const summaries = getGroupedPaymentSummaries({
+    const summaries = await getGroupedPaymentSummaries({
       month: month as string,
       company: company as string,
       paidBy: paidBy as string,
@@ -229,10 +229,10 @@ router.get('/summary', verifyAuth, requirePermission('salary_payment.view'), (re
 });
 
 // GET /api/payments/grouped - Grouped table view for Salary Payments
-router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
+router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), async (req: AuthRequest, res: Response) => {
   try {
     const { month, status, company, paidBy, search, wps, wageType, receiptStatus, type, job } = req.query;
-    const grouped = getGroupedPaymentSummaries({
+    const grouped = await getGroupedPaymentSummaries({
       month: month as string,
       status: status as string,
       company: company as string,
@@ -256,13 +256,14 @@ router.get('/grouped', verifyAuth, requirePermission('salary_payment.view'), (re
 });
 
 // GET /api/payments/transactions - List all raw payment transactions
-router.get('/transactions', verifyAuth, requirePermission('salary_payment.view'), (req: AuthRequest, res: Response) => {
+router.get('/transactions', verifyAuth, requirePermission('salary_payment.view'), async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, month } = req.query;
     const scope = companyScopeOf(req.user);
+    const empByNormId = new Map((await db.employees.getAll()).map(e => [normalizeEmployeeId(e.employeeId), e]));
     let transactions = db.salaryPayments.getAll().filter(t => {
       if (scope === null) return true;
-      const emp = db.employees.findByEmployeeId(normalizeEmployeeId(t.employeeId));
+      const emp = empByNormId.get(normalizeEmployeeId(t.employeeId));
       return canSeeCompany(scope, emp?.employeeCompany);
     });
 
@@ -334,7 +335,7 @@ router.post('/transactions', verifyAuth, requirePermission('salary_payment.creat
     }
 
     const normId = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(normId);
+    const emp = await db.employees.findByEmployeeId(normId);
     if (!emp) {
       return res.status(404).json({ error: `Employee '${normId}' not found.` });
     }
@@ -598,7 +599,7 @@ router.get('/receipts/:transactionId/signed-url', verifyAuth, requirePermission(
     // Company isolation: a coarse salary_payment.view permission is not enough here --
     // Viewer also holds it, and a receipt for another company must not be reachable just
     // by knowing (or guessing) a transaction ID.
-    const emp = db.employees.findByEmployeeId(normalizeEmployeeId(tx.employeeId));
+    const emp = await db.employees.findByEmployeeId(normalizeEmployeeId(tx.employeeId));
     if (!canSeeCompany(companyScopeOf(req.user), emp?.employeeCompany)) {
       return res.status(404).json({ error: 'Payment transaction not found.' });
     }
@@ -657,7 +658,7 @@ router.get('/export/template', verifyAuth, requirePermission('salary_payment.imp
 });
 
 // POST /api/payments/import/validate - Validate uploaded payment Excel
-router.post('/import/validate', verifyAuth, requirePermission('salary_payment.import'), (req: AuthRequest, res: Response) => {
+router.post('/import/validate', verifyAuth, requirePermission('salary_payment.import'), async (req: AuthRequest, res: Response) => {
   try {
     const { fileData } = req.body;
     if (!fileData) return res.status(400).json({ error: 'No Excel file provided.' });
@@ -691,7 +692,7 @@ router.post('/import/validate', verifyAuth, requirePermission('salary_payment.im
       const rawRemarks = String(r['Remarks'] || '').trim();
 
       const normId = normalizeEmployeeId(rawId);
-      const emp = db.employees.findByEmployeeId(normId);
+      const emp = await db.employees.findByEmployeeId(normId);
       const numAmount = roundOMR(Number(rawAmount) || 0);
 
       let status: 'Valid' | 'Invalid' | 'Duplicate' = 'Valid';
@@ -871,10 +872,10 @@ router.post('/import/confirm', verifyAuth, requirePermission('salary_payment.imp
 });
 
 // GET /api/payments/export/data - Export payment report to Excel
-router.get('/export/data', verifyAuth, requirePermission('salary_payment.export'), (req: AuthRequest, res: Response) => {
+router.get('/export/data', verifyAuth, requirePermission('salary_payment.export'), async (req: AuthRequest, res: Response) => {
   try {
     const { month, company, paidBy, status, search, wps, wageType, receiptStatus } = req.query;
-    const summaries = getGroupedPaymentSummaries({
+    const summaries = await getGroupedPaymentSummaries({
       month: month as string,
       company: company as string,
       paidBy: paidBy as string,

@@ -102,17 +102,17 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
     <div className="space-y-6">
       {/* Draft Profile Banner for New Employee Registration */}
       {isNewEmployee && (
-        <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="bg-blue-50/70 border border-blue-200 dark:border-blue-800/60 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold font-mono">
               OMR
             </div>
             <div>
-              <p className="font-bold text-slate-800 text-sm">
+              <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 {basicInfoForm?.employeeName || 'New Employee (Name Pending)'}
               </p>
-              <p className="text-slate-500 text-[11px]">
-                ID: <strong className="font-mono text-blue-700">{basicInfoForm?.employeeId || 'Not Assigned'}</strong> • Step 3 of 3: Compensation &amp; WPS Configuration
+              <p className="text-slate-500 dark:text-slate-400 text-[11px]">
+                ID: <strong className="font-mono text-blue-700 dark:text-blue-300">{basicInfoForm?.employeeId || 'Not Assigned'}</strong> • Step 3 of 3: Compensation &amp; WPS Configuration
               </p>
             </div>
           </div>
@@ -120,7 +120,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
             <button
               type="button"
               onClick={onNavigateToPersonal}
-              className="text-xs text-blue-700 hover:text-blue-800 font-semibold underline self-start sm:self-auto cursor-pointer"
+              className="text-xs text-blue-700 dark:text-blue-300 hover:text-blue-800 font-semibold underline self-start sm:self-auto cursor-pointer"
             >
               Review Identity &amp; Banking (Tab 1)
             </button>
@@ -129,15 +129,15 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
       )}
 
       {/* SECTION 1: Base Wage Structure */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
-            <CreditCard className="text-emerald-600" size={18} />
-            <h3 className="font-bold text-slate-800 text-sm">
+            <CreditCard className="text-emerald-600 dark:text-emerald-400" size={18} />
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
               Compensation &amp; Remuneration Structure
             </h3>
           </div>
-          <span className="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-semibold">
+          <span className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full font-semibold">
             Currency: OMR (Omani Rial)
           </span>
         </div>
@@ -145,7 +145,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Wage Type */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Wage Calculation Type <span className="text-rose-500">*</span>
             </label>
             <select
@@ -157,7 +157,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                   wageType: e.target.value as WageType,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-medium"
             >
               <option value="Fixed Monthly">Fixed Monthly Basic Remuneration</option>
               <option value="Per Hour">Hourly Rate (Timesheet Multiplier)</option>
@@ -166,7 +166,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
           {/* Monthly Basic or Hourly Rate */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               {payrollForm.wageType === 'Fixed Monthly'
                 ? 'Monthly Basic Salary (OMR) *'
                 : 'Hourly Wage Rate (OMR/hr) *'}
@@ -188,9 +188,9 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                     actualSalary: payrollForm.actualSalary || val,
                   });
                 }}
-                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-mono font-bold text-slate-900"
+                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-mono font-bold text-slate-900 dark:text-slate-100"
               />
-              <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">
+              <span className="absolute right-3 top-2 text-xs text-slate-400 dark:text-slate-500 font-semibold pointer-events-none">
                 OMR
               </span>
             </div>
@@ -198,7 +198,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
           {/* Salary Paid By Entity */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Disbursing / Paying Entity <span className="text-rose-500">*</span>
             </label>
             <select
@@ -210,7 +210,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                   salaryPaidBy: e.target.value as SalaryPaidBy,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-medium"
             >
               <option value="DGO">DGO (Dar Global Oman LLC)</option>
               <option value="SMI">SMI (Seven Mountain International LLC)</option>
@@ -222,19 +222,19 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
       </div>
 
       {/* SECTION 2: Oman Wages Protection System (WPS) & Dual-Benchmark Reconciliation */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
-            <Building className="text-indigo-600" size={18} />
-            <h3 className="font-bold text-slate-800 text-sm">
+            <Building className="text-indigo-600 dark:text-indigo-400" size={18} />
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
               Oman Wages Protection System (WPS) &amp; Bank Reconciliation
             </h3>
           </div>
           <span
             className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
               payrollForm.wpsEmployee === 'Yes'
-                ? 'bg-blue-50 text-blue-700'
-                : 'bg-slate-100 text-slate-600'
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
             }`}
           >
             {payrollForm.wpsEmployee === 'Yes' ? '● WPS Registered' : '○ Non-WPS Record'}
@@ -244,7 +244,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* WPS Flag */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               WPS File Registration <span className="text-rose-500">*</span>
             </label>
             <select
@@ -256,7 +256,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                   wpsEmployee: e.target.value as WPSStatus,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-medium"
             >
               <option value="Yes">Yes (Subject to MoL/CBO Bank SIF Filing)</option>
               <option value="No">No (Internal Direct Payroll)</option>
@@ -265,7 +265,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
           {/* WPS Bank Salary */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               WPS Bank Contract Salary (OMR)
             </label>
             <div className="relative">
@@ -283,18 +283,18 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                     ...(val > 0 && payrollForm.wpsEmployee !== 'Yes' ? { wpsEmployee: 'Yes' } : {}),
                   });
                 }}
-                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-mono font-bold"
+                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-mono font-bold"
               />
-              <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">
+              <span className="absolute right-3 top-2 text-xs text-slate-400 dark:text-slate-500 font-semibold pointer-events-none">
                 OMR
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Official bank contract file amount</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Official bank contract file amount</p>
           </div>
 
           {/* Actual Salary Benchmark */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Actual Entitled Salary (OMR)
             </label>
             <div className="relative">
@@ -310,18 +310,18 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                     actualSalary: parseFloat(e.target.value) || 0,
                   })
                 }
-                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white font-mono font-bold text-blue-700"
+                className="w-full pl-3 pr-14 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 font-mono font-bold text-blue-700 dark:text-blue-300"
               />
-              <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold pointer-events-none">
+              <span className="absolute right-3 top-2 text-xs text-slate-400 dark:text-slate-500 font-semibold pointer-events-none">
                 OMR
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">Actual internal agreed remuneration</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Actual internal agreed remuneration</p>
           </div>
 
           {/* Recover Excess From */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Recover Excess WPS From
             </label>
             <input
@@ -334,27 +334,27 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                   recoverFrom: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
             />
-            <p className="text-[10px] text-slate-400 mt-1">Entity bearing surplus difference</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Entity bearing surplus difference</p>
           </div>
         </div>
 
         {/* Live WPS Reconciliation Widget */}
         {payrollForm.wpsEmployee === 'Yes' && (
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                <Info size={14} className="text-blue-600" />
+              <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Info size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>WPS Bank Transfer vs Actual Remuneration Variance Breakdown:</span>
               </span>
               <span
                 className={`font-mono font-bold px-2.5 py-0.5 rounded-md ${
                   wpsDiff > 0
-                    ? 'bg-amber-100 text-amber-900'
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-300'
                     : wpsDiff < 0
-                    ? 'bg-rose-100 text-rose-900'
-                    : 'bg-emerald-100 text-emerald-900'
+                    ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-300'
+                    : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-300'
                 }`}
               >
                 Variance: {wpsDiff >= 0 ? '+' : ''}
@@ -363,21 +363,21 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
-              <div className="bg-white p-2.5 rounded-lg border border-slate-200/80">
-                <span className="text-slate-500 text-[11px] block">WPS Bank Transfer:</span>
-                <strong className="font-mono text-sm text-slate-800">
+              <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/80">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] block">WPS Bank Transfer:</span>
+                <strong className="font-mono text-sm text-slate-800 dark:text-slate-200">
                   OMR {formatOMR(payrollForm.wpsSalary)}
                 </strong>
               </div>
-              <div className="bg-white p-2.5 rounded-lg border border-slate-200/80">
-                <span className="text-slate-500 text-[11px] block">Actual Net Entitlement:</span>
-                <strong className="font-mono text-sm text-blue-700">
+              <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/80">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Actual Net Entitlement:</span>
+                <strong className="font-mono text-sm text-blue-700 dark:text-blue-300">
                   OMR {formatOMR(payrollForm.actualSalary)}
                 </strong>
               </div>
-              <div className="bg-white p-2.5 rounded-lg border border-slate-200/80">
-                <span className="text-slate-500 text-[11px] block">Surplus Recovery Routing:</span>
-                <strong className="font-mono text-sm text-amber-700">
+              <div className="bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200/80">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Surplus Recovery Routing:</span>
+                <strong className="font-mono text-sm text-amber-700 dark:text-amber-300">
                   {wpsDiff > 0
                     ? `OMR ${formatOMR(wpsDiff)} from ${payrollForm.recoverFrom || 'Sponsor'}`
                     : 'Balanced (0.000)'}
@@ -385,7 +385,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-500 pt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
               Under Oman Labour Law (Royal Decree 53/2023), full WPS file amount is disbursed to the employee's bank card, with automated payroll ledger balance accounting for excess recoverable difference.
             </p>
           </div>
@@ -393,8 +393,8 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
         {/* Salary Revision Log Reason */}
         {employee && employee.monthlySalaryOrRate !== payrollForm.monthlySalaryOrRate && (
-          <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <label className="block text-xs font-bold text-amber-900 mb-1">
+          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800/60">
+            <label className="block text-xs font-bold text-amber-900 dark:text-amber-300 mb-1">
               Salary Revision Reason / Approval Memo
             </label>
             <input
@@ -407,18 +407,18 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
                   salaryRevisionReason: e.target.value,
                 })
               }
-              className="w-full px-3 py-1.5 text-xs border border-amber-300 rounded-lg bg-white"
+              className="w-full px-3 py-1.5 text-xs border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-slate-900"
             />
           </div>
         )}
       </div>
 
       {/* SECTION 2.5: Linked Bank Disbursal Account & WPS Routing */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
-            <Building className="text-blue-600" size={18} />
-            <h3 className="font-bold text-slate-800 text-sm">
+            <Building className="text-blue-600 dark:text-blue-400" size={18} />
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
               Wage Disbursal Bank Account &amp; WPS Routing
             </h3>
           </div>
@@ -426,7 +426,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
             <button
               type="button"
               onClick={onNavigateToPersonal}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 hover:underline cursor-pointer"
             >
               <span>Manage Bank Details</span>
               <ArrowRight size={12} />
@@ -444,18 +444,18 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
           if (!hasBank) {
             return (
-              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg flex items-start gap-3 text-xs">
-                <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={16} />
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 dark:border-amber-800/60 rounded-lg flex items-start gap-3 text-xs">
+                <AlertTriangle className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" size={16} />
                 <div className="flex-1">
-                  <p className="font-semibold text-amber-900">No Bank Account Registered</p>
-                  <p className="text-amber-700 text-[11px] mt-0.5">
+                  <p className="font-semibold text-amber-900 dark:text-amber-300">No Bank Account Registered</p>
+                  <p className="text-amber-700 dark:text-amber-300 text-[11px] mt-0.5">
                     For automated WPS wage disbursal, an Oman CBO-compliant bank account and 23-character IBAN must be registered.
                   </p>
                   {onNavigateToPersonal && (
                     <button
                       type="button"
                       onClick={onNavigateToPersonal}
-                      className="mt-2 text-[11px] font-bold text-blue-700 hover:text-blue-900 underline flex items-center gap-1 cursor-pointer"
+                      className="mt-2 text-[11px] font-bold text-blue-700 dark:text-blue-300 hover:text-blue-900 underline flex items-center gap-1 cursor-pointer"
                     >
                       <span>Add Bank Details in Personal Information</span>
                       <ArrowRight size={12} />
@@ -468,21 +468,21 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
           return (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Bank Name</span>
-                <span className="font-semibold text-slate-800 mt-0.5 block">{bankName || '—'}</span>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Bank Name</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block">{bankName || '—'}</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Account Number</span>
-                <span className="font-mono font-semibold text-slate-800 mt-0.5 block">{bankAcc || '—'}</span>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Account Number</span>
+                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 mt-0.5 block">{bankAcc || '—'}</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Oman IBAN</span>
-                <span className="font-mono font-semibold text-blue-700 mt-0.5 block tracking-wide">{iban || '—'}</span>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Oman IBAN</span>
+                <span className="font-mono font-semibold text-blue-700 dark:text-blue-300 mt-0.5 block tracking-wide">{iban || '—'}</span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Beneficiary / Branch</span>
-                <span className="text-slate-700 mt-0.5 block truncate">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Beneficiary / Branch</span>
+                <span className="text-slate-700 dark:text-slate-300 mt-0.5 block truncate">
                   {holder} {branch ? `(${branch})` : ''}
                 </span>
               </div>
@@ -493,41 +493,41 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
       {/* SECTION 3: Salary Revision History Timeline */}
       {employee && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
-            <History className="text-slate-600" size={18} />
-            <h3 className="font-bold text-slate-800 text-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+            <History className="text-slate-600 dark:text-slate-400" size={18} />
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
               Salary &amp; Compensation Revision History
             </h3>
           </div>
 
           {salaryHistory && salaryHistory.length > 0 ? (
-            <div className="relative border-l-2 border-slate-200 ml-4 space-y-4 py-2">
+            <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-4 space-y-4 py-2">
               {salaryHistory.map((item, idx) => (
                 <div key={item.id || idx} className="relative pl-5">
                   <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-emerald-600 border-2 border-white" />
                   <div className="text-xs">
                     <div className="flex items-center gap-2">
-                      <strong className="text-slate-800 font-mono font-bold">
+                      <strong className="text-slate-800 dark:text-slate-200 font-mono font-bold">
                         OMR {formatOMR(item.monthlySalaryOrRate)}
                       </strong>
-                      <span className="text-slate-500">({item.wageType})</span>
-                      <span className="text-slate-400 font-mono text-[11px]">
+                      <span className="text-slate-500 dark:text-slate-400">({item.wageType})</span>
+                      <span className="text-slate-400 dark:text-slate-500 font-mono text-[11px]">
                         {formatDate(item.effectiveDate || item.createdAt)}
                       </span>
                     </div>
                     {item.reason && (
-                      <p className="text-slate-600 text-[11px] mt-0.5">{item.reason}</p>
+                      <p className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">{item.reason}</p>
                     )}
                     {item.changedBy && (
-                      <span className="text-[10px] text-slate-400">Recorded by: {item.changedBy}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Recorded by: {item.changedBy}</span>
                     )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-400 italic py-2">
+            <p className="text-xs text-slate-400 dark:text-slate-500 italic py-2">
               Initial wage rate of OMR {formatOMR(employee.monthlySalaryOrRate)} established on joining. No subsequent salary revisions logged.
             </p>
           )}
@@ -536,7 +536,7 @@ export const CompensationWpsTab: React.FC<CompensationWpsTabProps> = ({
 
       {/* Action Footer */}
       {canWrite && (
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
           {isNewEmployee && onCompleteEmployee ? (
             <button
               type="button"

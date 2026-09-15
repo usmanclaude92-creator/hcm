@@ -1,5 +1,61 @@
 @import "tailwindcss";
 
+/* Tailwind v4 defaults `dark:` to the OS-level `prefers-color-scheme` media query, which
+   ignores the app's own light/dark toggle (Header.tsx toggles a `.dark` class on
+   <html> and persists the choice to localStorage, but without this line every `dark:`
+   utility in the app was silently inert -- the toggle updated state and localStorage but
+   never changed anything on screen). Registering `dark` as a class-based variant makes
+   every existing and future `dark:` utility respond to that class instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ---------------------------------------------------------------------------
+ * Theme system convention (light + dark)
+ * ---------------------------------------------------------------------------
+ * There is no separate CSS-variable token layer here -- with Tailwind v4's
+ * `dark:` variant already wired above, the "token system" is this fixed,
+ * repo-wide mapping from a light-mode utility class to its dark companion.
+ * Apply BOTH classes together (light class first, `dark:` variant second) on
+ * every new surface so the whole app stays visually consistent in both
+ * themes. Do not invent one-off dark colors outside this table.
+ *
+ * Neutral surfaces (cards, panels, page background):
+ *   bg-white       -> dark:bg-slate-900
+ *   bg-slate-50    -> dark:bg-slate-800/60   (subtle/secondary surface)
+ *   bg-slate-100   -> dark:bg-slate-800
+ *   bg-slate-200   -> dark:bg-slate-700
+ *
+ * Neutral text (keep the same hierarchy in both themes):
+ *   text-slate-900 -> dark:text-slate-100    (primary text)
+ *   text-slate-800 -> dark:text-slate-200
+ *   text-slate-700 -> dark:text-slate-300
+ *   text-slate-600 -> dark:text-slate-400
+ *   text-slate-500 -> dark:text-slate-400    (secondary/muted text)
+ *   text-slate-400 -> dark:text-slate-500    (placeholder-ish/tertiary text)
+ *
+ * Borders / dividers / rings:
+ *   border|divide|ring-slate-100 -> dark:...-slate-800
+ *   border|divide|ring-slate-200 -> dark:...-slate-700
+ *   border|divide|ring-slate-300 -> dark:...-slate-600
+ *
+ * Semantic status tints (badges, alerts, chips) for every color family in use
+ * (blue/indigo/emerald/rose/amber/purple/etc.) -- never a flat saturated fill:
+ *   bg-{color}-50/100/200   -> dark:bg-{color}-900/30..50  (low-opacity tint,
+ *                              same hue, never a solid dark fill)
+ *   border-{color}-100..400 -> dark:border-{color}-800/60 or -700/-600
+ *   text-{color}-600..900   -> dark:text-{color}-300/400   (brightened so it
+ *                              stays readable on the dark tint above)
+ *
+ * Solid action colors (primary buttons, e.g. bg-blue-600) are intentionally
+ * left unchanged in dark mode -- a saturated fill already has enough contrast
+ * against a dark surface, and changing it would break brand consistency.
+ *
+ * Pure black (`bg-black`, `#000`) is never used for a dark surface -- the
+ * darkest neutral surface is slate-900/950, keeping enough tonal separation
+ * from cards/inputs/borders for a comfortable, professional dark UI.
+ * ---------------------------------------------------------------------------
+ */
+
 /* Dark scrollbar matching the sidebar's own navy theme, instead of the browser default. */
 .custom-scrollbar {
   scrollbar-width: thin;

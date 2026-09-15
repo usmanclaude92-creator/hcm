@@ -98,7 +98,7 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-purple-700 to-indigo-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -122,24 +122,24 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
         </div>
 
         {/* Employee banner */}
-        <div className="px-6 py-3 bg-purple-50/70 border-b border-purple-100 flex items-center justify-between text-xs">
+        <div className="px-6 py-3 bg-purple-50/70 border-b border-purple-100 dark:border-purple-800/60 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
-            <span className="font-bold font-mono text-purple-900 bg-purple-100 px-2 py-0.5 rounded">
+            <span className="font-bold font-mono text-purple-900 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 rounded">
               {employee.employeeId}
             </span>
-            <span className="font-semibold text-slate-800">{employee.employeeName}</span>
-            <span className="text-slate-500">({employee.designation} • {employee.employeeCompany})</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">{employee.employeeName}</span>
+            <span className="text-slate-500 dark:text-slate-400">({employee.designation} • {employee.employeeCompany})</span>
           </div>
-          <div className="text-slate-600 font-mono">
-            Rate: <strong className="text-slate-900">OMR {formatOMR(employee.monthlySalaryOrRate)}</strong>
+          <div className="text-slate-600 dark:text-slate-400 font-mono">
+            Rate: <strong className="text-slate-900 dark:text-slate-100">OMR {formatOMR(employee.monthlySalaryOrRate)}</strong>
           </div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle size={15} className="shrink-0 text-rose-600" />
+            <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle size={15} className="shrink-0 text-rose-600 dark:text-rose-400" />
               <span>{error}</span>
             </div>
           )}
@@ -147,11 +147,11 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Loan Amount */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Loan Amount (OMR) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                   OMR
                 </span>
                 <input
@@ -161,7 +161,7 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
                   required
                   value={loanAmount}
                   onChange={(e) => setLoanAmount(e.target.value)}
-                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
+                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
                   placeholder="0.000"
                 />
               </div>
@@ -169,7 +169,7 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
 
             {/* Disbursement Date */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Disbursement Date <span className="text-rose-500">*</span>
               </label>
               <input
@@ -177,7 +177,7 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
                 required
                 value={loanDate}
                 onChange={(e) => setLoanDate(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
+                className="w-full px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
               />
             </div>
           </div>
@@ -185,11 +185,11 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Monthly Recovery */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Monthly Recovery (OMR) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 dark:text-slate-500">
                   OMR
                 </span>
                 <input
@@ -199,24 +199,24 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
                   required
                   value={monthlyDeduction}
                   onChange={(e) => setMonthlyDeduction(e.target.value)}
-                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
+                  className="w-full pl-12 pr-3 py-2 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
                   placeholder="0.000"
                 />
               </div>
             </div>
 
             {/* Recovery Schedule projection */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-center">
-              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 flex flex-col justify-center">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">
                 Projected Recovery Duration
               </span>
-              <div className="text-xs font-bold text-purple-900 mt-0.5">
+              <div className="text-xs font-bold text-purple-900 dark:text-purple-300 mt-0.5">
                 {estimatedMonths > 0 ? (
                   <span>
                     ~{estimatedMonths} month{estimatedMonths > 1 ? 's' : ''} of payroll deductions
                   </span>
                 ) : (
-                  <span className="text-slate-400">Enter recovery amount</span>
+                  <span className="text-slate-400 dark:text-slate-500">Enter recovery amount</span>
                 )}
               </div>
             </div>
@@ -224,13 +224,13 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
 
           {/* Purpose */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
               Loan Purpose / Category <span className="text-rose-500">*</span>
             </label>
             <select
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-medium text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
+              className="w-full px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-200 outline-hidden transition-all"
             >
               {COMMON_PURPOSES.map((p) => (
                 <option key={p} value={p}>
@@ -243,7 +243,7 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
 
           {purpose === 'Other' && (
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Custom Purpose Remarks
               </label>
               <input
@@ -251,18 +251,18 @@ export const AddLoanQuickModal: React.FC<AddLoanQuickModalProps> = ({
                 value={customPurpose}
                 onChange={(e) => setCustomPurpose(e.target.value)}
                 placeholder="Enter loan purpose description..."
-                className="w-full px-3 py-2 text-xs text-slate-800 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-purple-600 outline-hidden transition-all"
+                className="w-full px-3 py-2 text-xs text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:bg-white focus:border-purple-600 outline-hidden transition-all"
               />
             </div>
           )}
 
           {/* Modal Footer */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>

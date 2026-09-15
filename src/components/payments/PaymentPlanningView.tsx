@@ -334,12 +334,12 @@ export const PaymentPlanningView: React.FC = () => {
 
   const renderSortIcon = (column: PlanningSortColumn) => {
     if (sortColumn !== column) {
-      return <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" />;
+      return <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" />;
     }
     return sortDirection === 'asc' ? (
-      <ArrowUp className="w-3 h-3 text-indigo-600 ml-1 shrink-0 font-bold" />
+      <ArrowUp className="w-3 h-3 text-indigo-600 dark:text-indigo-400 ml-1 shrink-0 font-bold" />
     ) : (
-      <ArrowDown className="w-3 h-3 text-indigo-600 ml-1 shrink-0 font-bold" />
+      <ArrowDown className="w-3 h-3 text-indigo-600 dark:text-indigo-400 ml-1 shrink-0 font-bold" />
     );
   };
 
@@ -602,15 +602,15 @@ export const PaymentPlanningView: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-indigo-600" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             Payment Planning Sheet
           </h2>
         </div>
         <div className="flex items-center gap-2.5">
           <button
             onClick={fetchData}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
@@ -618,9 +618,9 @@ export const PaymentPlanningView: React.FC = () => {
           {canExport && (
             <button
               onClick={handleExportPdf}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
             >
-              <FileDown className="w-3.5 h-3.5 text-indigo-600" />
+              <FileDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               Export PDF
             </button>
           )}
@@ -638,7 +638,7 @@ export const PaymentPlanningView: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -646,9 +646,9 @@ export const PaymentPlanningView: React.FC = () => {
 
       {/* Summary Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-xs">
-          <span className="text-xs font-semibold text-rose-700">Total Outstanding Salaries</span>
-          <strong className="block text-2xl font-bold text-rose-900 mt-1 font-mono">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50/30 shadow-xs">
+          <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">Total Outstanding Salaries</span>
+          <strong className="block text-2xl font-bold text-rose-900 dark:text-rose-300 mt-1 font-mono">
             OMR {formatOMR(totalOutstandingSalaries)}
           </strong>
           <span className="text-[11px] text-rose-500 mt-1 block">
@@ -656,19 +656,19 @@ export const PaymentPlanningView: React.FC = () => {
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
-          <span className="text-xs font-semibold text-amber-700">Total of Last Unpaid Months</span>
-          <strong className="block text-2xl font-bold text-amber-900 mt-1 font-mono">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/30 shadow-xs">
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Total of Last Unpaid Months</span>
+          <strong className="block text-2xl font-bold text-amber-900 dark:text-amber-300 mt-1 font-mono">
             OMR {formatOMR(totalLastUnpaidMonths)}
           </strong>
-          <span className="text-[11px] text-amber-600 mt-1 block">
+          <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block">
             Sum of each employee's oldest outstanding month
           </span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 shadow-xs">
-          <span className="text-xs font-semibold text-indigo-700">Total of Should Pay</span>
-          <strong className="block text-2xl font-bold text-indigo-900 mt-1 font-mono">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/30 shadow-xs">
+          <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Total of Should Pay</span>
+          <strong className="block text-2xl font-bold text-indigo-900 dark:text-indigo-300 mt-1 font-mono">
             OMR {formatOMR(totalShouldPay)}
           </strong>
           <span className="text-[11px] text-indigo-500 mt-1 block">
@@ -676,66 +676,66 @@ export const PaymentPlanningView: React.FC = () => {
           </span>
         </div>
 
-        <div className={`bg-white p-4 rounded-xl border shadow-xs ${
-          pendingOfLastMonths >= 0 ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/30'
+        <div className={`bg-white dark:bg-slate-900 p-4 rounded-xl border shadow-xs ${
+          pendingOfLastMonths >= 0 ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30' : 'border-rose-200 dark:border-rose-800/60 bg-rose-50/30'
         }`}>
-          <span className={`text-xs font-semibold ${pendingOfLastMonths >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+          <span className={`text-xs font-semibold ${pendingOfLastMonths >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
             Pending of Last Months
           </span>
-          <strong className={`block text-2xl font-bold mt-1 font-mono ${pendingOfLastMonths >= 0 ? 'text-emerald-900' : 'text-rose-900'}`}>
+          <strong className={`block text-2xl font-bold mt-1 font-mono ${pendingOfLastMonths >= 0 ? 'text-emerald-900 dark:text-emerald-300' : 'text-rose-900 dark:text-rose-300'}`}>
             OMR {formatOMR(pendingOfLastMonths)}
           </strong>
-          <span className={`text-[11px] mt-1 block ${pendingOfLastMonths >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <span className={`text-[11px] mt-1 block ${pendingOfLastMonths >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
             Last Unpaid Months − Should Pay
           </span>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
         <div className="relative w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-2.5" />
           <input
             type="text"
             placeholder="Search employee by ID or name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-8 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+              className="absolute right-2.5 top-2.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-slate-100 dark:border-slate-800">
           <div className="flex flex-wrap items-center gap-2">
-            <Filter className="w-4 h-4 text-indigo-600" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Planning Filters</span>
-            <span className="text-xs text-slate-500 font-medium">
+            <Filter className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Planning Filters</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               (Showing {displayRows.length} records)
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 text-xs font-semibold text-amber-800 dark:text-amber-300">
               Outstanding: OMR {formatOMR(totalOutstandingSalaries)}
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
               Should Pay: OMR {formatOMR(totalShouldPay)}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
-              Sort: <span className="font-semibold text-indigo-600">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
+              Sort: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
             </span>
             {isFiltering && (
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
                 Reset Filters
@@ -749,7 +749,7 @@ export const PaymentPlanningView: React.FC = () => {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 font-medium"
+              className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 font-medium"
             >
               <option value="ALL">All Types (Staff & Worker)</option>
               <option value="Staff">Staff</option>
@@ -758,7 +758,7 @@ export const PaymentPlanningView: React.FC = () => {
             <select
               value={jobFilter}
               onChange={(e) => setJobFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 truncate font-medium"
+              className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 truncate font-medium"
             >
               <option value="ALL">All Designations</option>
               {availableJobs.map((j) => (
@@ -800,20 +800,20 @@ export const PaymentPlanningView: React.FC = () => {
             type="button"
             onClick={handleResetFilters}
             disabled={!isFiltering}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Reset Filters
           </button>
         </div>
-        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 gap-2">
+        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800 gap-2">
           <span>
-            Showing <strong className="text-slate-700 font-semibold">{displayRows.length}</strong> record{displayRows.length === 1 ? '' : 's'}
+            Showing <strong className="text-slate-700 dark:text-slate-300 font-semibold">{displayRows.length}</strong> record{displayRows.length === 1 ? '' : 's'}
             {isFiltering && ' (filtered)'}
           </span>
           <div className="flex items-center gap-3">
-            <span className="text-slate-400">
-              Sort: <span className="font-semibold text-slate-600 capitalize">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+            <span className="text-slate-400 dark:text-slate-500">
+              Sort: <span className="font-semibold text-slate-600 dark:text-slate-400 capitalize">{sortColumn === 'default' ? 'Type (Staff/Worker) → Company (ASC) → Emp Code (ASC) → Month (DESC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
             </span>
             {sortColumn !== 'default' && (
               <button
@@ -822,7 +822,7 @@ export const PaymentPlanningView: React.FC = () => {
                   setSortColumn('default');
                   setSortDirection('asc');
                 }}
-                className="text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-medium cursor-pointer"
               >
                 Reset Sort
               </button>
@@ -832,13 +832,13 @@ export const PaymentPlanningView: React.FC = () => {
       </div>
 
       {/* Planning Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
         {/* Table Resizing & Controls Toolbar */}
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-slate-700">Payment Planning Sheet</span>
+            <span className="font-medium text-slate-700 dark:text-slate-300">Payment Planning Sheet</span>
             <span className="text-slate-300">•</span>
-            <span className="text-slate-500 text-[11px]">
+            <span className="text-slate-500 dark:text-slate-400 text-[11px]">
               Drag column edges to resize • Double-click edge to reset width
             </span>
           </div>
@@ -847,10 +847,10 @@ export const PaymentPlanningView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResetAllColumns}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded shadow-2xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded shadow-2xs transition-colors cursor-pointer"
                 title="Reset all column widths to default"
               >
-                <RotateCcw className="w-3 h-3 text-slate-500" />
+                <RotateCcw className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                 Reset Columns
               </button>
             )}
@@ -873,7 +873,7 @@ export const PaymentPlanningView: React.FC = () => {
               <col style={{ width: `${columnWidths.shouldPay || DEFAULT_PLANNING_COLUMN_WIDTHS.shouldPay}px` }} />
               <col style={{ width: `${columnWidths.remarks || DEFAULT_PLANNING_COLUMN_WIDTHS.remarks}px` }} />
             </colgroup>
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider select-none">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider select-none">
               <tr>
                 <th
                   onClick={() => handleSort('employee')}
@@ -967,18 +967,18 @@ export const PaymentPlanningView: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
               {loading ? (
-                <tr><td colSpan={9} className="px-6 py-10 text-center text-slate-400">Loading planning sheet...</td></tr>
+                <tr><td colSpan={9} className="px-6 py-10 text-center text-slate-400 dark:text-slate-500">Loading planning sheet...</td></tr>
               ) : displayRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400">
+                  <td colSpan={9} className="px-6 py-10 text-center text-slate-400 dark:text-slate-500">
                     <p className="text-sm font-semibold">No planning rows match the selected filters.</p>
                     {isFiltering && (
                       <button
                         type="button"
                         onClick={handleResetFilters}
-                        className="text-xs mt-1 text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                        className="text-xs mt-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-semibold cursor-pointer"
                       >
                         Reset Filters
                       </button>
@@ -994,29 +994,29 @@ export const PaymentPlanningView: React.FC = () => {
                     <tr
                       key={key}
                       className={`${dirtyKeys.has(key) ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'} ${
-                        r.isLastInGroup ? 'border-b-2 border-slate-300' : ''
+                        r.isLastInGroup ? 'border-b-2 border-slate-300 dark:border-slate-600' : ''
                       }`}
                     >
                       {r.dynamicFirst && (
                         <td className="px-4 py-3 align-top" rowSpan={r.dynamicSpan}>
-                          <span className="font-mono font-bold text-blue-600 block">{r.employeeId}</span>
-                          <span className="font-semibold text-slate-900">{r.employeeName}</span>
+                          <span className="font-mono font-bold text-blue-600 dark:text-blue-400 block">{r.employeeId}</span>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{r.employeeName}</span>
                         </td>
                       )}
-                      <td className="px-3 py-3 font-mono text-slate-600">{r.payrollMonth}</td>
-                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">OMR {formatOMR(r.netSalary)}</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-600">OMR {formatOMR(r.lastPaidSalary)}</td>
-                      <td className="px-3 py-3 text-slate-500">{r.lastPaymentDate ? formatDate(r.lastPaymentDate) : '—'}</td>
+                      <td className="px-3 py-3 font-mono text-slate-600 dark:text-slate-400">{r.payrollMonth}</td>
+                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900 dark:text-slate-100">OMR {formatOMR(r.netSalary)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-600 dark:text-slate-400">OMR {formatOMR(r.lastPaidSalary)}</td>
+                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">{r.lastPaymentDate ? formatDate(r.lastPaymentDate) : '—'}</td>
                       <td className="px-3 py-3 text-center">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          r.status === 'Fully Paid' ? 'bg-emerald-100 text-emerald-800' :
-                          r.status === 'Partially Paid' ? 'bg-amber-100 text-amber-800' :
-                          'bg-rose-100 text-rose-800'
+                          r.status === 'Fully Paid' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' :
+                          r.status === 'Partially Paid' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' :
+                          'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                         }`}>
                           {r.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-rose-600">OMR {formatOMR(r.outstanding)}</td>
+                      <td className="px-4 py-3 text-right font-mono text-rose-600 dark:text-rose-400">OMR {formatOMR(r.outstanding)}</td>
                       <td className="px-4 py-3 text-right">
                         {r.status !== 'Fully Paid' ? (
                           canEdit ? (
@@ -1026,19 +1026,19 @@ export const PaymentPlanningView: React.FC = () => {
                                 step="0.001"
                                 value={r.shouldPayAmount}
                                 onChange={(e) => handleShouldPayChange(r, e.target.value)}
-                                className={`w-28 px-2 py-1 text-right font-mono font-bold text-indigo-800 border rounded-md focus:ring-2 ${
-                                  invalidMsg ? 'border-rose-400 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500'
+                                className={`w-28 px-2 py-1 text-right font-mono font-bold text-indigo-800 dark:text-indigo-300 border rounded-md focus:ring-2 ${
+                                  invalidMsg ? 'border-rose-400 dark:border-rose-600 focus:ring-rose-500' : 'border-slate-200 dark:border-slate-700 focus:ring-indigo-500'
                                 }`}
                               />
                               {invalidMsg && (
-                                <span className="text-[10px] text-rose-600 text-right max-w-[9rem]">{invalidMsg}</span>
+                                <span className="text-[10px] text-rose-600 dark:text-rose-400 text-right max-w-[9rem]">{invalidMsg}</span>
                               )}
                             </div>
                           ) : (
-                            <span className="font-mono font-bold text-indigo-800">OMR {formatOMR(r.shouldPayAmount)}</span>
+                            <span className="font-mono font-bold text-indigo-800 dark:text-indigo-300">OMR {formatOMR(r.shouldPayAmount)}</span>
                           )
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 dark:text-slate-500">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -1048,10 +1048,10 @@ export const PaymentPlanningView: React.FC = () => {
                             value={r.remarks}
                             onChange={(e) => handleRemarksChange(key, e.target.value)}
                             placeholder="Optional notes..."
-                            className="w-full px-2 py-1 border border-slate-200 rounded-md text-xs focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-2 py-1 border border-slate-200 dark:border-slate-700 rounded-md text-xs focus:ring-2 focus:ring-indigo-500"
                           />
                         ) : (
-                          <span className="text-slate-500">{r.remarks || '—'}</span>
+                          <span className="text-slate-500 dark:text-slate-400">{r.remarks || '—'}</span>
                         )}
                       </td>
                     </tr>

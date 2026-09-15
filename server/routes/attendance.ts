@@ -46,8 +46,8 @@ router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
 
     const scope = companyScopeOf(req.user);
     const attendanceRecords = db.attendance.getByMonth(String(month));
-    const employees = db.employees.getAll().filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany));
-    const projects = db.projects.getAll();
+    const employees = (await db.employees.getAll()).filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany));
+    const projects = await db.projects.getAll();
     const monthStatus = await db.attendanceMonths.getOrCreate(String(month));
 
     // Group attendance by employee for easier UI rendering and project allocation
@@ -65,6 +65,10 @@ router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
         employeeType: emp.employeeType,
         designation: emp.designation,
         employeeCompany: emp.employeeCompany,
+        // Employee Master's "home site" (see Employee.assignedProjectCode) -- lets the
+        // Workforce Deployment dashboard place a card under the employee's real project
+        // even before any hours are logged against them this month.
+        assignedProjectCode: emp.assignedProjectCode || null,
         salaryPaidBy: emp.salaryPaidBy,
         monthlySalaryOrRate: emp.monthlySalaryOrRate,
         wageType: emp.wageType,
@@ -143,8 +147,8 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       }
 
       const normEmpId = normalizeEmployeeId(r.employeeId);
-      const emp = db.employees.findByEmployeeId(normEmpId);
-      const proj = db.projects.findById(r.projectId) || db.projects.findByCode(r.projectId);
+      const emp = await db.employees.findByEmployeeId(normEmpId);
+      const proj = (await db.projects.findById(r.projectId)) || (await db.projects.findByCode(r.projectId));
 
       if (!emp) { rejectedRows.push(`Employee '${normEmpId}' does not exist.`); continue; }
       if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
@@ -262,8 +266,8 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
     const { month } = req.query;
     const payrollMonth = String(month || new Date().toISOString().slice(0, 7));
 
-    const activeEmployees = db.employees.getAll().filter(e => e.isActive);
-    const activeProjects = db.projects.getAll().filter(p => p.status === 'Active');
+    const activeEmployees = (await db.employees.getAll()).filter(e => e.isActive);
+    const activeProjects = (await db.projects.getAll()).filter(p => p.status === 'Active');
 
     const projectByRef = new Map<string, string>();
     activeProjects.forEach(p => {
@@ -369,7 +373,7 @@ router.get('/export/template', verifyAuth, async (req: AuthRequest, res: Respons
 });
 
 // POST /api/attendance/import/validate - Validate uploaded attendance Excel
-router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRequest, res: Response) => {
+router.post('/import/validate', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { fileData, month } = req.body;
     if (!fileData || !month) {
@@ -409,8 +413,8 @@ router.post('/import/validate', verifyAuth, requireWritePermission, (req: AuthRe
       const rawPayBy = String(r['Pay By'] || r['PayBy'] || '').trim();
 
       const normEmpId = normalizeEmployeeId(rawId);
-      const emp = db.employees.findByEmployeeId(normEmpId);
-      const proj = db.projects.findByCode(rawProj);
+      const emp = await db.employees.findByEmployeeId(normEmpId);
+      const proj = await db.projects.findByCode(rawProj);
 
       let status: 'Valid' | 'Invalid' = 'Valid';
       let reason = 'Ready';
@@ -548,11 +552,11 @@ router.post('/import/confirm', verifyAuth, requireWritePermission, async (req: A
     for (const r of validRows) {
       try {
         // Defense-in-depth: re-validate server-side, never trust the client-echoed status.
-        const emp = db.employees.findByEmployeeId(r.employeeId);
+        const emp = await db.employees.findByEmployeeId(r.employeeId);
         if (!emp || !emp.isActive) {
           throw new Error(`Employee '${r.employeeId}' not found or inactive.`);
         }
-        const proj = db.projects.findById(r.projectId) || db.projects.findByCode(r.projectCode);
+        const proj = (await db.projects.findById(r.projectId)) || (await db.projects.findByCode(r.projectCode));
         if (!proj || proj.status !== 'Active') {
           throw new Error(`Project '${r.projectCode}' not found or inactive.`);
         }
@@ -650,11 +654,11 @@ router.post('/:month/assign', verifyAuth, requireWritePermission, async (req: Au
       return res.status(400).json({ error: `Attendance for ${month} is Finalized. Use Revert before making changes.` });
     }
 
-    const emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
+    const emp = await db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
     if (!emp) return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
     if (!emp.isActive) return res.status(400).json({ error: `Employee '${emp.employeeId}' is inactive.` });
 
-    const proj = db.projects.findById(projectId) || db.projects.findByCode(projectId);
+    const proj = (await db.projects.findById(projectId)) || (await db.projects.findByCode(projectId));
     if (!proj) return res.status(404).json({ error: 'Project not found.' });
     if (proj.status !== 'Active') return res.status(400).json({ error: `Project '${proj.projectCode}' is Inactive.` });
 
@@ -732,12 +736,12 @@ router.get('/:month/status', verifyAuth, async (req: AuthRequest, res: Response)
 });
 
 // GET /api/attendance/:month/dashboard - Real derived summary + exceptions, no fabricated data
-router.get('/:month/dashboard', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/:month/dashboard', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const month = req.params.month;
     const records = db.attendance.getByMonth(month);
-    const activeEmployees = db.employees.getAll().filter(e => e.isActive);
-    const projects = db.projects.getAll();
+    const activeEmployees = (await db.employees.getAll()).filter(e => e.isActive);
+    const projects = await db.projects.getAll();
 
     const empProjectCount = new Map<string, Set<string>>();
     const empOvertime = new Map<string, number>();
@@ -946,31 +950,200 @@ function computeDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: n
   return Math.round(R * c);
 }
 
-// Default Oman Project / HQ coordinates (Muscat Central)
-const DEFAULT_GEOFENCE = {
-  latitude: 23.5880,
-  longitude: 58.3829,
-  radiusMeters: 1500, // 1.5 km
-};
+// Each project can configure its own real gate/geofence (see db.geofences and the
+// /api/masters/geofences CRUD), keyed by that project's projectCode. Resolve the
+// specific project's active primary gate here instead of comparing every employee on
+// every project against one hardcoded Muscat-central point that has nothing to do with
+// most actual sites. When a project has no geofence configured yet, there is nothing
+// real to compare against, so the caller should skip the exception check entirely
+// rather than silently flag (or silently clear) against the wrong location.
+async function resolveProjectGeofence(
+  projectCode: string | null | undefined
+): Promise<{ latitude: number; longitude: number; radiusMeters: number } | null> {
+  if (!projectCode) return null;
+  const normalized = projectCode.trim().toUpperCase();
+  if (!normalized) return null;
+  const all = await db.geofences.getAll();
+  const forProject = all.filter(g => g.isActive && (g.projectId || '').trim().toUpperCase() === normalized);
+  if (forProject.length === 0) return null;
+  const primary = forProject.find(g => g.isPrimary) || forProject[0];
+  return {
+    latitude: Number(primary.latitude),
+    longitude: Number(primary.longitude),
+    radiusMeters: Number(primary.radiusMeters),
+  };
+}
+
+function getMonthWorkingDates(month: string, targetCount: number): string[] {
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const dates: string[] = [];
+
+  // Working days (skip Friday, weekly rest in Oman)
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (dates.length >= targetCount) break;
+    const dateObj = new Date(y, m - 1, d);
+    const dayOfWeek = dateObj.getDay(); // 5 = Friday
+    if (dayOfWeek !== 5) {
+      dates.push(`${month}-${String(d).padStart(2, '0')}`);
+    }
+  }
+
+  // Fill remaining days if targetCount is larger than non-Fridays
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (dates.length >= targetCount) break;
+    const dateStr = `${month}-${String(d).padStart(2, '0')}`;
+    if (!dates.includes(dateStr)) {
+      dates.push(dateStr);
+    }
+  }
+
+  return dates.sort();
+}
 
 // GET /api/attendance/employee/:employeeId
 // Returns monthly attendance report & punches for a single employee
 router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const rawId = req.params.employeeId;
-    const emp = db.employees.findByEmployeeId(rawId) || db.employees.findByEmployeeId(normalizeEmployeeId(rawId));
+    const emp = (await db.employees.findByEmployeeId(rawId)) || (await db.employees.findByEmployeeId(normalizeEmployeeId(rawId)));
     if (!emp) {
       return res.status(404).json({ error: `Employee '${rawId}' not found.` });
     }
 
     const month = String(req.query.month || new Date().toISOString().slice(0, 7)).trim();
     const records = db.attendance.getByEmployeeAndMonth(emp.employeeId, month);
-    const punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+    let punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
     const monthStatus = db.attendanceMonths.getByMonth(month)?.status || 'Draft';
 
     const personal = db.personalDetails.get(emp.employeeId);
     const projectCode = emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
-    const proj = db.projects.findByCode(projectCode) || db.projects.findById(projectCode);
+    const proj = (await db.projects.findByCode(projectCode)) || (await db.projects.findById(projectCode));
+
+    // If attendance record exists for month but punches were not created yet, populate daily punches
+    if (records.length > 0 && punches.length === 0) {
+      const isStaff = emp.employeeType === 'Staff';
+      const daysCount = records.reduce((s, r) => s + (Number(r.daysWorked) || 0), 0);
+      const hoursCount = records.reduce((s, r) => s + (Number(r.hoursWorked) || 0), 0);
+      const targetDays = isStaff ? (daysCount || 25) : Math.max(1, Math.round((hoursCount || 200) / 8));
+      const workingDates = getMonthWorkingDates(month, targetDays);
+      const isApprovedMonth = monthStatus === 'Approved' || monthStatus === 'Finalized';
+
+      for (const d of workingDates) {
+        const p: AttendancePunch = {
+          id: `punch-${emp.employeeId}-${d}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.employeeName,
+          punchDate: d,
+          checkInTime: `${d}T08:00:00.000Z`,
+          checkOutTime: `${d}T17:00:00.000Z`,
+          hoursWorked: isStaff ? 0 : 8,
+          overtimeHours: 0,
+          projectId: proj?.id || 'proj-ho',
+          projectCode,
+          projectName: proj?.projectName || 'Head Office',
+          // Generated to match a manually-entered monthly summary, not a real captured
+          // check-in/out -- no GPS/selfie was ever taken, so there is nothing to evaluate
+          // a geofence exception against. Flagged via isSynthesized below so the UI can
+          // say so, instead of asserting a false "no exception" verification.
+          isSynthesized: true,
+          status: 'Checked Out',
+          createdAt: `${d}T08:00:00.000Z`,
+          updatedAt: `${d}T17:00:00.000Z`,
+        };
+        (p as any).supervisorApproved = isApprovedMonth;
+        await db.attendancePunches.create(p);
+      }
+      punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+    }
+
+    // Ensure approval state aligns if month is Approved or Finalized
+    if (monthStatus === 'Approved' || monthStatus === 'Finalized') {
+      punches = punches.map(p => ({
+        ...p,
+        supervisorApproved: true,
+      }));
+    }
+
+    // Blend in any REAL, GPS/selfie-verified shifts the Workforce-App mobile clock-in/out
+    // feature captured this month (attendance_shifts -- the same Postgres database as this
+    // app's own employees table, see db.workforceShifts). This is what actually connects a
+    // real mobile clock-in/out to what shows up in this report -- previously this endpoint
+    // only ever showed manually entered/imported data or a fabricated placeholder, so a
+    // real event captured in the app was invisible here no matter what. These are persisted
+    // (not just returned once) so that Make-Report's day/hour calculation and the punch
+    // approval routes, both of which read from db.attendancePunches, see them too -- an
+    // ephemeral response-only blend would look right in this modal while silently breaking
+    // both of those. A date that already has a manual, imported, or synthesized punch is
+    // never overwritten by real data, to avoid disturbing anything already entered/approved;
+    // a real shift already recorded here gets refreshed in place (e.g. once a clock-out
+    // lands for a shift that was still open the last time this was read).
+    const realShifts = await db.workforceShifts.getForEmployeeAndMonth(emp.id, month);
+    if (realShifts.length > 0) {
+      const isApprovedMonth = monthStatus === 'Approved' || monthStatus === 'Finalized';
+      let changed = false;
+      for (const shift of realShifts) {
+        const wfId = `wfshift-${shift.id}`;
+        const existingForDate = punches.find(p => p.punchDate === shift.shiftDate);
+        const hoursWorked = shift.totalWorkedMinutes != null
+          ? Number((shift.totalWorkedMinutes / 60).toFixed(2))
+          : (shift.clockInTime && shift.clockOutTime
+              ? Math.max(0, Number(((new Date(shift.clockOutTime).getTime() - new Date(shift.clockInTime).getTime()) / 3600000).toFixed(2)))
+              : 0);
+        const checkInTime = shift.clockInTime || `${shift.shiftDate}T00:00:00.000Z`;
+        const checkOutTime = shift.clockOutTime ?? null;
+        // A real shift only carries a meaningful geofence result once compliance_flag has
+        // actually been evaluated -- 'VERIFIED' means inside, anything else recorded means
+        // an exception. Never fabricated: this comes straight from the mobile app's own GPS
+        // check at clock-in/out.
+        const isGeofenceException = shift.complianceFlag ? shift.complianceFlag !== 'VERIFIED' : undefined;
+        const status: AttendancePunch['status'] = checkOutTime ? 'Checked Out' : 'Checked In';
+
+        if (!existingForDate) {
+          await db.attendancePunches.create({
+            id: wfId,
+            employeeId: emp.employeeId,
+            employeeName: emp.employeeName,
+            punchDate: shift.shiftDate,
+            checkInTime,
+            checkOutTime,
+            hoursWorked,
+            overtimeHours: hoursWorked > 8 ? Number((hoursWorked - 8).toFixed(2)) : 0,
+            projectId: proj?.id || 'proj-ho',
+            projectCode,
+            projectName: proj?.projectName || 'Head Office',
+            selfieUrl: shift.selfieUrl,
+            startSelfieUrl: shift.selfieUrl,
+            endSelfieUrl: shift.endSelfieUrl,
+            isGeofenceException,
+            status,
+            supervisorApproved: isApprovedMonth,
+            createdAt: checkInTime,
+            updatedAt: checkOutTime || checkInTime,
+          });
+          changed = true;
+        } else if (existingForDate.id === wfId) {
+          const needsUpdate = existingForDate.checkOutTime !== checkOutTime
+            || existingForDate.status !== status
+            || existingForDate.hoursWorked !== hoursWorked;
+          if (needsUpdate) {
+            await db.attendancePunches.update(wfId, {
+              checkOutTime, hoursWorked, isGeofenceException, status,
+              overtimeHours: hoursWorked > 8 ? Number((hoursWorked - 8).toFixed(2)) : 0,
+              endSelfieUrl: shift.endSelfieUrl,
+            });
+            changed = true;
+          }
+        }
+        // else: a manual/imported/synthesized punch already covers this date -- leave it.
+      }
+      if (changed) {
+        punches = db.attendancePunches.getByEmployee(emp.employeeId, month);
+        if (isApprovedMonth) {
+          punches = punches.map(p => ({ ...p, supervisorApproved: true }));
+        }
+      }
+    }
 
     res.json({
       employee: {
@@ -1003,12 +1176,65 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
   }
 });
 
+// POST /api/attendance/punch/:id/toggle-approval
+// Toggles supervisor approval on a single daily attendance punch
+router.post('/punch/:id/toggle-approval', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const punchId = req.params.id;
+    const all = db.attendancePunches.getAll();
+    const punch = all.find(p => p.id === punchId);
+    if (!punch) {
+      return res.status(404).json({ error: 'Attendance punch record not found.' });
+    }
+
+    const currentApproved = (punch as any).supervisorApproved === true;
+    const newApproved = !currentApproved;
+    const approver = req.user?.username || 'Supervisor';
+
+    const updated = await db.attendancePunches.update(punch.id, {
+      ...punch,
+      supervisorApproved: newApproved,
+      approvedBy: newApproved ? approver : null,
+      approvedAt: newApproved ? new Date().toISOString() : null,
+    } as any);
+
+    res.json({ success: true, punch: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle punch approval.' });
+  }
+});
+
+// POST /api/attendance/employee/:employeeId/approve-all-punches
+// Marks all daily attendance punches for an employee for the month as approved by supervisor
+router.post('/employee/:employeeId/approve-all-punches', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
+  try {
+    const rawId = req.params.employeeId;
+    const month = String(req.body.month || new Date().toISOString().slice(0, 7)).trim();
+    const punches = db.attendancePunches.getByEmployee(rawId, month);
+    const approver = req.user?.username || 'Supervisor';
+    const nowIso = new Date().toISOString();
+
+    for (const p of punches) {
+      await db.attendancePunches.update(p.id, {
+        ...p,
+        supervisorApproved: true,
+        approvedBy: approver,
+        approvedAt: nowIso,
+      } as any);
+    }
+
+    res.json({ success: true, count: punches.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to approve punches.' });
+  }
+});
+
 // POST /api/attendance/employee/:employeeId/make-report
 // Creates an attendance report for an employee for the specified month if none exists
 router.post('/employee/:employeeId/make-report', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const rawId = req.params.employeeId;
-    const emp = db.employees.findByEmployeeId(rawId) || db.employees.findByEmployeeId(normalizeEmployeeId(rawId));
+    const emp = (await db.employees.findByEmployeeId(rawId)) || (await db.employees.findByEmployeeId(normalizeEmployeeId(rawId)));
     if (!emp) {
       return res.status(404).json({ error: `Employee '${rawId}' not found.` });
     }
@@ -1027,9 +1253,9 @@ router.post('/employee/:employeeId/make-report', verifyAuth, requireWritePermiss
     // Determine project
     const personal = db.personalDetails.get(emp.employeeId);
     const targetProjectCode = req.body.projectCode || req.body.projectId || emp.assignedProjectCode || personal?.assignedProject || 'HO0001';
-    let proj = db.projects.findByCode(targetProjectCode) || db.projects.findById(targetProjectCode);
+    let proj = (await db.projects.findByCode(targetProjectCode)) || (await db.projects.findById(targetProjectCode));
     if (!proj) {
-      proj = db.projects.getAll().find(p => p.status === 'Active') || ({
+      proj = (await db.projects.getAll()).find(p => p.status === 'Active') || ({
         id: 'proj-ho',
         projectCode: 'HO0001',
         projectName: 'Head Office',
@@ -1145,7 +1371,7 @@ router.post('/punches/check-in', verifyAuth, async (req: AuthRequest, res: Respo
       return res.status(400).json({ error: 'Employee ID is required.' });
     }
 
-    const emp = db.employees.findByEmployeeId(employeeId);
+    const emp = await db.employees.findByEmployeeId(employeeId);
     if (!emp) {
       return res.status(404).json({ error: `Employee '${employeeId}' not found.` });
     }
@@ -1173,11 +1399,17 @@ router.post('/punches/check-in', verifyAuth, async (req: AuthRequest, res: Respo
     let exceptionReason: string | null = null;
 
     if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
-      const dist = computeDistanceMeters(lat, lon, DEFAULT_GEOFENCE.latitude, DEFAULT_GEOFENCE.longitude);
-      if (dist > DEFAULT_GEOFENCE.radiusMeters) {
-        isGeofenceException = true;
-        exceptionReason = `Check-in location is ${Math.round(dist)}m from designated site (boundary: ${DEFAULT_GEOFENCE.radiusMeters}m)`;
+      const geofence = await resolveProjectGeofence(req.body.projectCode || emp.assignedProjectCode);
+      if (geofence) {
+        const dist = computeDistanceMeters(lat, lon, geofence.latitude, geofence.longitude);
+        if (dist > geofence.radiusMeters) {
+          isGeofenceException = true;
+          exceptionReason = `Check-in location is ${Math.round(dist)}m from designated site (boundary: ${geofence.radiusMeters}m)`;
+        }
       }
+      // No geofence configured for this project yet -- nothing real to compare against,
+      // so no exception is raised (previously every project was compared against one
+      // hardcoded Muscat-central point, which was meaningless for sites elsewhere).
     }
 
     const projectId = req.body.projectId || 'proj-hq';
@@ -1256,12 +1488,15 @@ router.post('/punches/check-out', verifyAuth, async (req: AuthRequest, res: Resp
     let exceptionReason = punch.exceptionReason || null;
 
     if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
-      const dist = computeDistanceMeters(lat, lon, DEFAULT_GEOFENCE.latitude, DEFAULT_GEOFENCE.longitude);
-      if (dist > DEFAULT_GEOFENCE.radiusMeters) {
-        isGeofenceException = true;
-        exceptionReason = exceptionReason
-          ? `${exceptionReason}; Check-out location is ${Math.round(dist)}m from site`
-          : `Check-out location is ${Math.round(dist)}m from designated site`;
+      const geofence = await resolveProjectGeofence(punch.projectCode);
+      if (geofence) {
+        const dist = computeDistanceMeters(lat, lon, geofence.latitude, geofence.longitude);
+        if (dist > geofence.radiusMeters) {
+          isGeofenceException = true;
+          exceptionReason = exceptionReason
+            ? `${exceptionReason}; Check-out location is ${Math.round(dist)}m from site`
+            : `Check-out location is ${Math.round(dist)}m from designated site`;
+        }
       }
     }
 

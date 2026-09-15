@@ -59,10 +59,10 @@ interface AttendanceGroup {
 
 const STATUS_FLOW: AttendanceStatus[] = ['Draft', 'Submitted', 'Approved', 'Finalized'];
 const STATUS_BADGE_CLASS: Record<AttendanceStatus, string> = {
-  Draft: 'bg-slate-100 text-slate-700 border-slate-300',
-  Submitted: 'bg-amber-100 text-amber-800 border-amber-300',
-  Approved: 'bg-blue-100 text-blue-800 border-blue-300',
-  Finalized: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  Draft: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600',
+  Submitted: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+  Approved: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700',
+  Finalized: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
 };
 
 export interface AttendanceViewProps {
@@ -503,27 +503,27 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <CalendarCheck className="w-5 h-5 text-indigo-600" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <CalendarCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             Monthly Attendance Register
           </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Month Picker */}
-          <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-3 py-1.5 shadow-2xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+          <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="text-xs font-semibold text-slate-800 focus:outline-hidden"
+              className="text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden"
             />
           </div>
 
           <button
             onClick={handleExportTemplate}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Attendance Template
@@ -533,7 +533,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
             <>
               <button
                 onClick={() => setIsImportModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/60 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-2xs cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
                 Import Attendance
@@ -554,9 +554,9 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
 
       {/* Workflow Status Bar */}
       {monthStatus && (
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">Attendance Status:</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Attendance Status:</span>
             <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold border ${STATUS_BADGE_CLASS[monthStatus.status]}`}>
               {monthStatus.status}
             </span>
@@ -564,7 +564,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               {STATUS_FLOW.map((s, i) => (
                 <React.Fragment key={s}>
                   {i > 0 && <span className="text-slate-300">→</span>}
-                  <span className={`text-[10px] ${s === monthStatus.status ? 'font-bold text-slate-800' : 'text-slate-400'}`}>{s}</span>
+                  <span className={`text-[10px] ${s === monthStatus.status ? 'font-bold text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>{s}</span>
                 </React.Fragment>
               ))}
             </div>
@@ -574,7 +574,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               <button
                 onClick={() => handleWorkflowAction('submit')}
                 disabled={workflowBusy}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" /> Submit for Approval
               </button>
@@ -583,7 +583,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               <button
                 onClick={() => handleWorkflowAction('approve')}
                 disabled={workflowBusy}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800/60 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
               >
                 <ThumbsUp className="w-3.5 h-3.5" /> Approve
               </button>
@@ -592,7 +592,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               <button
                 onClick={() => handleWorkflowAction('finalize')}
                 disabled={workflowBusy}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors disabled:opacity-50"
               >
                 <Lock className="w-3.5 h-3.5" /> Finalize Attendance
               </button>
@@ -600,7 +600,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
             {monthStatus.status === 'Finalized' && hasPermission('attendance.revert') && (
               <button
                 onClick={() => setIsRevertModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" /> Revert
               </button>
@@ -617,55 +617,55 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
         return (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[10px] font-medium text-slate-500">Employees</span>
-                <div className="text-lg font-bold text-slate-900">{dashboard.totalEmployees}</div>
-                <span className="text-[10px] text-slate-400">{dashboard.totalStaff} Staff • {dashboard.totalWorkers} Workers</span>
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Employees</span>
+                <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{dashboard.totalEmployees}</div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">{dashboard.totalStaff} Staff • {dashboard.totalWorkers} Workers</span>
               </div>
 
               {/* Widget 2: Total Days & Hours */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[10px] font-medium text-slate-500">Total Days</span>
-                <div className="text-lg font-bold text-slate-900">{dashboard.totalDays}</div>
-                <span className="text-[10px] text-slate-400">{dashboard.totalHours} Total Hours</span>
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Total Days</span>
+                <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{dashboard.totalDays}</div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">{dashboard.totalHours} Total Hours</span>
               </div>
 
               {/* Widget 3: Total Projects & Jobs */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[10px] font-medium text-slate-500">Total Projects</span>
-                <div className="text-lg font-bold text-slate-900">{totalProjectsCount}</div>
-                <span className="text-[10px] text-slate-400">{totalJobsCount} Total Jobs</span>
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Total Projects</span>
+                <div className="text-lg font-bold text-slate-900 dark:text-slate-100">{totalProjectsCount}</div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">{totalJobsCount} Total Jobs</span>
               </div>
 
-              <div className="bg-white p-3 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
-                <span className="text-[10px] font-medium text-amber-700">Overtime Hours</span>
-                <div className="text-lg font-bold text-amber-800">{dashboard.totalOvertimeHours}</div>
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/30 shadow-xs">
+                <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">Overtime Hours</span>
+                <div className="text-lg font-bold text-amber-800 dark:text-amber-300">{dashboard.totalOvertimeHours}</div>
               </div>
-              <div className="bg-white p-3 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
-                <span className="text-[10px] font-medium text-emerald-700">Completion</span>
-                <div className="text-lg font-bold text-emerald-800">{dashboard.completionPercentage}%</div>
+              <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 shadow-xs">
+                <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">Completion</span>
+                <div className="text-lg font-bold text-emerald-800 dark:text-emerald-300">{dashboard.completionPercentage}%</div>
               </div>
               <button
                 onClick={() => setShowExceptions(!showExceptions)}
                 className={`p-3 rounded-xl border shadow-xs text-left transition-colors cursor-pointer ${
-                  dashboard.exceptions.length > 0 ? 'bg-rose-50 border-rose-200 hover:bg-rose-100' : 'bg-white border-slate-200 hover:bg-slate-50'
+                  dashboard.exceptions.length > 0 ? 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100 dark:hover:bg-rose-900/50' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
-                <span className={`text-[10px] font-medium ${dashboard.exceptions.length > 0 ? 'text-rose-700' : 'text-slate-500'}`}>Exceptions</span>
-                <div className={`text-lg font-bold ${dashboard.exceptions.length > 0 ? 'text-rose-800' : 'text-slate-900'}`}>{dashboard.exceptions.length}</div>
+                <span className={`text-[10px] font-medium ${dashboard.exceptions.length > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>Exceptions</span>
+                <div className={`text-lg font-bold ${dashboard.exceptions.length > 0 ? 'text-rose-800 dark:text-rose-300' : 'text-slate-900 dark:text-slate-100'}`}>{dashboard.exceptions.length}</div>
               </button>
             </div>
 
             {showExceptions && dashboard.exceptions.length > 0 && (
-              <div className="bg-white rounded-xl border border-rose-200 shadow-xs p-4 space-y-2">
-                <h3 className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-rose-200 dark:border-rose-800/60 shadow-xs p-4 space-y-2">
+                <h3 className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5" /> Exceptions & Alerts ({dashboard.exceptions.length})
                 </h3>
                 <div className="space-y-1.5 max-h-56 overflow-y-auto">
                   {dashboard.exceptions.map((exc: any, idx: number) => (
                     <div key={idx} className="flex items-start gap-2 p-2 bg-rose-50/50 rounded-lg text-[11px]">
-                      <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded font-semibold shrink-0">{exc.type}</span>
-                      <span className="text-slate-600">{exc.message}</span>
+                      <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 rounded font-semibold shrink-0">{exc.type}</span>
+                      <span className="text-slate-600 dark:text-slate-400">{exc.message}</span>
                     </div>
                   ))}
                 </div>
@@ -673,16 +673,16 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
             )}
 
             {dashboard.projectAllocation?.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4">
-                <h3 className="text-xs font-bold text-slate-800 mb-2">Project Allocation</h3>
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs p-4">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">Project Allocation</h3>
                 <div className="space-y-1.5">
                   {dashboard.projectAllocation.map((p: any) => (
                     <div key={p.projectCode} className="flex items-center gap-2 text-[11px]">
-                      <span className="w-24 font-mono font-semibold text-slate-700 shrink-0">{p.projectCode}</span>
-                      <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <span className="w-24 font-mono font-semibold text-slate-700 dark:text-slate-300 shrink-0">{p.projectCode}</span>
+                      <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                         <div className="h-2 bg-indigo-500 rounded-full" style={{ width: `${p.percentage}%` }} />
                       </div>
-                      <span className="w-12 text-right font-semibold text-slate-600">{p.percentage}%</span>
+                      <span className="w-12 text-right font-semibold text-slate-600 dark:text-slate-400">{p.percentage}%</span>
                     </div>
                   ))}
                 </div>
@@ -693,14 +693,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
       })()}
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs flex items-center gap-2">
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{successMsg}</span>
         </div>
@@ -750,12 +750,12 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
         const renderSortIcon = (col: SortColumn) => {
           if (sortColumn === col) {
             return sortDirection === 'asc' ? (
-              <ArrowUp className="w-3.5 h-3.5 text-indigo-600 inline ml-1" />
+              <ArrowUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 inline ml-1" />
             ) : (
-              <ArrowDown className="w-3.5 h-3.5 text-indigo-600 inline ml-1" />
+              <ArrowDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 inline ml-1" />
             );
           }
-          return <ArrowUpDown className="w-3 h-3 text-slate-400 inline ml-1 opacity-40 group-hover:opacity-100 transition-opacity" />;
+          return <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-slate-500 inline ml-1 opacity-40 group-hover:opacity-100 transition-opacity" />;
         };
 
         const renderResizer = (colKey: string, label: string) => (
@@ -971,28 +971,28 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
         return (
           <div className="space-y-4">
             {/* Filters Above Table (Item 5: search, project, company, job, pay by, type) */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Attendance Filters</span>
-                  <span className="text-xs text-slate-500 font-medium">
+                  <Filter className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Attendance Filters</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                     (Showing {sortedRows.length} of {allRows.length} records)
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-xs font-semibold text-indigo-700">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
                     Total Worked: {sumHoursWorked.toLocaleString()} hrs
-                    {sumOvertimeHours > 0 && <span className="text-amber-600 font-medium">(+{sumOvertimeHours.toLocaleString()} OT)</span>}
+                    {sumOvertimeHours > 0 && <span className="text-amber-600 dark:text-amber-400 font-medium">(+{sumOvertimeHours.toLocaleString()} OT)</span>}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-slate-500 font-medium hidden md:inline">
-                    Sort: <span className="font-semibold text-indigo-600">{sortColumn === 'default' ? 'Project (ASC) → Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden md:inline">
+                    Sort: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{sortColumn === 'default' ? 'Project (ASC) → Type (Staff/Worker) → Company (ASC) → Emp Code (ASC)' : `${sortColumn} (${sortDirection.toUpperCase()})`}</span>
                   </span>
                   {hasActiveFilters && (
                     <button
                       onClick={resetFilters}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-800 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                       Reset Filters
@@ -1004,18 +1004,18 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
                 {/* 1. Search */}
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Search Emp ID / Name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-full pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white focus:ring-1 focus:ring-indigo-500"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -1027,7 +1027,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                   <select
                     value={filterProject}
                     onChange={(e) => setFilterProject(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="ALL">Project: All</option>
                     <option value="__UNASSIGNED__">Project: Unassigned</option>
@@ -1044,7 +1044,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                   <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="ALL">Type: All (Staff/Worker)</option>
                     <option value="Staff">Type: Staff</option>
@@ -1057,7 +1057,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                   <select
                     value={filterCompany}
                     onChange={(e) => setFilterCompany(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="ALL">Company: All</option>
                     {uniqueCompanies.map(c => (
@@ -1071,7 +1071,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                   <select
                     value={filterJob}
                     onChange={(e) => setFilterJob(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="ALL">Job: All</option>
                     {uniqueJobs.map(j => (
@@ -1085,7 +1085,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                   <select
                     value={filterPayBy}
                     onChange={(e) => setFilterPayBy(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 font-medium focus:bg-white focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="ALL">Pay By: All</option>
                     {uniquePayBys.map(pb => (
@@ -1098,39 +1098,39 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               {/* Active Row Selection & Focus Banner */}
               {selectedRow && (
                 <div className="pt-1">
-                  <div className="px-3.5 py-2 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between gap-3 text-xs shadow-2xs animate-in fade-in duration-150">
+                  <div className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800/60 rounded-lg flex items-center justify-between gap-3 text-xs shadow-2xs animate-in fade-in duration-150">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 text-white font-bold text-[10px] shrink-0">
                         ✓
                       </span>
                       <span className="font-semibold text-indigo-950">Focused Row:</span>
-                      <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-indigo-200 text-indigo-700">
+                      <span className="font-mono font-bold bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300">
                         {selectedRow.employeeId}
                       </span>
-                      <span className="font-bold text-slate-900">{selectedRow.employeeName}</span>
-                      <span className="text-slate-600">• {selectedRow.designation || 'General'}</span>
-                      <span className="text-slate-600">• {selectedRow.employeeCompany}</span>
-                      <span className="text-slate-600">
-                        • Project: <strong className="text-indigo-700 font-mono">{selectedRow.projectCode}</strong>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">{selectedRow.employeeName}</span>
+                      <span className="text-slate-600 dark:text-slate-400">• {selectedRow.designation || 'General'}</span>
+                      <span className="text-slate-600 dark:text-slate-400">• {selectedRow.employeeCompany}</span>
+                      <span className="text-slate-600 dark:text-slate-400">
+                        • Project: <strong className="text-indigo-700 dark:text-indigo-300 font-mono">{selectedRow.projectCode}</strong>
                       </span>
-                      <span className="text-slate-600">
+                      <span className="text-slate-600 dark:text-slate-400">
                         • Total Worked:{' '}
-                        <strong className="text-slate-900 font-mono">
+                        <strong className="text-slate-900 dark:text-slate-100 font-mono">
                           {selectedRow.employeeType === 'Staff' ? `${selectedRow.daysWorked} days` : `${selectedRow.hoursWorked} hrs`}
                         </strong>
                       </span>
                       {selectedRow.overtimeHours > 0 && (
-                        <span className="text-amber-800 font-semibold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                        <span className="text-amber-800 dark:text-amber-300 font-semibold bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded text-[10px]">
                           +{selectedRow.overtimeHours} hrs OT
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[11px] text-slate-400 hidden lg:inline">Press [Esc] or click row to deselect</span>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 hidden lg:inline">Press [Esc] or click row to deselect</span>
                       <button
                         type="button"
                         onClick={() => setSelectedRowKey(null)}
-                        className="text-[11px] font-semibold text-indigo-700 hover:text-indigo-950 bg-white hover:bg-indigo-100 px-2.5 py-1 rounded border border-indigo-200 transition-colors cursor-pointer"
+                        className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:text-indigo-950 bg-white dark:bg-slate-900 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-2.5 py-1 rounded border border-indigo-200 dark:border-indigo-800/60 transition-colors cursor-pointer"
                       >
                         Clear Focus
                       </button>
@@ -1142,16 +1142,16 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
 
             {/* Table Toolbar & Column Resize Reset Control */}
             <div className="flex items-center justify-between px-1 pb-1.5 text-xs">
-              <div className="flex items-center gap-2 text-slate-500 text-[11px]">
-                <span className="font-semibold text-slate-700">Attendance Register</span>
+              <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px]">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Attendance Register</span>
                 <span className="text-slate-300">•</span>
-                <span className="text-slate-400">Drag column edges to resize • Double-click edge to reset width</span>
+                <span className="text-slate-400 dark:text-slate-500">Drag column edges to resize • Double-click edge to reset width</span>
               </div>
               {isColumnsResized && (
                 <button
                   type="button"
                   onClick={handleResetAllColumns}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2.5 py-1 rounded-md shadow-2xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-700 bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 border border-slate-200 dark:border-slate-700 hover:border-indigo-200 px-2.5 py-1 rounded-md shadow-2xs transition-colors cursor-pointer"
                   title="Reset all column widths to default"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -1162,7 +1162,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
 
             {/* Main Attendance Table with Item 4 Columns:
                 Project (sort ascending), Type (sort Staff and Workers), Company (sort ascending), Employee Ccode (Ascending), Employee Name, Job, Pay by, HRS/DAYS, Overtime, Total worked, Action */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs table-fixed border-collapse" style={{ minWidth: `${totalTableWidth}px` }}>
                   <colgroup>
@@ -1178,12 +1178,12 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                     <col style={{ width: `${columnWidths.totalWorked}px` }} />
                     {canWrite && <col style={{ width: `${columnWidths.action}px` }} />}
                   </colgroup>
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider select-none">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold uppercase tracking-wider select-none">
                     <tr>
                       {/* 1. Project */}
                       <th
                         onClick={() => handleSort('project')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Project</span>
@@ -1195,7 +1195,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 2. Type */}
                       <th
                         onClick={() => handleSort('type')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Type</span>
@@ -1207,7 +1207,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 3. Company */}
                       <th
                         onClick={() => handleSort('company')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Company</span>
@@ -1219,7 +1219,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 4. Employee Code */}
                       <th
                         onClick={() => handleSort('employeeId')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Employee Code</span>
@@ -1231,7 +1231,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 5. Employee Name */}
                       <th
                         onClick={() => handleSort('employeeName')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Employee Name</span>
@@ -1243,7 +1243,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 6. Job */}
                       <th
                         onClick={() => handleSort('job')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Job</span>
@@ -1255,7 +1255,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 7. Pay by */}
                       <th
                         onClick={() => handleSort('payBy')}
-                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-between gap-1 overflow-hidden pr-2">
                           <span className="truncate">Pay by</span>
@@ -1267,7 +1267,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 8. HRS / DAYS */}
                       <th
                         onClick={() => handleSort('hoursOrDays')}
-                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
                           <span className="truncate">HRS / DAYS</span>
@@ -1279,7 +1279,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 9. Overtime */}
                       <th
                         onClick={() => handleSort('overtime')}
-                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
                           <span className="truncate">Overtime</span>
@@ -1291,7 +1291,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 10. Total worked */}
                       <th
                         onClick={() => handleSort('totalWorked')}
-                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors group select-none"
+                        className="relative px-3 py-3 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group select-none"
                       >
                         <div className="flex items-center justify-end gap-1 overflow-hidden pr-2">
                           <span className="truncate">Total worked</span>
@@ -1309,10 +1309,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
                     {sortedRows.length === 0 ? (
                       <tr>
-                        <td colSpan={canWrite ? 11 : 10} className="py-10 text-center text-slate-400 text-xs italic">
+                        <td colSpan={canWrite ? 11 : 10} className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs italic">
                           No matching attendance records found for the selected filters.
                         </td>
                       </tr>
@@ -1334,7 +1334,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                             className={`transition-all duration-150 cursor-pointer ${
                               isSelected
                                 ? 'bg-indigo-50/90 text-indigo-950 ring-1 ring-inset ring-indigo-300 border-l-4 border-l-indigo-600 shadow-2xs'
-                                : 'bg-white hover:bg-indigo-50/40 hover:text-slate-900 border-l-4 border-l-transparent hover:border-l-indigo-300'
+                                : 'bg-white dark:bg-slate-900 hover:bg-indigo-50/40 hover:text-slate-900 dark:hover:text-slate-100 border-l-4 border-l-transparent hover:border-l-indigo-300'
                             }`}
                             title={isSelected ? "Selected / Focused row (click to deselect or press Esc)" : "Click row to focus and highlight"}
                           >
@@ -1346,7 +1346,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 animate-pulse" title="Active Focus" />
                                   )}
                                   <span className={`font-mono font-bold text-xs px-1.5 py-0.5 rounded shrink-0 ${
-                                    isSelected ? 'text-indigo-800 bg-white border border-indigo-200 shadow-2xs' : 'text-indigo-700 bg-indigo-50'
+                                    isSelected ? 'text-indigo-800 dark:text-indigo-300 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800/60 shadow-2xs' : 'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30'
                                   }`}>
                                     {row.projectCode}
                                   </span>
@@ -1355,8 +1355,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                     value={row.projectId}
                                     onChange={(e) => handleRecordChange(row.empIdx, row.recIdx, 'projectId', e.target.value)}
                                     title={allProjects.find(p => p.id === row.projectId)?.projectName || row.projectCode}
-                                    className={`w-full min-w-0 px-2 py-1 bg-white border rounded text-xs text-slate-800 font-medium focus:ring-1 focus:ring-indigo-500 truncate ${
-                                      isSelected ? 'border-indigo-300 shadow-2xs font-semibold' : 'border-slate-200'
+                                    className={`w-full min-w-0 px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs text-slate-800 dark:text-slate-200 font-medium focus:ring-1 focus:ring-indigo-500 truncate ${
+                                      isSelected ? 'border-indigo-300 dark:border-indigo-700 shadow-2xs font-semibold' : 'border-slate-200 dark:border-slate-700'
                                     }`}
                                   >
                                     {allProjects.map(p => (
@@ -1371,14 +1371,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                   {isSelected && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0 animate-pulse" title="Active Focus" />
                                   )}
-                                  <span className="text-[11px] text-amber-700 italic bg-amber-50 px-1.5 py-0.5 rounded shrink-0">
+                                  <span className="text-[11px] text-amber-700 dark:text-amber-300 italic bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded shrink-0">
                                     Unassigned
                                   </span>
                                   <select
                                     disabled={isReadOnly}
                                     value=""
                                     onChange={(e) => handleRecordChange(row.empIdx, -1, 'projectId', e.target.value)}
-                                    className="w-full min-w-0 px-2 py-1 bg-white border border-amber-300 rounded text-xs text-amber-900 focus:ring-1 focus:ring-amber-500"
+                                    className="w-full min-w-0 px-2 py-1 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded text-xs text-amber-900 dark:text-amber-300 focus:ring-1 focus:ring-amber-500"
                                   >
                                     <option value="">+ Assign Project...</option>
                                     {allProjects.map(p => (
@@ -1394,14 +1394,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                             {/* 2. Type */}
                             <td className="px-3 py-2.5 overflow-hidden">
                               <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                row.employeeType === 'Staff' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                                row.employeeType === 'Staff' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
                               }`}>
                                 {row.employeeType}
                               </span>
                             </td>
 
                             {/* 3. Company */}
-                            <td className="px-3 py-2.5 text-slate-700 font-medium overflow-hidden">
+                            <td className="px-3 py-2.5 text-slate-700 dark:text-slate-300 font-medium overflow-hidden">
                               <div className="truncate" title={row.employeeCompany}>
                                 {row.employeeCompany}
                               </div>
@@ -1409,27 +1409,27 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
 
                             {/* 4. Employee Code */}
                             <td className="px-3 py-2.5 overflow-hidden">
-                              <span className={`font-mono font-bold text-xs truncate block ${isSelected ? 'text-indigo-700 underline decoration-indigo-300 underline-offset-2' : 'text-blue-600'}`}>
+                              <span className={`font-mono font-bold text-xs truncate block ${isSelected ? 'text-indigo-700 dark:text-indigo-300 underline decoration-indigo-300 underline-offset-2' : 'text-blue-600 dark:text-blue-400'}`}>
                                 {row.employeeId}
                               </span>
                             </td>
 
                             {/* 5. Employee Name */}
-                            <td className={`px-3 py-2.5 font-semibold overflow-hidden ${isSelected ? 'text-indigo-950 font-bold' : 'text-slate-900'}`}>
+                            <td className={`px-3 py-2.5 font-semibold overflow-hidden ${isSelected ? 'text-indigo-950 font-bold' : 'text-slate-900 dark:text-slate-100'}`}>
                               <div className="truncate" title={row.employeeName}>
                                 {row.employeeName}
                               </div>
                             </td>
 
                             {/* 6. Job */}
-                            <td className="px-3 py-2.5 text-slate-600 overflow-hidden">
+                            <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 overflow-hidden">
                               <div className="truncate" title={row.designation || '—'}>
                                 {row.designation || '—'}
                               </div>
                             </td>
 
                             {/* 7. Pay by */}
-                            <td className="px-3 py-2.5 text-slate-600 font-medium overflow-hidden">
+                            <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 font-medium overflow-hidden">
                               <div className="truncate" title={row.salaryPaidBy || '—'}>
                                 {row.salaryPaidBy || '—'}
                               </div>
@@ -1447,11 +1447,11 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                     disabled={isReadOnly}
                                     value={row.daysWorked}
                                     onChange={(e) => handleRecordChange(row.empIdx, row.recIdx, 'daysWorked', e.target.value)}
-                                    className={`w-16 px-2 py-1 bg-white border rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500 ${
-                                      isSelected ? 'border-indigo-400 ring-1 ring-indigo-200 shadow-2xs' : 'border-slate-200'
+                                    className={`w-16 px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500 ${
+                                      isSelected ? 'border-indigo-400 dark:border-indigo-600 ring-1 ring-indigo-200 shadow-2xs' : 'border-slate-200 dark:border-slate-700'
                                     }`}
                                   />
-                                  <span className="text-[10px] text-slate-500">days</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">days</span>
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1 justify-end">
@@ -1462,11 +1462,11 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                     disabled={isReadOnly}
                                     value={row.hoursWorked}
                                     onChange={(e) => handleRecordChange(row.empIdx, row.recIdx, 'hoursWorked', e.target.value)}
-                                    className={`w-16 px-2 py-1 bg-white border rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500 ${
-                                      isSelected ? 'border-indigo-400 ring-1 ring-indigo-200 shadow-2xs' : 'border-slate-200'
+                                    className={`w-16 px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs text-center font-bold focus:ring-1 focus:ring-indigo-500 ${
+                                      isSelected ? 'border-indigo-400 dark:border-indigo-600 ring-1 ring-indigo-200 shadow-2xs' : 'border-slate-200 dark:border-slate-700'
                                     }`}
                                   />
-                                  <span className="text-[10px] text-slate-500">hrs</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">hrs</span>
                                 </div>
                               )}
                             </td>
@@ -1481,8 +1481,8 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                 value={row.overtimeHours}
                                 onChange={(e) => handleRecordChange(row.empIdx, row.recIdx, 'overtimeHours', e.target.value)}
                                 title="Overtime Hours"
-                                className={`w-16 px-2 py-1 bg-white border rounded text-xs text-center font-bold text-amber-700 focus:ring-1 focus:ring-amber-500 ${
-                                  isSelected ? 'border-amber-400 ring-1 ring-amber-200 shadow-2xs' : 'border-amber-200'
+                                className={`w-16 px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs text-center font-bold text-amber-700 dark:text-amber-300 focus:ring-1 focus:ring-amber-500 ${
+                                  isSelected ? 'border-amber-400 dark:border-amber-600 ring-1 ring-amber-200 shadow-2xs' : 'border-amber-200 dark:border-amber-800/60'
                                 }`}
                               />
                             </td>
@@ -1491,21 +1491,21 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                             <td className="px-3 py-2.5 text-right">
                               {row.employeeType === 'Staff' ? (
                                 <div>
-                                  <strong className={`font-mono text-xs ${row.totalDays > 30 ? 'text-rose-600 font-bold' : 'text-slate-900'}`}>
+                                  <strong className={`font-mono text-xs ${row.totalDays > 30 ? 'text-rose-600 dark:text-rose-400 font-bold' : 'text-slate-900 dark:text-slate-100'}`}>
                                     {row.totalDays} / 30
                                   </strong>
-                                  <span className="block text-[10px] text-slate-500">Days Total</span>
+                                  <span className="block text-[10px] text-slate-500 dark:text-slate-400">Days Total</span>
                                 </div>
                               ) : (
                                 <div>
-                                  <strong className="font-mono text-xs text-indigo-700">
+                                  <strong className="font-mono text-xs text-indigo-700 dark:text-indigo-300">
                                     {row.totalHours} hrs
                                   </strong>
-                                  <span className="block text-[10px] text-slate-500">Hours Total</span>
+                                  <span className="block text-[10px] text-slate-500 dark:text-slate-400">Hours Total</span>
                                 </div>
                               )}
                               {row.totalOvertime > 0 && (
-                                <span className="block text-[10px] text-amber-600 font-semibold mt-0.5">
+                                <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
                                   +{row.totalOvertime} OT hrs
                                 </span>
                               )}
@@ -1518,7 +1518,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                   {row.recIdx >= 0 && !isReadOnly && (
                                     <button
                                       onClick={() => handleRemoveProjectRow(row.empIdx, row.recIdx)}
-                                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                                      className="p-1 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded transition-colors"
                                       title="Remove this project allocation"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -1527,7 +1527,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                                   {!isReadOnly && (
                                     <button
                                       onClick={() => handleAddProjectRow(row.empIdx)}
-                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-2 py-1 rounded-md transition-colors cursor-pointer"
                                       title="Add another project allocation for this employee"
                                     >
                                       <Plus className="w-3 h-3" />
@@ -1542,15 +1542,15 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       })
                     )}
                   </tbody>
-                  <tfoot className="bg-slate-100/90 border-t-2 border-slate-300 text-xs font-semibold text-slate-800">
+                  <tfoot className="bg-slate-100/90 border-t-2 border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-800 dark:text-slate-200">
                     <tr>
                       {/* Columns 1-7: Project, Type, Company, Employee Code, Employee Name, Job, Pay by */}
                       <td colSpan={7} className="px-4 py-3 text-left">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+                          <span className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px]">
                             Total (Filtered View)
                           </span>
-                          <span className="text-slate-500 font-normal text-xs">
+                          <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">
                             — {sortedRows.length} {sortedRows.length === 1 ? 'record' : 'records'}
                           </span>
                         </div>
@@ -1559,46 +1559,46 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                       {/* 8. HRS / DAYS */}
                       <td className="px-3 py-3 text-right">
                         {sumHoursWorked > 0 && (
-                          <div className="font-mono font-bold text-slate-900">
-                            {sumHoursWorked.toLocaleString()} <span className="text-[10px] text-slate-500 font-normal">hrs</span>
+                          <div className="font-mono font-bold text-slate-900 dark:text-slate-100">
+                            {sumHoursWorked.toLocaleString()} <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">hrs</span>
                           </div>
                         )}
                         {sumDaysWorked > 0 && (
-                          <div className="font-mono font-bold text-slate-700">
-                            {sumDaysWorked.toLocaleString()} <span className="text-[10px] text-slate-500 font-normal">days</span>
+                          <div className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                            {sumDaysWorked.toLocaleString()} <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">days</span>
                           </div>
                         )}
                         {sumHoursWorked === 0 && sumDaysWorked === 0 && (
-                          <span className="text-slate-400 font-mono">—</span>
+                          <span className="text-slate-400 dark:text-slate-500 font-mono">—</span>
                         )}
                       </td>
 
                       {/* 9. Overtime */}
                       <td className="px-3 py-3 text-right">
                         {sumOvertimeHours > 0 ? (
-                          <div className="font-mono font-bold text-amber-700">
-                            {sumOvertimeHours.toLocaleString()} <span className="text-[10px] text-amber-600 font-normal">hrs</span>
+                          <div className="font-mono font-bold text-amber-700 dark:text-amber-300">
+                            {sumOvertimeHours.toLocaleString()} <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">hrs</span>
                           </div>
                         ) : (
-                          <span className="text-slate-400 font-mono">—</span>
+                          <span className="text-slate-400 dark:text-slate-500 font-mono">—</span>
                         )}
                       </td>
 
                       {/* 10. Total worked (Sum of Total Worked hours for currently filtered view) */}
                       <td className="px-3 py-3 text-right">
-                        <div className="font-mono text-sm font-bold text-indigo-700">
+                        <div className="font-mono text-sm font-bold text-indigo-700 dark:text-indigo-300">
                           {sumHoursWorked.toLocaleString()} hrs
                         </div>
                         {sumOvertimeHours > 0 && (
-                          <div className="text-[10px] text-amber-700 font-medium mt-0.5">
+                          <div className="text-[10px] text-amber-700 dark:text-amber-300 font-medium mt-0.5">
                             +{sumOvertimeHours.toLocaleString()} OT hrs
-                            <span className="text-slate-500 block font-normal">
+                            <span className="text-slate-500 dark:text-slate-400 block font-normal">
                               ({totalWorkedCombinedHours.toLocaleString()} hrs incl. OT)
                             </span>
                           </div>
                         )}
                         {sumDaysWorked > 0 && (
-                          <div className="text-[10px] text-slate-600 font-medium mt-0.5">
+                          <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
                             {sumDaysWorked.toLocaleString()} Staff days
                           </div>
                         )}
@@ -1618,18 +1618,18 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
       {/* Import Modal */}
       {isImportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
               <div className="flex items-center gap-2">
-                <Upload className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-900 text-base">Import Monthly Attendance Spreadsheet</h3>
+                <Upload className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Import Monthly Attendance Spreadsheet</h3>
               </div>
               <button
                 onClick={() => {
                   setIsImportModalOpen(false);
                   setImportPreview(null);
                 }}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1637,10 +1637,10 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
 
             <div className="p-6 space-y-4">
               {!importPreview ? (
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors">
+                <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors">
                   <FileSpreadsheet className="w-10 h-10 text-indigo-500 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-slate-800">Upload Filled Attendance Template for {month}</p>
-                  <p className="text-xs text-slate-500 mt-1">Template Columns: Employee ID, Payroll Type, Employee Name, Project Code, Job, Days Worked, Hours Worked, Overtime Hours, Pay By</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Upload Filled Attendance Template for {month}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Template Columns: Employee ID, Payroll Type, Employee Name, Project Code, Job, Days Worked, Hours Worked, Overtime Hours, Pay By</p>
                   <input
                     type="file"
                     accept=".xlsx,.xls"
@@ -1650,17 +1650,17 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
                     <div>
                       <span>Total Rows: <strong>{importPreview.summary.totalRows}</strong></span> •{' '}
-                      <span className="text-emerald-700">Valid: <strong>{importPreview.summary.validCount}</strong></span> •{' '}
-                      <span className="text-rose-700">Invalid: <strong>{importPreview.summary.invalidCount}</strong></span>
+                      <span className="text-emerald-700 dark:text-emerald-300">Valid: <strong>{importPreview.summary.validCount}</strong></span> •{' '}
+                      <span className="text-rose-700 dark:text-rose-300">Invalid: <strong>{importPreview.summary.invalidCount}</strong></span>
                     </div>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg max-h-56 overflow-y-auto">
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-lg max-h-56 overflow-y-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-500 font-semibold sticky top-0">
+                      <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold sticky top-0">
                         <tr>
                           <th className="px-3 py-2">Row</th>
                           <th className="px-3 py-2">Employee ID</th>
@@ -1675,20 +1675,20 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                           <th className="px-3 py-2">Reason</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {importPreview.rows.map((r: any, idx: number) => (
                           <tr key={idx} className={r.status === 'Invalid' ? 'bg-rose-50/50' : ''}>
-                            <td className="px-3 py-2 text-slate-400 font-mono">{r.rowNumber}</td>
+                            <td className="px-3 py-2 text-slate-400 dark:text-slate-500 font-mono">{r.rowNumber}</td>
                             <td className="px-3 py-2 font-mono font-bold">{r.employeeId}</td>
                             <td className="px-3 py-2 font-medium">{r.employeeName}</td>
-                            <td className="px-3 py-2 text-slate-600">{r.job || '—'}</td>
-                            <td className="px-3 py-2 font-mono text-indigo-700 font-semibold">{r.projectCode}</td>
+                            <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{r.job || '—'}</td>
+                            <td className="px-3 py-2 font-mono text-indigo-700 dark:text-indigo-300 font-semibold">{r.projectCode}</td>
                             <td className="px-3 py-2">{r.payBy}</td>
                             <td className="px-3 py-2">{r.daysWorked}</td>
                             <td className="px-3 py-2">{r.hoursWorked}</td>
                             <td className="px-3 py-2">{r.overtimeHours}</td>
                             <td className="px-3 py-2 font-bold">{r.status}</td>
-                            <td className="px-3 py-2 text-slate-500 text-[11px]">{r.reason}</td>
+                            <td className="px-3 py-2 text-slate-500 dark:text-slate-400 text-[11px]">{r.reason}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1698,14 +1698,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2.5">
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => {
                   setIsImportModalOpen(false);
                   setImportPreview(null);
                 }}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 Cancel
               </button>
@@ -1713,7 +1713,7 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                 <button
                   type="button"
                   onClick={handleDownloadErrorReport}
-                  className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors"
                 >
                   Download Error Report
                 </button>
@@ -1736,25 +1736,25 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
       {/* Revert Confirmation Modal */}
       {isRevertModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-rose-50">
-              <h3 className="font-bold text-rose-900 text-base flex items-center gap-2">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-rose-50 dark:bg-rose-900/30">
+              <h3 className="font-bold text-rose-900 dark:text-rose-300 text-base flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4" /> Revert Finalized Attendance
               </h3>
               <button
                 onClick={() => setIsRevertModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200"
+                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-3">
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 This reverts attendance for {month} from Finalized back to Approved so corrections can be made.
                 This action is recorded permanently in the audit trail. A reason is required.
               </p>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Revert Reason <span className="text-rose-500">*</span>
                 </label>
                 <textarea
@@ -1763,14 +1763,14 @@ export const AttendanceView: React.FC<AttendanceViewProps> = ({ initialMonth }) 
                   value={revertReason}
                   onChange={(e) => setRevertReason(e.target.value)}
                   placeholder="e.g. Correcting a data-entry mistake for EMP003..."
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-rose-500"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-rose-500"
                 />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2.5">
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 flex justify-end gap-2.5">
               <button
                 onClick={() => setIsRevertModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100"
+                className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 Cancel
               </button>

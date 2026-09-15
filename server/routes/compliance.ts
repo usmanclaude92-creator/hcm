@@ -16,10 +16,10 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 // GET /api/compliance/summary - Global HR & Document Expiry Dashboard
-router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/summary', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const summaryScope = companyScopeOf(req.user);
-    const employees = db.employees.getAll().filter((e) => e.isActive && canSeeCompany(summaryScope, e.employeeCompany));
+    const employees = (await db.employees.getAll()).filter((e) => e.isActive && canSeeCompany(summaryScope, e.employeeCompany));
     const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
     const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);
@@ -293,12 +293,12 @@ router.get('/summary', verifyAuth, (req: AuthRequest, res: Response) => {
 });
 
 // GET /api/compliance/expiries - List all monitored document expiries with filters
-router.get('/expiries', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/expiries', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { docType, status, company, nationality, search } = req.query;
 
     const expiryScope = companyScopeOf(req.user);
-    const employees = db.employees.getAll().filter((e) => e.isActive && canSeeCompany(expiryScope, e.employeeCompany));
+    const employees = (await db.employees.getAll()).filter((e) => e.isActive && canSeeCompany(expiryScope, e.employeeCompany));
     const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
     const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);
@@ -594,7 +594,7 @@ router.post('/ai-assistant', verifyAuth, async (req: AuthRequest, res: Response)
     }
 
     const assistantScope = companyScopeOf(req.user);
-    const employees = db.employees.getAll().filter((e) => canSeeCompany(assistantScope, e.employeeCompany));
+    const employees = (await db.employees.getAll()).filter((e) => canSeeCompany(assistantScope, e.employeeCompany));
     const civilIds = db.civilIds.getAll().filter((c) => c.isCurrent);
     const drivingLicences = db.drivingLicences.getAll().filter((d) => d.isCurrent);
     const visas = db.visas.getAll().filter((v) => v.isCurrent);

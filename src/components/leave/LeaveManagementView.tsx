@@ -18,7 +18,7 @@ import {
 import type { Employee, LeaveType, LeaveRequest, LeaveBalance } from '../../types/index';
 import { SearchableEmployeeSelect } from '../common/SearchableEmployeeSelect';
 
-type TabKey = 'requests' | 'balances' | 'types';
+type TabKey = 'requests' | 'balances';
 
 interface LeaveSummary {
   total: number;
@@ -32,19 +32,39 @@ interface LeaveSummary {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  Draft: 'bg-slate-100 text-slate-700 border-slate-200',
-  Submitted: 'bg-amber-50 text-amber-700 border-amber-200',
-  Approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Rejected: 'bg-rose-50 text-rose-700 border-rose-200',
-  Cancelled: 'bg-slate-50 text-slate-500 border-slate-200',
+  Draft: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+  Submitted: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
+  Approved: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60',
+  Rejected: 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60',
+  Cancelled: 'bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700',
 };
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
-export const LeaveManagementView: React.FC = () => {
+export interface LeaveManagementViewProps {
+  initialTab?: TabKey;
+  initialOpenModal?: boolean;
+}
+
+export const LeaveManagementView: React.FC<LeaveManagementViewProps> = ({
+  initialTab,
+  initialOpenModal,
+}) => {
   const { canWrite, isManager, user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('requests');
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab || 'requests');
+
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (initialOpenModal) {
+      setIsModalOpen(true);
+    }
+  }, [initialOpenModal]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -262,7 +282,7 @@ export const LeaveManagementView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-slate-500 text-sm">
+      <div className="flex items-center justify-center py-24 text-slate-500 dark:text-slate-400 text-sm">
         Loading leave data…
       </div>
     );
@@ -273,11 +293,11 @@ export const LeaveManagementView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-sky-600" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-sky-600 dark:text-sky-400" />
             Leave Management
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Approved paid leave is folded into the payroll of the month the days fall in. Unpaid leave is
             recorded but never paid.
           </p>
@@ -287,9 +307,9 @@ export const LeaveManagementView: React.FC = () => {
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-sky-600" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
             Export Leave Register
           </button>
 
@@ -307,13 +327,13 @@ export const LeaveManagementView: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2">
+        <div className="p-3 bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
       {notice && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs flex items-start gap-2">
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{notice}</span>
         </div>
@@ -322,37 +342,36 @@ export const LeaveManagementView: React.FC = () => {
       {/* KPI Cards */}
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-medium text-slate-500">Leave Requests</span>
-            <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">{summary.total}</strong>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">{summary.draft} draft</span>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Leave Requests</span>
+            <strong className="block text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">{summary.total}</strong>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 block">{summary.draft} draft</span>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/30 shadow-xs">
-            <span className="text-xs font-semibold text-amber-700">Awaiting Approval</span>
-            <strong className="block text-xl font-bold text-amber-800 mt-1 font-mono">{summary.submitted}</strong>
-            <span className="text-[11px] text-amber-600 mt-0.5 block">Submitted, not yet decided</span>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/30 shadow-xs">
+            <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Awaiting Approval</span>
+            <strong className="block text-xl font-bold text-amber-800 dark:text-amber-300 mt-1 font-mono">{summary.submitted}</strong>
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 block">Submitted, not yet decided</span>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-xs">
-            <span className="text-xs font-semibold text-emerald-700">Approved Paid Days</span>
-            <strong className="block text-xl font-bold text-emerald-800 mt-1 font-mono">{summary.approvedPaidDays}</strong>
-            <span className="text-[11px] text-emerald-600 mt-0.5 block">Payable through payroll</span>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 shadow-xs">
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Approved Paid Days</span>
+            <strong className="block text-xl font-bold text-emerald-800 dark:text-emerald-300 mt-1 font-mono">{summary.approvedPaidDays}</strong>
+            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 block">Payable through payroll</span>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-medium text-slate-500">Approved Unpaid Days</span>
-            <strong className="block text-xl font-bold text-slate-900 mt-1 font-mono">{summary.approvedUnpaidDays}</strong>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">{summary.rejected} rejected · {summary.cancelled} cancelled</span>
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Approved Unpaid Days</span>
+            <strong className="block text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono">{summary.approvedUnpaidDays}</strong>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 block">{summary.rejected} rejected · {summary.cancelled} cancelled</span>
           </div>
         </div>
       )}
 
       {/* Tabs + filters */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3 border-b border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-1">
             {([
               ['requests', 'Requests'],
               ['balances', 'Balances'],
-              ['types', 'Leave Types'],
             ] as [TabKey, string][]).map(([key, label]) => (
               <button
                 key={key}
@@ -361,8 +380,8 @@ export const LeaveManagementView: React.FC = () => {
                 aria-current={activeTab === key ? 'page' : undefined}
                 className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   activeTab === key
-                    ? 'border-sky-600 text-sky-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                    ? 'border-sky-600 text-sky-700 dark:text-sky-300'
+                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 {label}
@@ -372,14 +391,14 @@ export const LeaveManagementView: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-2 pb-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search employee or type…"
                 aria-label="Search leave records"
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-56 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg w-56 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
@@ -387,7 +406,7 @@ export const LeaveManagementView: React.FC = () => {
               value={year}
               onChange={e => setYear(e.target.value)}
               aria-label="Filter by year"
-              className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+              className="px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
             >
               {yearOptions.map(y => (
                 <option key={y} value={y}>{y}</option>
@@ -401,7 +420,7 @@ export const LeaveManagementView: React.FC = () => {
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
                   aria-label="Filter by status"
-                  className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                  className="px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                 >
                   <option value="ALL">All statuses</option>
                   {['Draft', 'Submitted', 'Approved', 'Rejected', 'Cancelled'].map(s => (
@@ -412,7 +431,7 @@ export const LeaveManagementView: React.FC = () => {
                   value={typeFilter}
                   onChange={e => setTypeFilter(e.target.value)}
                   aria-label="Filter by leave type"
-                  className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                  className="px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                 >
                   <option value="ALL">All leave types</option>
                   {leaveTypes.map(t => (
@@ -427,7 +446,7 @@ export const LeaveManagementView: React.FC = () => {
         {activeTab === 'requests' && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wide">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wide">
                 <tr>
                   <th className="text-left font-semibold px-4 py-2.5">Employee</th>
                   <th className="text-left font-semibold px-4 py-2.5">Leave Type</th>
@@ -440,10 +459,10 @@ export const LeaveManagementView: React.FC = () => {
                   <th className="text-right font-semibold px-4 py-2.5">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {visibleRequests.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan={9} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
                       No leave requests match the current filters.
                     </td>
                   </tr>
@@ -451,15 +470,15 @@ export const LeaveManagementView: React.FC = () => {
                 {visibleRequests.map(r => (
                   <tr key={r.id} className="hover:bg-slate-50/70">
                     <td className="px-4 py-2.5">
-                      <span className="font-semibold text-slate-800">{r.employeeId}</span>
-                      <span className="block text-slate-500">{r.employeeName}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{r.employeeId}</span>
+                      <span className="block text-slate-500 dark:text-slate-400">{r.employeeName}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-700">{r.leaveTypeName}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{formatDate(r.startDate)}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{formatDate(r.endDate)}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-slate-800">{r.days}</td>
+                    <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{r.leaveTypeName}</td>
+                    <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{formatDate(r.startDate)}</td>
+                    <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{formatDate(r.endDate)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-800 dark:text-slate-200">{r.days}</td>
                     <td className="px-4 py-2.5">
-                      <span className={r.isPaid ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>
+                      <span className={r.isPaid ? 'text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-slate-500 dark:text-slate-400'}>
                         {r.isPaid ? 'Paid' : 'Unpaid'}
                       </span>
                     </td>
@@ -468,12 +487,12 @@ export const LeaveManagementView: React.FC = () => {
                         {r.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-500">
+                    <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">
                       {r.decidedBy ? (
                         <>
                           <span className="block">{r.decidedBy}</span>
                           {r.decisionReason && (
-                            <span className="block text-[10px] text-slate-400 italic">{r.decisionReason}</span>
+                            <span className="block text-[10px] text-slate-400 dark:text-slate-500 italic">{r.decisionReason}</span>
                           )}
                         </>
                       ) : r.submittedBy ? (
@@ -488,7 +507,7 @@ export const LeaveManagementView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => act(`/api/leave/requests/${r.id}/submit`, undefined, 'Leave request submitted for approval.')}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                           >
                             <Send className="w-3 h-3" /> Submit
                           </button>
@@ -505,7 +524,7 @@ export const LeaveManagementView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleReject(r)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-rose-300 text-rose-700 hover:bg-rose-50 cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/40 cursor-pointer"
                             >
                               <XCircle className="w-3 h-3" /> Reject
                             </button>
@@ -515,7 +534,7 @@ export const LeaveManagementView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleCancel(r)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                           >
                             <Ban className="w-3 h-3" /> Cancel
                           </button>
@@ -532,7 +551,7 @@ export const LeaveManagementView: React.FC = () => {
         {activeTab === 'balances' && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wide">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wide">
                 <tr>
                   <th className="text-left font-semibold px-4 py-2.5">Employee</th>
                   <th className="text-left font-semibold px-4 py-2.5">Company</th>
@@ -543,10 +562,10 @@ export const LeaveManagementView: React.FC = () => {
                   <th className="text-right font-semibold px-4 py-2.5">Remaining</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {visibleBalances.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
                       No leave balances to show for {year === 'ALL' ? new Date().getFullYear() : year}.
                     </td>
                   </tr>
@@ -554,68 +573,27 @@ export const LeaveManagementView: React.FC = () => {
                 {visibleBalances.map(b => (
                   <tr key={`${b.employeeId}-${b.leaveTypeId}`} className="hover:bg-slate-50/70">
                     <td className="px-4 py-2.5">
-                      <span className="font-semibold text-slate-800">{b.employeeId}</span>
-                      <span className="block text-slate-500">{b.employeeName}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{b.employeeId}</span>
+                      <span className="block text-slate-500 dark:text-slate-400">{b.employeeName}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">{b.employeeCompany}</td>
-                    <td className="px-4 py-2.5 text-slate-700">
+                    <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400">{b.employeeCompany}</td>
+                    <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">
                       {b.leaveTypeName}
-                      <span className={`ml-1.5 text-[10px] ${b.isPaid ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <span className={`ml-1.5 text-[10px] ${b.isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
                         {b.isPaid ? '(paid)' : '(unpaid)'}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-slate-700">
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-700 dark:text-slate-300">
                       {b.entitlementDays > 0 ? b.entitlementDays : '—'}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-slate-800">{b.approvedDays}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-amber-700">{b.pendingDays}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-800 dark:text-slate-200">{b.approvedDays}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-amber-700 dark:text-amber-300">{b.pendingDays}</td>
                     <td className={`px-4 py-2.5 text-right font-mono font-semibold ${
-                      b.remainingDays === null ? 'text-slate-400'
-                        : b.remainingDays < 0 ? 'text-rose-600' : 'text-emerald-700'
+                      b.remainingDays === null ? 'text-slate-400 dark:text-slate-500'
+                        : b.remainingDays < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-300'
                     }`}>
                       {b.remainingDays === null ? 'n/a' : b.remainingDays}
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {activeTab === 'types' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wide">
-                <tr>
-                  <th className="text-left font-semibold px-4 py-2.5">Code</th>
-                  <th className="text-left font-semibold px-4 py-2.5">Leave Type</th>
-                  <th className="text-left font-semibold px-4 py-2.5">Payroll Treatment</th>
-                  <th className="text-right font-semibold px-4 py-2.5">Annual Entitlement</th>
-                  <th className="text-left font-semibold px-4 py-2.5">Status</th>
-                  <th className="text-left font-semibold px-4 py-2.5">Basis</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {leaveTypes.map(t => (
-                  <tr key={t.id} className="hover:bg-slate-50/70">
-                    <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{t.code}</td>
-                    <td className="px-4 py-2.5 text-slate-700">{t.name}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={t.isPaid ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>
-                        {t.isPaid ? 'Paid — counts as worked days' : 'Unpaid — not payable'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-slate-700">
-                      {t.annualEntitlementDays > 0 ? `${t.annualEntitlementDays} days` : 'No fixed entitlement'}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-semibold ${
-                        t.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}>
-                        {t.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500">{t.remarks || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -627,17 +605,17 @@ export const LeaveManagementView: React.FC = () => {
       {/* Record Leave modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-sky-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-sky-600 dark:text-sky-400" />
                 Record Leave
               </h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 aria-label="Close"
-                className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -645,7 +623,7 @@ export const LeaveManagementView: React.FC = () => {
 
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Employee</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Employee</label>
                 <SearchableEmployeeSelect
                   employees={employees}
                   value={form.employeeId}
@@ -656,12 +634,12 @@ export const LeaveManagementView: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="leave-type" className="block text-xs font-semibold text-slate-700 mb-1.5">Leave Type</label>
+                <label htmlFor="leave-type" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Leave Type</label>
                 <select
                   id="leave-type"
                   value={form.leaveTypeId}
                   onChange={e => setForm(f => ({ ...f, leaveTypeId: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                 >
                   <option value="">Select a leave type…</option>
                   {leaveTypes.filter(t => t.isActive).map(t => (
@@ -675,29 +653,29 @@ export const LeaveManagementView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="leave-start" className="block text-xs font-semibold text-slate-700 mb-1.5">Start Date</label>
+                  <label htmlFor="leave-start" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Start Date</label>
                   <input
                     id="leave-start"
                     type="date"
                     value={form.startDate}
                     onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="leave-end" className="block text-xs font-semibold text-slate-700 mb-1.5">End Date</label>
+                  <label htmlFor="leave-end" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">End Date</label>
                   <input
                     id="leave-end"
                     type="date"
                     value={form.endDate}
                     onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                   />
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
-                <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 flex items-start gap-2">
+                <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400 dark:text-slate-500" />
                 <span>
                   {previewDays > 0
                     ? `${previewDays} calendar day${previewDays === 1 ? '' : 's'} inclusive of both ends. `
@@ -711,19 +689,19 @@ export const LeaveManagementView: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="leave-reason" className="block text-xs font-semibold text-slate-700 mb-1.5">Reason (optional)</label>
+                <label htmlFor="leave-reason" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Reason (optional)</label>
                 <textarea
                   id="leave-reason"
                   rows={2}
                   value={form.reason}
                   onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-slate-200 bg-slate-50/60 rounded-b-xl">
-              <span className="text-[11px] text-slate-500">
+            <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50/60 rounded-b-xl">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
                 {isManager
                   ? 'Submitted requests must be approved by a different user than the one who submitted them.'
                   : `Signed in as ${user?.username || 'user'} — a manager approves the request.`}
@@ -733,7 +711,7 @@ export const LeaveManagementView: React.FC = () => {
                   type="button"
                   disabled={saving}
                   onClick={() => handleSave(false)}
-                  className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                  className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
                 >
                   Save Draft
                 </button>

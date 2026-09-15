@@ -7,10 +7,10 @@ import type { Project } from '../../src/types/index';
 const router = Router();
 
 // GET /api/projects - List projects with filters
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { search, status } = req.query;
-    let projects = db.projects.getAll();
+    let projects = await db.projects.getAll();
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -35,14 +35,26 @@ router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
 // POST /api/projects - Create project
 router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
-    const { projectCode, projectName, status, startDate, endDate, remarks, allowedCompanies } = req.body;
+    const {
+      projectCode,
+      projectName,
+      status,
+      startDate,
+      endDate,
+      remarks,
+      allowedCompanies,
+      latitude,
+      longitude,
+      radiusMeters,
+      geofenceName
+    } = req.body;
 
     if (!projectCode || !projectName) {
       return res.status(400).json({ error: 'Project Code and Project Name are mandatory.' });
     }
 
     const normCode = projectCode.trim().toUpperCase();
-    const existing = db.projects.findByCode(normCode);
+    const existing = await db.projects.findByCode(normCode);
     if (existing) {
       return res.status(400).json({ error: `Project with code '${normCode}' already exists.` });
     }
@@ -57,6 +69,10 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       endDate: endDate || null,
       remarks: remarks ? remarks.trim() : '',
       allowedCompanies: Array.isArray(allowedCompanies) && allowedCompanies.length > 0 ? allowedCompanies : undefined,
+      latitude: latitude !== undefined && latitude !== null && !isNaN(Number(latitude)) ? Number(latitude) : null,
+      longitude: longitude !== undefined && longitude !== null && !isNaN(Number(longitude)) ? Number(longitude) : null,
+      radiusMeters: radiusMeters !== undefined && radiusMeters !== null && !isNaN(Number(radiusMeters)) ? Number(radiusMeters) : null,
+      geofenceName: geofenceName ? String(geofenceName).trim() : null,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -83,14 +99,26 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
 router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const project = db.projects.findById(id);
+    const project = await db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
-    const { projectCode, projectName, status, startDate, endDate, remarks, allowedCompanies } = req.body;
+    const {
+      projectCode,
+      projectName,
+      status,
+      startDate,
+      endDate,
+      remarks,
+      allowedCompanies,
+      latitude,
+      longitude,
+      radiusMeters,
+      geofenceName
+    } = req.body;
 
     if (projectCode) {
       const normCode = projectCode.trim().toUpperCase();
-      const existing = db.projects.findByCode(normCode);
+      const existing = await db.projects.findByCode(normCode);
       if (existing && existing.id !== id) {
         return res.status(400).json({ error: `Project Code '${normCode}' is already used by another project.` });
       }
@@ -105,6 +133,18 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     if (remarks !== undefined) updates.remarks = remarks.trim();
     if (allowedCompanies !== undefined) {
       updates.allowedCompanies = Array.isArray(allowedCompanies) && allowedCompanies.length > 0 ? allowedCompanies : undefined;
+    }
+    if (latitude !== undefined) {
+      updates.latitude = latitude !== null && !isNaN(Number(latitude)) ? Number(latitude) : null;
+    }
+    if (longitude !== undefined) {
+      updates.longitude = longitude !== null && !isNaN(Number(longitude)) ? Number(longitude) : null;
+    }
+    if (radiusMeters !== undefined) {
+      updates.radiusMeters = radiusMeters !== null && !isNaN(Number(radiusMeters)) ? Number(radiusMeters) : null;
+    }
+    if (geofenceName !== undefined) {
+      updates.geofenceName = geofenceName ? String(geofenceName).trim() : null;
     }
 
     const updated = await db.projects.update(id, updates);
@@ -129,7 +169,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
 router.patch('/:id/toggle-status', verifyAuth, requireWritePermission, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const project = db.projects.findById(id);
+    const project = await db.projects.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found.' });
 
     const newStatus = project.status === 'Active' ? 'Inactive' : 'Active';

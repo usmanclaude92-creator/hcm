@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { UserRound, MapPin, Clock, FileSpreadsheet, ZoomIn } from 'lucide-react';
+import { UserRound, MapPin, Clock, ZoomIn } from 'lucide-react';
 import { type AttendanceStatus } from '../common/AttendanceStatusBadge';
 import { SelfieZoomModal } from './SelfieZoomModal';
+import { isShiftDateToday, formatBusinessTime, formatBusinessDateTime } from '../../utils/workforceShiftUtils';
 
 export interface WorkforceShiftStatus {
   shiftDate?: string | null;
@@ -30,13 +31,6 @@ interface Props {
   onClick?: () => void;
 }
 
-function formatTimeOnly(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
 function formatMinutesToHours(minutes: number): string {
   if (minutes <= 0) return '0 mins';
   const h = Math.floor(minutes / 60);
@@ -46,33 +40,27 @@ function formatMinutesToHours(minutes: number): string {
   return `${h} hrs ${m} mins`;
 }
 
+// Resolves the ISO instant the selfie was actually taken at, falling back to the
+// clock-in time when the source didn't supply one, then formats it in the business's
+// local timezone (see formatBusinessDateTime).
 function formatSelfieDateTime(shiftStatus?: WorkforceShiftStatus): string | null {
   if (!shiftStatus) return null;
-  let d: Date | null = null;
-  if (shiftStatus.selfieTakenAt) {
-    const parsed = new Date(shiftStatus.selfieTakenAt);
-    if (!isNaN(parsed.getTime())) d = parsed;
+  let iso: string | null = null;
+  if (shiftStatus.selfieTakenAt && !isNaN(new Date(shiftStatus.selfieTakenAt).getTime())) {
+    iso = shiftStatus.selfieTakenAt;
   }
-  if (!d && shiftStatus.selfieUrl) {
+  if (!iso && shiftStatus.selfieUrl) {
     const match = shiftStatus.selfieUrl.match(/_(\d{12,14})\./);
     if (match) {
       const ts = Number(match[1]);
-      if (!isNaN(ts)) {
-        const parsed = new Date(ts);
-        if (!isNaN(parsed.getTime())) d = parsed;
-      }
+      if (!isNaN(ts) && !isNaN(new Date(ts).getTime())) iso = new Date(ts).toISOString();
     }
   }
-  if (!d && shiftStatus.clockInAt) {
-    const parsed = new Date(shiftStatus.clockInAt);
-    if (!isNaN(parsed.getTime())) d = parsed;
+  if (!iso && shiftStatus.clockInAt && !isNaN(new Date(shiftStatus.clockInAt).getTime())) {
+    iso = shiftStatus.clockInAt;
   }
-  if (!d) return null;
-
-  const day = d.getDate();
-  const month = d.toLocaleString('en-GB', { month: 'short' });
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  return `${day} ${month}, ${time}`;
+  if (!iso) return null;
+  return formatBusinessDateTime(iso);
 }
 
 export const EmployeeDeploymentCard: React.FC<Props> = ({
@@ -100,13 +88,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     setZoomModalOpen(true);
   };
 
-  // Check if shift belongs to today
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const isToday = !shiftStatus?.shiftDate || shiftStatus.shiftDate === todayStr;
+  // Check if shift belongs to today. shiftStatus.shiftDate is stamped by the Workforce
+  // Edge Functions using the UTC calendar date, not the viewer's browser-local date --
+  // comparing against a browser-local "today" caused a genuinely-active shift to read
+  // as "not today" for part of every night. See workforceShiftUtils.ts.
+  const isToday = isShiftDateToday(shiftStatus?.shiftDate);
 
   // 1. Start Time (time of start shift selfie taken time)
-  const startTime = isToday ? formatTimeOnly(shiftStatus?.clockInAt) : null;
+  const startTime = isToday ? formatBusinessTime(shiftStatus?.clockInAt) : null;
 
   // 2. End Time (time of end shift selfie taken, or auto-ends at 23:59:59 if unended after midnight)
   let endTimeDisplay: string | null = null;
@@ -114,7 +103,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
   if (isToday) {
     if (shiftStatus?.clockOutAt) {
-      endTimeDisplay = formatTimeOnly(shiftStatus.clockOutAt);
+      endTimeDisplay = formatBusinessTime(shiftStatus.clockOutAt);
     } else if (isOpen) {
       endTimeDisplay = 'On Shift';
     } else if (shiftStatus?.clockInAt) {
@@ -152,11 +141,14 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     hoursWorkedTodayStr = formatMinutesToHours(totalMinutes);
   }
 
-  // Geofence status: Inside Site Radius (Green) / Outside (Red)
-  const isInsideGeofence = shiftStatus?.isInsideGeofence;
+  // Geofence status: Inside Site Radius (Green) / Outside (Red). Gated by isToday so a
+  // previous day's geofence result (or a stale/cached shiftStatus) never paints today's
+  // card -- falls back to the "not captured" grey state instead, per the current-day
+  // reset rule.
+  const isInsideGeofence = isToday ? shiftStatus?.isInsideGeofence : undefined;
 
-  // Selfie timestamp display at top-left corner
-  const selfieDateTimeStr = formatSelfieDateTime(shiftStatus);
+  // Selfie timestamp display at top-left corner -- same current-day gate.
+  const selfieDateTimeStr = isToday ? formatSelfieDateTime(shiftStatus) : null;
 
   // Status Badge Label & Color at bottom-left of photo
   let badgeLabel = 'Absent';
@@ -166,7 +158,7 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
   if (isOnLeave) {
     badgeLabel = 'On Leave';
-    badgeStyle = 'bg-amber-500 text-white';
+    badgeStyle = 'bg-slate-500 text-white';
   } else if (isOpen) {
     badgeLabel = 'Shift Started';
     badgeStyle = 'bg-emerald-600 text-white';
@@ -178,8 +170,18 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
     badgeStyle = 'bg-rose-600 text-white';
   }
 
-  const startPhotoUrl = shiftStatus?.startSelfieUrl || shiftStatus?.selfieUrl || shiftStatus?.selfie_url;
-  const endPhotoUrl = shiftStatus?.endSelfieUrl;
+  // No Selfie Today must show the default avatar even if shiftStatus still carries a
+  // photo from a prior day (stale cache, polling lag) -- gated by isToday.
+  const startPhotoUrl = isToday ? (shiftStatus?.startSelfieUrl || shiftStatus?.selfieUrl || shiftStatus?.selfie_url) : undefined;
+  const endPhotoUrl = isToday ? shiftStatus?.endSelfieUrl : undefined;
+
+  // Card face shows ONE photo at a time, replace semantics: the Shift Start selfie is
+  // shown and kept until a Shift End selfie exists, at which point the End selfie
+  // replaces it entirely (not shown side-by-side) until the next day's reset clears both.
+  // The zoom modal below still receives both start/end photos so a user can review the
+  // Start selfie even after it's been replaced on the card face.
+  const displayPhotoUrl = endPhotoUrl || startPhotoUrl;
+  const displayPhotoLabel: 'start' | 'end' = endPhotoUrl ? 'end' : 'start';
 
   return (
     <div
@@ -193,34 +195,29 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         }
       }}
       title={onClick ? `Click to open Attendance Report for ${employeeName} (${employeeId})` : undefined}
-      className={`w-44 shrink-0 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden flex flex-col transition-all text-left ${
+      className={`w-44 shrink-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden flex flex-col transition-all text-left ${
         onClick
           ? 'cursor-pointer hover:shadow-md hover:border-blue-400 hover:-translate-y-0.5 group focus:outline-hidden focus:ring-2 focus:ring-blue-500/50'
           : 'hover:shadow-xs hover:border-slate-300'
       }`}
     >
       {/* Photo Area: Displays camera selfie, top-left selfie date/time, top-right geofence location icon */}
-      <div className="relative h-56 shrink-0 bg-slate-100 flex items-center justify-center overflow-hidden">
+      <div className="relative h-56 shrink-0 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
         {/* 2. Top-Left Corner: Date and Time of Selfie Taken */}
         {selfieDateTimeStr ? (
           <div
-            className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-slate-900/80 backdrop-blur-xs text-[9px] font-medium text-white shadow-xs z-10 flex items-center gap-1 tracking-tight"
+            className="absolute top-2 left-2 max-w-[calc(100%-2.25rem)] px-1.5 py-1 rounded-md bg-gradient-to-br from-slate-900/90 to-slate-800/80 ring-1 ring-white/10 text-[9px] font-semibold text-white shadow-md z-10 flex items-center gap-1 tracking-tight whitespace-nowrap"
             title={`Selfie taken: ${selfieDateTimeStr}`}
           >
-            <Clock className="w-2.5 h-2.5 text-slate-300 shrink-0" />
-            <span>{selfieDateTimeStr}</span>
+            <Clock className="w-2.5 h-2.5 text-sky-300 shrink-0" />
+            <span className="truncate font-mono">{selfieDateTimeStr}</span>
           </div>
         ) : null}
 
-        {/* 3. Top-Right Corner: Location Icon (Green when inside geofence, Red when outside) */}
+        {/* 3. Top-Right Corner: Location Icon (Green when inside geofence, Red when outside) — a plain
+             colored pin with a drop-shadow for legibility against any photo, no circular badge */}
         <div
-          className={`absolute top-2 right-2 p-1 rounded-full border z-10 ${
-            isInsideGeofence === true
-              ? 'bg-white/95 border-emerald-500/40 text-emerald-600'
-              : isInsideGeofence === false
-              ? 'bg-white/95 border-rose-500/40 text-rose-600'
-              : 'bg-white/75 border-slate-200 text-slate-300'
-          }`}
+          className="absolute top-1.5 right-1.5 z-10"
           title={
             isInsideGeofence === true
               ? 'Inside Site Radius (Within Geofence)'
@@ -230,187 +227,127 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
           }
         >
           <MapPin
-            className={`w-3.5 h-3.5 ${
+            className={`w-5 h-5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.65)] ${
               isInsideGeofence === true
-                ? 'fill-emerald-500 text-emerald-600'
+                ? 'fill-emerald-500 text-emerald-100'
                 : isInsideGeofence === false
-                ? 'fill-rose-500 text-rose-600'
-                : 'text-slate-300'
+                ? 'fill-rose-500 text-rose-100'
+                : 'fill-slate-400 text-slate-100'
             }`}
+            strokeWidth={1.75}
           />
         </div>
 
-        {/* 4. Photos: Show selfie taken at start and end of shift with click-to-zoom */}
-        {startPhotoUrl && endPhotoUrl ? (
-          <div className="w-full h-full grid grid-cols-2 divide-x divide-white/60 bg-slate-200">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={(e) => handleOpenZoom(e, 'start')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleOpenZoom(e as any, 'start');
-                }
-              }}
-              className="relative h-full w-full overflow-hidden cursor-zoom-in group/photo"
-              title="Click to zoom Shift Start Selfie"
-            >
-              <img
-                src={startPhotoUrl}
-                alt="Shift Start Selfie"
-                className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
-              />
-              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
-                <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
-                  <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
-                </span>
-              </div>
-            </div>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={(e) => handleOpenZoom(e, 'end')}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleOpenZoom(e as any, 'end');
-                }
-              }}
-              className="relative h-full w-full overflow-hidden cursor-zoom-in group/photo"
-              title="Click to zoom Shift End Selfie"
-            >
-              <img
-                src={endPhotoUrl}
-                alt="Shift End Selfie"
-                className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
-              />
-              <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
-                <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
-                  <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : startPhotoUrl ? (
+        {/* 4. Photo: Shift Start selfie is shown and kept until the Shift End selfie is
+             taken, at which point the End selfie REPLACES it on the card face (not shown
+             side-by-side) until the card resets at the next day's rollover. Click-to-zoom
+             still opens both start/end photos for review via SelfieZoomModal. */}
+        {displayPhotoUrl ? (
           <div
             role="button"
             tabIndex={0}
-            onClick={(e) => handleOpenZoom(e, 'start')}
+            onClick={(e) => handleOpenZoom(e, displayPhotoLabel)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 e.stopPropagation();
-                handleOpenZoom(e as any, 'start');
+                handleOpenZoom(e as any, displayPhotoLabel);
               }
             }}
             className="relative w-full h-full cursor-zoom-in group/photo"
-            title="Click to zoom verification selfie"
+            title={displayPhotoLabel === 'end' ? 'Click to zoom Shift End Selfie' : 'Click to zoom Shift Start Selfie'}
           >
             <img
-              src={startPhotoUrl}
-              alt={employeeName}
+              src={displayPhotoUrl}
+              alt={displayPhotoLabel === 'end' ? 'Shift End Selfie' : 'Shift Start Selfie'}
               className="w-full h-full object-cover group-hover/photo:scale-105 transition-all duration-200"
             />
-            <div className="absolute inset-0 bg-slate-900/25 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/85 text-white text-[10px] font-medium shadow-md backdrop-blur-xs">
-                <ZoomIn className="w-3 h-3 text-blue-300" />
-                Click to Zoom
+            <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-10">
+              <span className="p-1 rounded-full bg-slate-900/80 text-white shadow-xs">
+                <ZoomIn className="w-3.5 h-3.5 text-blue-300" />
               </span>
             </div>
           </div>
         ) : (
-          <UserRound className="w-20 h-20 text-slate-400 group-hover:scale-105 group-hover:text-slate-500 transition-all duration-200" />
+          <UserRound className="w-20 h-20 text-slate-400 dark:text-slate-500 group-hover:scale-105 group-hover:text-slate-500 transition-all duration-200" />
         )}
 
         {/* Color-Coded Status Badge on Bottom-Left of Photo */}
         <div className={`absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold shadow-xs tracking-wide z-10 ${badgeStyle}`}>
           {badgeLabel}
         </div>
-
-        {/* Hover Action Overlay: Click to Open Attendance Report */}
-        {onClick && (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/75 via-slate-900/40 to-transparent py-2 px-2 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-            <span className="text-[10px] font-bold text-white tracking-wide flex items-center gap-1 drop-shadow-xs">
-              <FileSpreadsheet className="w-3 h-3 text-emerald-300" />
-              Open Attendance Report
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Name, then Staff/Worker : Code */}
-      <div className="px-2 pt-2 pb-1.5 text-center border-t border-slate-100 shrink-0">
-        <p className="text-xs font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors" title={employeeName}>
+      <div className="px-2 pt-2 pb-1.5 text-center border-t border-slate-100 dark:border-slate-800 shrink-0">
+        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 transition-colors" title={employeeName}>
           {employeeName}
         </p>
         <p className="text-[10px] mt-0.5 truncate">
-          <span className={employeeType === 'Staff' ? 'text-blue-700 font-semibold' : 'text-indigo-700 font-semibold'}>
+          <span className={employeeType === 'Staff' ? 'text-blue-700 dark:text-blue-300 font-semibold' : 'text-indigo-700 dark:text-indigo-300 font-semibold'}>
             {employeeType}
           </span>
-          <span className="text-slate-400"> : </span>
-          <span className="font-bold text-blue-600 group-hover:underline">{employeeId}</span>
+          <span className="text-slate-400 dark:text-slate-500"> : </span>
+          <span className="font-bold text-blue-600 dark:text-blue-400 group-hover:underline">{employeeId}</span>
         </p>
       </div>
 
       {/* Attendance details below photo following user card template */}
-      <div className="px-2 pb-2.5 pt-1.5 border-t border-slate-100 space-y-1.5 text-[10px] shrink-0 bg-slate-50/40">
+      <div className="px-2 pb-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5 text-[10px] shrink-0 bg-slate-50/40">
         {/* 1. Start Time */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-emerald-700 font-semibold shrink-0">Start Time:</span>
+          <span className="text-emerald-700 dark:text-emerald-300 font-semibold shrink-0">Start Time:</span>
           {startTime ? (
-            <span className="font-bold text-emerald-700 truncate">{startTime}</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-300 truncate">{startTime}</span>
           ) : (
-            <span className="text-slate-400 italic truncate">-</span>
+            <span className="text-slate-400 dark:text-slate-500 italic truncate">-</span>
           )}
         </div>
 
         {/* 2. End Time */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-blue-700 font-semibold shrink-0">End Time:</span>
+          <span className="text-blue-700 dark:text-blue-300 font-semibold shrink-0">End Time:</span>
           {endTimeDisplay ? (
-            <span className={`font-bold truncate ${isOpen ? 'text-blue-600 italic' : 'text-blue-700'}`}>
+            <span className={`font-bold truncate ${isOpen ? 'text-blue-600 dark:text-blue-400 italic' : 'text-blue-700 dark:text-blue-300'}`}>
               {endTimeDisplay}
             </span>
           ) : (
-            <span className="text-slate-400 italic truncate">-</span>
+            <span className="text-slate-400 dark:text-slate-500 italic truncate">-</span>
           )}
         </div>
 
         {/* 3. Shift Duration */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Shift Duration:</span>
-          <span className="font-bold text-slate-800 truncate">{shiftDurationStr}</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Shift Duration:</span>
+          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{shiftDurationStr}</span>
         </div>
 
         {/* 4. Total Work Today */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Total Work Today:</span>
-          <span className="font-bold text-indigo-700 truncate">{hoursWorkedTodayStr}</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Total Work Today:</span>
+          <span className="font-bold text-indigo-700 dark:text-indigo-300 truncate">{hoursWorkedTodayStr}</span>
         </div>
 
         {/* 5. Geofence (Inside Site Radius with Green color and outside with red color) */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Geofence:</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Geofence:</span>
           {isInsideGeofence === true ? (
-            <span className="font-bold text-emerald-600 truncate" title="Inside Site Radius">
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 truncate" title="Inside Site Radius">
               Inside Site Radius
             </span>
           ) : isInsideGeofence === false ? (
-            <span className="font-bold text-rose-600 truncate" title="Outside Site Radius">
+            <span className="font-bold text-rose-600 dark:text-rose-400 truncate" title="Outside Site Radius">
               Outside Site Radius
             </span>
           ) : (
-            <span className="text-slate-400 italic truncate">-</span>
+            <span className="text-slate-400 dark:text-slate-500 italic truncate">-</span>
           )}
         </div>
 
         {/* 6. Mobility (will setup later) */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-slate-600 font-medium shrink-0">Mobility:</span>
-          <span className="text-slate-400 italic truncate">Will setup later</span>
+          <span className="text-slate-600 dark:text-slate-400 font-medium shrink-0">Mobility:</span>
+          <span className="text-slate-400 dark:text-slate-500 italic truncate">Coming Soon</span>
         </div>
       </div>
 

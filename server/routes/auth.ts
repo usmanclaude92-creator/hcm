@@ -58,7 +58,7 @@ router.post('/login', async (req, res) => {
     // Link user to employee record if available for mobile employee self-service
     let employeeId = user.employeeId;
     if (!employeeId) {
-      const allEmps = db.employees.getAll();
+      const allEmps = await db.employees.getAll();
       const match = allEmps.find(e => e.employeeId.toLowerCase() === user.username.toLowerCase()) ||
                     allEmps.find(e => db.personalDetails.get(e.employeeId)?.personalEmail?.toLowerCase() === user.email?.toLowerCase()) ||
                     (user.username === 'admin' || user.username === 'manager' ? allEmps.find(e => e.isActive) : undefined);
@@ -108,7 +108,7 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/me
-router.get('/me', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/me', verifyAuth, async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -119,7 +119,7 @@ router.get('/me', verifyAuth, (req: AuthRequest, res: Response) => {
 
   let employeeId = user.employeeId || req.user.employeeId;
   if (!employeeId) {
-    const allEmps = db.employees.getAll();
+    const allEmps = await db.employees.getAll();
     const match = allEmps.find(e => e.employeeId.toLowerCase() === user.username.toLowerCase()) ||
                   allEmps.find(e => db.personalDetails.get(e.employeeId)?.personalEmail?.toLowerCase() === user.email?.toLowerCase()) ||
                   (user.username === 'admin' || user.username === 'manager' ? allEmps.find(e => e.isActive) : undefined);

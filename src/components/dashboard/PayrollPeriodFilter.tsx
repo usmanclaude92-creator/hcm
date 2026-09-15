@@ -44,15 +44,15 @@ export const PayrollPeriodFilter: React.FC<Props> = ({
   const rangeOptions = monthSelectOptions(availableMonths, [fromMonth, toMonth]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-xs">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+    <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 shadow-xs">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
+        <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
         Period:
       </div>
       <select
         value={mode}
         onChange={(e) => onModeChange(e.target.value as PeriodMode)}
-        className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
       >
         <option value="month">Payroll Month</option>
         <option value="range">Payroll Months Range</option>
@@ -63,7 +63,7 @@ export const PayrollPeriodFilter: React.FC<Props> = ({
         <select
           value={selectedMonth}
           onChange={(e) => onSelectedMonthChange(e.target.value)}
-          className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
         >
           {monthOptions.map((m) => (
             <option key={m} value={m}>
@@ -75,11 +75,11 @@ export const PayrollPeriodFilter: React.FC<Props> = ({
 
       {mode === 'range' && (
         <>
-          <span className="text-[11px] text-slate-500 font-medium">From</span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">From</span>
           <select
             value={fromMonth}
             onChange={(e) => onFromChange(e.target.value)}
-            className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             {rangeOptions.map((m) => (
               <option key={m} value={m}>
@@ -87,11 +87,11 @@ export const PayrollPeriodFilter: React.FC<Props> = ({
               </option>
             ))}
           </select>
-          <span className="text-[11px] text-slate-500 font-medium">To</span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">To</span>
           <select
             value={toMonth}
             onChange={(e) => onToChange(e.target.value)}
-            className="text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             {rangeOptions.map((m) => (
               <option key={m} value={m}>
@@ -103,7 +103,7 @@ export const PayrollPeriodFilter: React.FC<Props> = ({
       )}
 
       {mode === 'all' && (
-        <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5">
           All Payroll History
         </span>
       )}

@@ -10,7 +10,14 @@ import {
   companyScopeOf,
   canSeeCompany,
 } from '../auth.js';
-import type { LeaveType, LeaveRequest, LeaveBalance, LeaveRequestStatus } from '../../src/types/index';
+import type { LeaveRequest, LeaveBalance, LeaveRequestStatus, PublicHoliday } from '../../src/types/index';
+import {
+  listLeaveTypes,
+  createLeaveType,
+  updateLeaveType,
+  deleteLeaveType,
+  toggleLeaveTypeStatus,
+} from '../services/leaveTypes.js';
 
 const router = Router();
 
@@ -26,15 +33,15 @@ function isValidDate(value: any): boolean {
 }
 
 // ==================== Leave types ====================
+// Shared with /api/master(s)/leave-types (server/routes/masters.ts) via
+// server/services/leaveTypes.ts -- both screens edit the same db.leaveTypes
+// records, so validation and audit logging live in one place.
 
 // GET /api/leave/types
 router.get('/types', verifyAuth, (req: AuthRequest, res: Response) => {
   try {
     const includeInactive = String(req.query.includeInactive || '') === 'true';
-    const types = db.leaveTypes.getAll()
-      .filter(t => includeInactive || t.isActive)
-      .sort((a, b) => a.name.localeCompare(b.name));
-    res.json(types);
+    res.json(listLeaveTypes(includeInactive));
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to fetch leave types.' });
   }
@@ -43,86 +50,170 @@ router.get('/types', verifyAuth, (req: AuthRequest, res: Response) => {
 // POST /api/leave/types (Administrator / Payroll Manager)
 router.post('/types', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const { code, name, isPaid, annualEntitlementDays, remarks } = req.body;
-    if (!code || !name) {
-      return res.status(400).json({ error: 'Leave type code and name are required.' });
-    }
-    const cleanCode = String(code).trim().toUpperCase();
-    if (db.leaveTypes.findByCode(cleanCode)) {
-      return res.status(400).json({ error: `A leave type with code '${cleanCode}' already exists.` });
-    }
-    const days = Number(annualEntitlementDays ?? 0);
-    if (!Number.isFinite(days) || days < 0) {
-      return res.status(400).json({ error: 'Annual entitlement must be a number of days, and cannot be negative.' });
-    }
-
-    const timestamp = new Date().toISOString();
-    const type: LeaveType = {
-      id: crypto.randomUUID(),
-      code: cleanCode,
-      name: String(name).trim(),
-      isPaid: isPaid !== false,
-      annualEntitlementDays: Math.round(days),
-      isActive: true,
-      remarks: remarks ? String(remarks).trim() : '',
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-    await db.leaveTypes.create(type);
-
-    await db.audit.log({
-      userId: req.user?.id,
-      username: req.user?.username || 'User',
-      userRole: req.user?.role || 'Payroll User',
-      action: 'LEAVE_TYPE_CREATED',
-      module: 'Leave',
-      recordId: type.id,
-      description: `Created leave type ${type.code} — ${type.name} (${type.isPaid ? 'paid' : 'unpaid'}, ${type.annualEntitlementDays} days/year).`,
-    });
-
+    const type = await createLeaveType(req.body, req.user!);
     res.status(201).json(type);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to create leave type.' });
+    res.status(err.status || 500).json({ error: err.message || 'Failed to create leave type.' });
   }
 });
 
 // PUT /api/leave/types/:id
 router.put('/types/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
   try {
-    const existing = db.leaveTypes.findById(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Leave type not found.' });
+    const updated = await updateLeaveType(req.params.id, req.body, req.user!);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(err.status || 500).json({ error: err.message || 'Failed to update leave type.' });
+  }
+});
 
-    const { name, isPaid, annualEntitlementDays, remarks, isActive } = req.body;
-    const updates: Partial<LeaveType> = {};
-    if (name !== undefined) updates.name = String(name).trim();
-    if (isPaid !== undefined) updates.isPaid = Boolean(isPaid);
-    if (remarks !== undefined) updates.remarks = String(remarks).trim();
-    if (isActive !== undefined) updates.isActive = Boolean(isActive);
-    if (annualEntitlementDays !== undefined) {
-      const days = Number(annualEntitlementDays);
-      if (!Number.isFinite(days) || days < 0) {
-        return res.status(400).json({ error: 'Annual entitlement must be a number of days, and cannot be negative.' });
-      }
-      updates.annualEntitlementDays = Math.round(days);
+// DELETE /api/leave/types/:id
+router.delete('/types/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { name } = await deleteLeaveType(req.params.id, req.user!);
+    res.json({ success: true, message: `Leave type '${name}' deleted successfully.` });
+  } catch (err: any) {
+    res.status(err.status || 500).json({ error: err.message || 'Failed to delete leave type.' });
+  }
+});
+
+// PATCH /api/leave/types/:id/toggle-status
+router.patch('/types/:id/toggle-status', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const updated = await toggleLeaveTypeStatus(req.params.id, req.user!);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(err.status || 500).json({ error: err.message || 'Failed to toggle leave type status.' });
+  }
+});
+
+// ==================== Public holidays ====================
+
+// GET /api/leave/public-holidays?year=YYYY
+router.get('/public-holidays', verifyAuth, (req: AuthRequest, res: Response) => {
+  try {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const holidays = db.publicHolidays
+      .getAll()
+      .filter(h => h.year === year || h.isRecurringAnnually)
+      .map(h => (h.isRecurringAnnually && h.year !== year ? { ...h, date: `${year}${h.date.slice(4)}`, year } : h))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    res.json(holidays);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch public holidays.' });
+  }
+});
+
+// POST /api/leave/public-holidays (Administrator / Payroll Manager)
+router.post('/public-holidays', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, date, isRecurringAnnually, remarks } = req.body;
+    if (!name || !date) {
+      return res.status(400).json({ error: 'Holiday name and date are required.' });
+    }
+    if (!isValidDate(date)) {
+      return res.status(400).json({ error: 'Date must be a real calendar date (YYYY-MM-DD).' });
+    }
+    const year = Number(String(date).slice(0, 4));
+
+    const duplicate = db.publicHolidays.getAll().find(h => h.date === date);
+    if (duplicate) {
+      return res.status(400).json({ error: `A holiday (${duplicate.name}) is already recorded on ${date}.` });
     }
 
-    const updated = await db.leaveTypes.update(req.params.id, updates);
+    const timestamp = new Date().toISOString();
+    const holiday: PublicHoliday = {
+      id: crypto.randomUUID(),
+      name: String(name).trim(),
+      date,
+      year,
+      isRecurringAnnually: Boolean(isRecurringAnnually),
+      remarks: remarks ? String(remarks).trim() : '',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    await db.publicHolidays.create(holiday);
 
     await db.audit.log({
       userId: req.user?.id,
       username: req.user?.username || 'User',
       userRole: req.user?.role || 'Payroll User',
-      action: 'LEAVE_TYPE_UPDATED',
+      action: 'PUBLIC_HOLIDAY_CREATED',
+      module: 'Leave',
+      recordId: holiday.id,
+      description: `Added public holiday ${holiday.name} on ${holiday.date}.`,
+    });
+
+    res.status(201).json(holiday);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create the public holiday.' });
+  }
+});
+
+// PUT /api/leave/public-holidays/:id
+router.put('/public-holidays/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = db.publicHolidays.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Public holiday not found.' });
+
+    const { name, date, isRecurringAnnually, remarks } = req.body;
+    const updates: Partial<PublicHoliday> = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (remarks !== undefined) updates.remarks = String(remarks).trim();
+    if (isRecurringAnnually !== undefined) updates.isRecurringAnnually = Boolean(isRecurringAnnually);
+    if (date !== undefined) {
+      if (!isValidDate(date)) {
+        return res.status(400).json({ error: 'Date must be a real calendar date (YYYY-MM-DD).' });
+      }
+      const duplicate = db.publicHolidays.getAll().find(h => h.date === date && h.id !== existing.id);
+      if (duplicate) {
+        return res.status(400).json({ error: `A holiday (${duplicate.name}) is already recorded on ${date}.` });
+      }
+      updates.date = date;
+      updates.year = Number(String(date).slice(0, 4));
+    }
+
+    const updated = await db.publicHolidays.update(req.params.id, updates);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'PUBLIC_HOLIDAY_UPDATED',
       module: 'Leave',
       recordId: req.params.id,
-      description: `Updated leave type ${existing.code} — ${existing.name}.`,
-      previousValue: { isPaid: existing.isPaid, annualEntitlementDays: existing.annualEntitlementDays, isActive: existing.isActive },
+      description: `Updated public holiday ${existing.name}.`,
+      previousValue: { name: existing.name, date: existing.date },
       newValue: updates,
     });
 
     res.json(updated);
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update leave type.' });
+    res.status(500).json({ error: err.message || 'Failed to update the public holiday.' });
+  }
+});
+
+// DELETE /api/leave/public-holidays/:id
+router.delete('/public-holidays/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = db.publicHolidays.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Public holiday not found.' });
+
+    await db.publicHolidays.delete(req.params.id);
+
+    await db.audit.log({
+      userId: req.user?.id,
+      username: req.user?.username || 'User',
+      userRole: req.user?.role || 'Payroll User',
+      action: 'PUBLIC_HOLIDAY_DELETED',
+      module: 'Leave',
+      recordId: req.params.id,
+      description: `Removed public holiday ${existing.name} on ${existing.date}.`,
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete the public holiday.' });
   }
 });
 
@@ -186,7 +277,7 @@ router.post('/requests', verifyAuth, requireWritePermission, async (req: AuthReq
     }
 
     const normId = normalizeEmployeeId(employeeId);
-    const emp = db.employees.findByEmployeeId(normId);
+    const emp = await db.employees.findByEmployeeId(normId);
     if (!emp) return res.status(404).json({ error: `Employee '${normId}' not found.` });
     if (!canSeeCompany(companyScopeOf(req.user), emp.employeeCompany)) {
       return res.status(404).json({ error: `Employee '${normId}' not found.` });
@@ -507,14 +598,13 @@ router.post('/requests/:id/cancel', verifyAuth, requireWritePermission, async (r
 // ==================== Balances ====================
 
 // GET /api/leave/balances?year=YYYY&employeeId=
-router.get('/balances', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/balances', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const year = Number(req.query.year) || new Date().getFullYear();
     const employeeIdFilter = req.query.employeeId ? normalizeEmployeeId(String(req.query.employeeId)) : null;
     const scope = companyScopeOf(req.user);
 
-    const employees = db.employees
-      .getAll()
+    const employees = (await db.employees.getAll())
       .filter(e => e.isActive && canSeeCompany(scope, e.employeeCompany))
       .filter(e => !employeeIdFilter || normalizeEmployeeId(e.employeeId) === employeeIdFilter);
 

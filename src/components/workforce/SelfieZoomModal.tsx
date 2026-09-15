@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   ZoomIn,
@@ -178,11 +179,21 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
   const currentPhotoLabel = activeType === 'end' ? 'Shift End Verification Selfie' : 'Shift Start Verification Selfie';
   const currentTimestamp = activeType === 'end' ? endTime : startTime || selfieDateTimeStr;
 
-  return (
+  // Rendered via a portal straight into document.body: this modal is opened from a
+  // card that applies a hover transform (hover:-translate-y-0.5) and overflow-hidden,
+  // both of which create a new containing/clipping context for `position: fixed`
+  // descendants. Without the portal, this "fullscreen" overlay was being clipped to
+  // and sized against that small card instead of the viewport.
+  return createPortal(
     <div
       id="selfie-zoom-backdrop"
       className="fixed inset-0 z-50 flex flex-col bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 select-none overflow-hidden"
       onClick={(e) => {
+        // React portals still bubble through the *React* component tree (not the DOM
+        // tree), so without this a click anywhere in this modal — even just closing it
+        // — would keep bubbling up to the deployment card's own onClick and re-open the
+        // Attendance Report behind it. Stop that here; backdrop clicks still close below.
+        e.stopPropagation();
         if (e.target === e.currentTarget) {
           onClose();
         }
@@ -204,11 +215,11 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
                 {employeeType}
               </span>
             </div>
-            <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
+            <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 dark:text-slate-500 flex-wrap">
               <span className="text-slate-200 font-medium">{currentPhotoLabel}</span>
               {currentTimestamp && (
-                <span className="flex items-center gap-1 text-slate-400">
-                  <Clock className="w-3 h-3 text-slate-400" />
+                <span className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
+                  <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                   <span>{currentTimestamp}</span>
                 </span>
               )}
@@ -264,7 +275,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
             type="button"
             id="btn-close-selfie-zoom"
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
             title="Close (Esc)"
           >
             <X className="w-5 h-5" />
@@ -324,7 +335,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
             />
           </div>
         ) : (
-          <div className="text-center text-slate-400 p-8">
+          <div className="text-center text-slate-400 dark:text-slate-500 p-8">
             <p className="text-sm font-medium">No verification photo recorded for this shift.</p>
           </div>
         )}
@@ -401,7 +412,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
       </div>
 
       {/* Footer shortcut hints */}
-      <div className="shrink-0 py-2 px-4 bg-slate-950 text-center text-[11px] text-slate-500 border-t border-slate-900 flex items-center justify-center gap-4 flex-wrap">
+      <div className="shrink-0 py-2 px-4 bg-slate-950 text-center text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-900 flex items-center justify-center gap-4 flex-wrap">
         <span>Click or Drag to pan when zoomed</span>
         <span>•</span>
         <span>Double-click to toggle zoom</span>
@@ -410,6 +421,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
         <span>•</span>
         <span>Keys: <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">+</kbd> / <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">-</kbd> Zoom, <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">R</kbd> Rotate, <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]">Esc</kbd> Close</span>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

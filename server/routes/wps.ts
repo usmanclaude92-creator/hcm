@@ -8,20 +8,26 @@ import type { WPSRecoveryTransaction, EmployeeCompany } from '../../src/types/in
 const router = Router();
 
 // WPS recovery records carry the employee ID but not the company, so scope is resolved
-// through Employee Master. A record whose employee no longer exists stays visible to
-// unscoped accounts only, rather than disappearing from every view.
-function wpsVisibleTo(scope: EmployeeCompany[] | null, employeeId: string): boolean {
+// through Employee Master (pre-resolved into a map, since the SQL-backed employee lookup
+// is async and cannot run inside a synchronous .filter() callback). A record whose
+// employee no longer exists stays visible to unscoped accounts only, rather than
+// disappearing from every view.
+async function buildEmployeeCompanyMap(): Promise<Map<string, EmployeeCompany>> {
+  const employees = await db.employees.getAll();
+  return new Map(employees.map(e => [normalizeEmployeeId(e.employeeId), e.employeeCompany]));
+}
+function wpsVisibleTo(scope: EmployeeCompany[] | null, employeeId: string, empCompanyByNormId: Map<string, EmployeeCompany>): boolean {
   if (scope === null) return true;
-  const emp = db.employees.findByEmployeeId(normalizeEmployeeId(employeeId));
-  return canSeeCompany(scope, emp?.employeeCompany);
+  return canSeeCompany(scope, empCompanyByNormId.get(normalizeEmployeeId(employeeId)));
 }
 
 // GET /api/wps - List all WPS Recovery tracking records
-router.get('/', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { month, status, search } = req.query;
     const scope = companyScopeOf(req.user);
-    let list = db.wps.getAll().filter(w => wpsVisibleTo(scope, w.employeeId));
+    const empCompanyByNormId = await buildEmployeeCompanyMap();
+    let list = db.wps.getAll().filter(w => wpsVisibleTo(scope, w.employeeId, empCompanyByNormId));
 
     if (search) {
       const q = String(search).trim().toLowerCase();
@@ -80,7 +86,7 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
     if (!wps) {
       return res.status(404).json({ error: 'WPS Recovery record not found.' });
     }
-    if (!wpsVisibleTo(companyScopeOf(req.user), wps.employeeId)) {
+    if (!wpsVisibleTo(companyScopeOf(req.user), wps.employeeId, await buildEmployeeCompanyMap())) {
       return res.status(404).json({ error: 'WPS Recovery record not found.' });
     }
 
@@ -122,11 +128,12 @@ router.post('/transactions', verifyAuth, requireWritePermission, async (req: Aut
 });
 
 // GET /api/wps/export - Export WPS Recovery report to Excel
-router.get('/export', verifyAuth, (req: AuthRequest, res: Response) => {
+router.get('/export', verifyAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { month } = req.query;
     const exportScope = companyScopeOf(req.user);
-    let list = db.wps.getAll().filter(w => wpsVisibleTo(exportScope, w.employeeId));
+    const empCompanyByNormId = await buildEmployeeCompanyMap();
+    let list = db.wps.getAll().filter(w => wpsVisibleTo(exportScope, w.employeeId, empCompanyByNormId));
     if (month && month !== 'ALL') {
       list = list.filter(w => w.payrollMonth === month);
     }

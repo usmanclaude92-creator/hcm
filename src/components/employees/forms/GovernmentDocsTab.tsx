@@ -56,17 +56,17 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
   return (
     <div className="space-y-6">
       {/* SECTION 1: Header + Filter + Add Button */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800/60 flex items-center justify-center text-teal-600 dark:text-teal-400">
               <FileText size={22} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
                 Government Passports, Permits &amp; Regulatory Cards
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Passports, MoL Work Permits, Medical Cards &amp; Contracts
               </p>
             </div>
@@ -97,7 +97,7 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   selectedTypeFilter === type
                     ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                 }`}
               >
                 {type === 'ALL' ? `All (${governmentDocuments.length})` : type}
@@ -115,18 +115,18 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
             return (
               <div
                 key={doc.id}
-                className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between space-y-3"
+                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-4 shadow-xs flex flex-col justify-between space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-0.5">
                       {doc.documentType}
                     </span>
-                    <h4 className="font-mono text-sm font-bold text-slate-900">
+                    <h4 className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">
                       {doc.documentNumber}
                     </h4>
                     {doc.country && (
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {doc.country} {doc.issuingAuthority ? `• ${doc.issuingAuthority}` : ''}
                       </p>
                     )}
@@ -134,27 +134,27 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
                   <ComplianceBadge status={doc.status} size="sm" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-slate-100">
+                <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-slate-100 dark:border-slate-800">
                   <div>
-                    <span className="text-slate-400 text-[10px] block">Issue Date</span>
-                    <span className="font-medium text-slate-700">
+                    <span className="text-slate-400 dark:text-slate-500 text-[10px] block">Issue Date</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
                       {doc.issueDate ? formatDate(doc.issueDate) : '—'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 text-[10px] block">Expiry Date</span>
+                    <span className="text-slate-400 dark:text-slate-500 text-[10px] block">Expiry Date</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-slate-800">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
                         {formatDate(doc.expiryDate)}
                       </span>
                       {daysLeft !== null && (
                         <span
                           className={`text-[9px] font-bold px-1.5 py-0.2 rounded-sm ${
                             daysLeft < 0
-                              ? 'bg-rose-100 text-rose-800'
+                              ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                               : daysLeft <= 30
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                              : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                           }`}
                         >
                           {daysLeft < 0 ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d`}
@@ -165,7 +165,7 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
                 </div>
 
                 {doc.remarks && (
-                  <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg italic">
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg italic">
                     {doc.remarks}
                   </p>
                 )}
@@ -182,7 +182,7 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
                               `${doc.documentType}_${doc.documentNumber}`
                             )
                           }
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                         >
                           <Eye size={12} />
                           <span>Preview</span>
@@ -190,7 +190,7 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
                         <a
                           href={buildStorageFileUrl(doc.documentAttachment) || undefined}
                           download={`${doc.documentType}_${doc.documentNumber}`}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                          className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-md text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
                         >
                           <Download size={12} />
                           <span>Download</span>
@@ -203,7 +203,7 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onDeleteDoc(doc.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                      className="text-slate-400 dark:text-slate-500 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
                       title="Delete document record"
                     >
                       <Trash2 size={14} />
@@ -215,9 +215,9 @@ export const GovernmentDocsTab: React.FC<GovernmentDocsTabProps> = ({
           })}
         </div>
       ) : (
-        <div className="p-10 text-center bg-white rounded-xl border border-dashed border-slate-300 space-y-2">
+        <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 space-y-2">
           <FileText className="w-8 h-8 mx-auto text-slate-300" />
-          <p className="text-xs font-semibold text-slate-600">
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
             No government documents recorded under this filter category.
           </p>
           {canWrite && (
