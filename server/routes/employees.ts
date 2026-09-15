@@ -30,8 +30,39 @@ import type {
   MobileDashboardData,
 } from '../../src/types/index';
 import { validateBankAccountNumber, validateIban, validateBankDetails } from '../../src/utils/bankValidation.js';
+import { syncEmployeesWithWorkforce, type WorkforceEligibilityRecord } from '../integrations/workforceClient.js';
 
 const router = Router();
+
+// Real-time counterpart to the admin "Sync to Workforce" button: pushes just the one
+// employee whose Site Supervisor flag changed, so real Workforce Supervisor access
+// takes effect on save instead of waiting on a manual full sync. Fire-and-forget and
+// fail-soft, matching the rest of this integration -- a Workforce outage must never
+// block or fail an HCMS employee save.
+function pushSupervisorFlagToWorkforce(emp: Employee): void {
+  const civilId = db.civilIds.getCurrent(emp.employeeId)?.civilIdNumber?.trim();
+  if (!civilId) return;
+  const personal = db.personalDetails.get(emp.employeeId);
+  const projectCode = emp.assignedProjectCode || personal?.assignedProject || null;
+  const project = projectCode ? db.projects.findByCode(projectCode) : undefined;
+  const record: WorkforceEligibilityRecord = {
+    civilId,
+    employeeCode: normalizeEmployeeId(emp.employeeId),
+    fullName: emp.employeeName,
+    role: emp.employeeType ? emp.employeeType.toUpperCase() : 'STAFF',
+    department: emp.designation || null,
+    phone: personal?.mobile || personal?.mobileNumber || null,
+    companyCode: emp.employeeCompany,
+    companyName: emp.employeeCompany,
+    projectCode: project?.projectCode || null,
+    projectName: project?.projectName || null,
+    isWorkforceSupervisor: emp.isSiteSupervisor === true,
+  };
+  syncEmployeesWithWorkforce([record]).catch(() => {
+    // Best-effort: the admin "Sync to Workforce" action remains the fallback if this
+    // particular push fails (Workforce unreachable, etc).
+  });
+}
 
 // A project may have at most one active Site Supervisor and, independently, at most one
 // active Site Manager. Returns the conflicting employee (if any) so the caller can name
@@ -1601,6 +1632,10 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
 
     await db.employees.create(newEmployee);
 
+    if (isSiteSupervisor !== undefined) {
+      pushSupervisorFlagToWorkforce(newEmployee);
+    }
+
     const mergedPersonal = {
       ...(personalDetails && typeof personalDetails === 'object' ? personalDetails : {}),
       employeeId: normalizedId,
@@ -1779,6 +1814,10 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     // while the repository addresses records by internal id only.
     const updated = await db.employees.update(employee.id, updates, req.user?.username);
 
+    if (isSiteSupervisor !== undefined && updated) {
+      pushSupervisorFlagToWorkforce(updated);
+    }
+
     // Synchronize to personal details store
     const existingPersonal = db.personalDetails.get(employee.employeeId) || {};
     const mergedPersonal = {
@@ -1873,6 +1912,13 @@ router.patch('/:id/toggle-active', verifyAuth, requireWritePermission, async (re
       isActive: newStatus,
       dateOfLeaving: newStatus ? null : (employee.dateOfLeaving || new Date().toISOString().split('T')[0]),
     }, req.user?.username);
+
+    // Deactivating a Site Supervisor must revoke their real Workforce Supervisor access
+    // immediately, not just free up the project slot locally; reactivating restores
+    // whichever value the flag itself still holds.
+    if (updated && employee.isSiteSupervisor === true) {
+      pushSupervisorFlagToWorkforce({ ...updated, isSiteSupervisor: newStatus && employee.isSiteSupervisor === true });
+    }
 
     await db.audit.log({
       userId: req.user?.id,
