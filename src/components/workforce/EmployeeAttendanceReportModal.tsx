@@ -217,6 +217,43 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
     [dailyRegisterRows]
   );
 
+  // The register itself displays every calendar day of the selected month (1st through
+  // last), not just days that happen to have a punch -- filled in from dailyRegisterRows
+  // where one exists, blank otherwise. monthlyTotals above is deliberately NOT based on
+  // this: "Days Worked" must stay the count of days that actually have a punch, not the
+  // length of the calendar month.
+  const fullMonthRegisterRows = React.useMemo(() => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    if (!y || !m) return dailyRegisterRows;
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const byDate = new Map<string, (typeof dailyRegisterRows)[number]>(dailyRegisterRows.map((row) => [row.punchDate, row]));
+    const rows: Array<(typeof dailyRegisterRows)[number] & { hasPunch: boolean }> = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const punchDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const existing = byDate.get(punchDate);
+      rows.push(
+        existing
+          ? { ...existing, hasPunch: true }
+          : {
+              punchDate,
+              projectName: undefined,
+              projectCode: undefined,
+              startTime: null,
+              endTime: null,
+              isOpen: false,
+              regularHours: 0,
+              overtimeHours: 0,
+              totalHours: 0,
+              approved: false,
+              geofencePercent: null,
+              isSynthesized: false,
+              hasPunch: false,
+            }
+      );
+    }
+    return rows;
+  }, [dailyRegisterRows, selectedMonth]);
+
   useEffect(() => {
     if (initialMonth) setSelectedMonth(initialMonth);
   }, [initialMonth]);
@@ -470,101 +507,99 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Attendance & Approval Register: one row per worked DATE (see
-                  dailyRegisterRows), with clock-in/out times, overtime and geofence
-                  compliance summed across that day's shifts, and supervisor approval
-                  status. Mobility has no real data source yet anywhere in this app
-                  (see EmployeeDeploymentCard/WorkforceDeploymentView) -- shown as
-                  "Coming Soon" here too rather than fabricated. */}
+              {/* Attendance & Approval Register: every calendar day of the selected month,
+                  1st through last (see fullMonthRegisterRows), with clock-in/out times,
+                  overtime and geofence compliance summed across that day's shifts, and
+                  supervisor approval status. A day with no punch at all renders blank
+                  rather than a false "Not-approved" -- there was nothing to approve.
+                  Mobility has no real data source yet anywhere in this app (see
+                  EmployeeDeploymentCard/WorkforceDeploymentView) -- shown as "Coming Soon"
+                  here too rather than fabricated. */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Attendance &amp; Approval Register</h3>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{dailyRegisterRows.length} Day(s)</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{dailyRegisterRows.length} of {fullMonthRegisterRows.length} Day(s) Worked</span>
                 </div>
-                {dailyRegisterRows.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/40">
-                    No daily attendance entries recorded for this month yet.
-                  </div>
-                ) : (
-                  <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-slate-100/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold">
-                            <th className="py-2.5 px-3">Date</th>
-                            <th className="py-2.5 px-3">Project</th>
-                            <th className="py-2.5 px-3 text-center">Start Time</th>
-                            <th className="py-2.5 px-3 text-center">End Time</th>
-                            <th className="py-2.5 px-3 text-center">Reg. Shift Time (Hrs : Mns)</th>
-                            <th className="py-2.5 px-3 text-center">Overtime (Hrs : Mns)</th>
-                            <th className="py-2.5 px-3 text-center">Total Time (Hrs : Mns)</th>
-                            <th className="py-2.5 px-3 text-center">Approval</th>
-                            <th className="py-2.5 px-3 text-center">Geofence</th>
-                            <th className="py-2.5 px-3 text-center">Mobility</th>
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-2xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold">
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Project</th>
+                          <th className="py-2.5 px-3 text-center">Start Time</th>
+                          <th className="py-2.5 px-3 text-center">End Time</th>
+                          <th className="py-2.5 px-3 text-center">Reg. Shift Time (Hrs : Mns)</th>
+                          <th className="py-2.5 px-3 text-center">Overtime (Hrs : Mns)</th>
+                          <th className="py-2.5 px-3 text-center">Total Time (Hrs : Mns)</th>
+                          <th className="py-2.5 px-3 text-center">Approval</th>
+                          <th className="py-2.5 px-3 text-center">Geofence</th>
+                          <th className="py-2.5 px-3 text-center">Mobility</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                        {fullMonthRegisterRows.map((row) => (
+                          <tr key={row.punchDate} className={`hover:bg-slate-50/60 transition-colors ${!row.hasPunch ? 'text-slate-400 dark:text-slate-600' : ''}`}>
+                            <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                              {formatDate(row.punchDate)}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {row.hasPunch ? (row.projectName || row.projectCode || data.employee.assignedProjectName || '-') : '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
+                              {row.startTime ? formatTime(row.startTime) : '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap">
+                              {row.isOpen ? (
+                                <span className="text-blue-600 dark:text-blue-400 italic">On Shift</span>
+                              ) : row.endTime ? (
+                                <span className="text-blue-700 dark:text-blue-300">{formatTime(row.endTime)}</span>
+                              ) : (
+                                <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-800 dark:text-slate-200">
+                              {row.hasPunch ? formatHrsMins(row.regularHours) : '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-mono font-semibold text-amber-600 dark:text-amber-400">
+                              {row.hasPunch ? formatHrsMins(row.overtimeHours) : '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
+                              {row.hasPunch ? formatHrsMins(row.totalHours) : '-'}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              {!row.hasPunch ? (
+                                <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                              ) : row.approved ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  Approved
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                                  Not-approved
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              {row.geofencePercent === null ? (
+                                <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                              ) : (
+                                <span className={`font-bold ${row.geofencePercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                  {row.geofencePercent}%
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-center text-slate-400 dark:text-slate-500 italic text-[10px]">
+                              {row.hasPunch ? 'Coming Soon' : '-'}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                          {dailyRegisterRows.map((row) => (
-                            <tr key={row.punchDate} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                                {formatDate(row.punchDate)}
-                              </td>
-                              <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                {row.projectName || row.projectCode || data.employee.assignedProjectName || '-'}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
-                                {row.startTime ? formatTime(row.startTime) : '-'}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap">
-                                {row.isOpen ? (
-                                  <span className="text-blue-600 dark:text-blue-400 italic">On Shift</span>
-                                ) : row.endTime ? (
-                                  <span className="text-blue-700 dark:text-blue-300">{formatTime(row.endTime)}</span>
-                                ) : (
-                                  <span className="text-slate-400 dark:text-slate-500 italic">-</span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-800 dark:text-slate-200">
-                                {formatHrsMins(row.regularHours)}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-mono font-semibold text-amber-600 dark:text-amber-400">
-                                {formatHrsMins(row.overtimeHours)}
-                              </td>
-                              <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
-                                {formatHrsMins(row.totalHours)}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                {row.approved ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                    Approved
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
-                                    <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
-                                    Not-approved
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                {row.geofencePercent === null ? (
-                                  <span className="text-slate-400 dark:text-slate-500 italic">-</span>
-                                ) : (
-                                  <span className={`font-bold ${row.geofencePercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                    {row.geofencePercent}%
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center text-slate-400 dark:text-slate-500 italic text-[10px]">
-                                Coming Soon
-                              </td>
-                            </tr>
-                          ))}
+                        ))}
                         </tbody>
                       </table>
                     </div>
                   </div>
-                )}
               </div>
 
               {/* Daily Shift Punches & Selfies */}
@@ -800,18 +835,18 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
               </tr>
             </thead>
             <tbody>
-              {dailyRegisterRows.map((row) => (
+              {fullMonthRegisterRows.map((row) => (
                 <tr key={row.punchDate} className="border-b border-slate-200">
                   <td className="py-1 pr-2 font-semibold whitespace-nowrap">{formatDate(row.punchDate)}</td>
-                  <td className="py-1 pr-2 whitespace-nowrap">{row.projectName || row.projectCode || data.employee.assignedProjectName || '-'}</td>
+                  <td className="py-1 pr-2 whitespace-nowrap">{row.hasPunch ? (row.projectName || row.projectCode || data.employee.assignedProjectName || '-') : '-'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{row.startTime ? formatTime(row.startTime) : '-'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{row.isOpen ? 'On Shift' : row.endTime ? formatTime(row.endTime) : '-'}</td>
-                  <td className="py-1 pr-2 text-center whitespace-nowrap">{formatHrsMins(row.regularHours)}</td>
-                  <td className="py-1 pr-2 text-center whitespace-nowrap">{formatHrsMins(row.overtimeHours)}</td>
-                  <td className="py-1 pr-2 text-center font-semibold whitespace-nowrap">{formatHrsMins(row.totalHours)}</td>
-                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.approved ? 'Approved' : 'Not-approved'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.regularHours) : '-'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.overtimeHours) : '-'}</td>
+                  <td className="py-1 pr-2 text-center font-semibold whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.totalHours) : '-'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{!row.hasPunch ? '-' : row.approved ? 'Approved' : 'Not-approved'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{row.geofencePercent === null ? '-' : `${row.geofencePercent}%`}</td>
-                  <td className="py-1 text-center whitespace-nowrap">Coming Soon</td>
+                  <td className="py-1 text-center whitespace-nowrap">{row.hasPunch ? 'Coming Soon' : '-'}</td>
                 </tr>
               ))}
             </tbody>
