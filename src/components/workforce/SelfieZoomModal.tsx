@@ -29,6 +29,11 @@ export interface SelfieZoomModalProps {
   startTime?: string | null;
   endTime?: string | null;
   selfieDateTimeStr?: string | null;
+  // Full date+time (not just time) each selfie was captured at, stamped onto the
+  // top-left corner of the image itself -- distinct per photo since Start and End are
+  // taken at different moments.
+  startDateTimeStr?: string | null;
+  endDateTimeStr?: string | null;
   isInsideGeofence?: boolean | null;
   onOpenReport?: () => void;
 }
@@ -45,6 +50,8 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
   startTime,
   endTime,
   selfieDateTimeStr,
+  startDateTimeStr,
+  endDateTimeStr,
   isInsideGeofence,
   onOpenReport,
 }) => {
@@ -178,6 +185,9 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
   const currentPhotoUrl = activeType === 'end' ? endPhotoUrl : startPhotoUrl || endPhotoUrl;
   const currentPhotoLabel = activeType === 'end' ? 'Shift End Verification Selfie' : 'Shift Start Verification Selfie';
   const currentTimestamp = activeType === 'end' ? endTime : startTime || selfieDateTimeStr;
+  // Permanent on-image stamp: always the full date+time for whichever photo (Start/End)
+  // is currently shown, never just the time-only currentTimestamp above.
+  const currentDateTimeStamp = activeType === 'end' ? endDateTimeStr : startDateTimeStr || selfieDateTimeStr;
 
   // Rendered via a portal straight into document.body: this modal is opened from a
   // card that applies a hover transform (hover:-translate-y-0.5) and overflow-hidden,
@@ -320,7 +330,7 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
         {/* Verification Image */}
         {currentPhotoUrl ? (
           <div
-            className="transition-transform duration-100 ease-out inline-block max-w-full max-h-full"
+            className="relative transition-transform duration-100 ease-out inline-block max-w-full max-h-full"
             style={{
               transform: `translate(${position.x}px, ${position.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
               transformOrigin: 'center center',
@@ -333,6 +343,18 @@ export const SelfieZoomModal: React.FC<SelfieZoomModalProps> = ({
               className="max-h-[78vh] max-w-[85vw] object-contain rounded-xl shadow-2xl border border-slate-800 pointer-events-auto"
               draggable={false}
             />
+            {/* Permanent date/time stamp burned onto the top-left corner of the image
+                itself (not just header text), so it's captured whenever this photo is
+                viewed, printed or screenshotted from here. */}
+            {currentDateTimeStamp && (
+              <div
+                className="absolute top-2 left-2 max-w-[calc(100%-1rem)] px-2 py-1 rounded-md bg-gradient-to-br from-slate-900/90 to-slate-800/80 ring-1 ring-white/10 text-[11px] font-semibold text-white shadow-md flex items-center gap-1.5 tracking-tight pointer-events-none"
+                title={`${currentPhotoLabel}: ${currentDateTimeStamp}`}
+              >
+                <Clock className="w-3 h-3 text-sky-300 shrink-0" />
+                <span className="truncate font-mono">{currentDateTimeStamp}</span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center text-slate-400 dark:text-slate-500 p-8">

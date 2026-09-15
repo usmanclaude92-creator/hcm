@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../api/client';
-import { formatBusinessTime, formatBusinessDate } from '../../utils/workforceShiftUtils';
+import { formatBusinessTime, formatBusinessDate, formatBusinessDateTime } from '../../utils/workforceShiftUtils';
 
 interface AttendanceRecordItem {
   id: string;
@@ -126,7 +126,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; dateTime: string | null } | null>(null);
 
   // The "Daily Shifts & Selfie Logs" table below is specifically the real GPS/selfie
   // capture log -- synthesized rows (generated only to match a manually-entered monthly
@@ -579,7 +579,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                     {startImg ? (
                                       <button
                                         type="button"
-                                        onClick={() => setLightboxImage({ url: startImg, title: `Start Shift Selfie - ${punch.punchDate}` })}
+                                        onClick={() => setLightboxImage({ url: startImg, title: `Start Shift Selfie - ${punch.punchDate}`, dateTime: formatBusinessDateTime(punch.checkInTime) })}
                                         className="relative group w-8 h-8 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-2xs shrink-0"
                                         title="Click to zoom selfie"
                                       >
@@ -605,7 +605,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                     {endImg ? (
                                       <button
                                         type="button"
-                                        onClick={() => setLightboxImage({ url: endImg, title: `End Shift Selfie - ${punch.punchDate}` })}
+                                        onClick={() => setLightboxImage({ url: endImg, title: `End Shift Selfie - ${punch.punchDate}`, dateTime: formatBusinessDateTime(punch.checkOutTime) })}
                                         className="relative group w-8 h-8 rounded-md overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-blue-500 shadow-2xs shrink-0"
                                         title="Click to zoom selfie"
                                       >
@@ -723,12 +723,23 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-2 flex items-center justify-center bg-black/50">
+            <div className="relative p-2 flex items-center justify-center bg-black/50">
               <img
                 src={lightboxImage.url}
                 alt="Selfie Zoom"
                 className="max-h-[75vh] w-auto rounded-lg object-contain shadow-lg"
               />
+              {/* Permanent date/time stamp burned onto the top-left corner of the image
+                  itself, for both Start and End selfies -- not just the header title. */}
+              {lightboxImage.dateTime && (
+                <div
+                  className="absolute top-4 left-4 max-w-[calc(100%-2rem)] px-2 py-1 rounded-md bg-gradient-to-br from-slate-900/90 to-slate-800/80 ring-1 ring-white/10 text-[11px] font-semibold text-white shadow-md flex items-center gap-1.5 tracking-tight pointer-events-none"
+                  title={`${lightboxImage.title}: ${lightboxImage.dateTime}`}
+                >
+                  <Clock className="w-3 h-3 text-sky-300 shrink-0" />
+                  <span className="truncate font-mono">{lightboxImage.dateTime}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

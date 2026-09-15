@@ -149,6 +149,10 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
 
   // Selfie timestamp display at top-left corner -- same current-day gate.
   const selfieDateTimeStr = isToday ? formatSelfieDateTime(shiftStatus) : null;
+  // Full date+time the End selfie was captured at (clock-out is when it's taken), for the
+  // zoom modal's own top-left stamp -- distinct from selfieDateTimeStr above, which is
+  // always the Start selfie's timestamp.
+  const endSelfieDateTimeStr = isToday && shiftStatus?.clockOutAt ? formatBusinessDateTime(shiftStatus.clockOutAt) : null;
 
   // Status Badge Label & Color at bottom-left of photo
   let badgeLabel = 'Absent';
@@ -364,6 +368,8 @@ export const EmployeeDeploymentCard: React.FC<Props> = ({
         startTime={startTime}
         endTime={endTimeDisplay}
         selfieDateTimeStr={selfieDateTimeStr}
+        startDateTimeStr={selfieDateTimeStr}
+        endDateTimeStr={endSelfieDateTimeStr}
         isInsideGeofence={isInsideGeofence}
         onOpenReport={onClick}
       />
