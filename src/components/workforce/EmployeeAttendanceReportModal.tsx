@@ -135,6 +135,52 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   // synthesized ones included, but visibly labeled.
   const realPunches = data ? data.punches.filter(p => !p.isSynthesized) : [];
 
+  // Attendance & Approval Register is a per-day summary, not a per-shift log (that's what
+  // Daily Shifts & Selfie Logs below is for) -- a day with more than one real shift (e.g. a
+  // split day, or a shift that crossed midnight) previously repeated as multiple rows for
+  // the same date. Grouped here into one row per punchDate: earliest clock-in, latest
+  // clock-out (or "On Shift" if any of that day's shifts is still open), overtime and
+  // geofence-selfie counts summed across the day's shifts, and the day counted Approved
+  // only once every shift in it has been.
+  const dailyRegisterRows = React.useMemo(() => {
+    if (!data) return [];
+    const byDate = new Map<string, AttendancePunchItem[]>();
+    for (const p of data.punches) {
+      const list = byDate.get(p.punchDate);
+      if (list) list.push(p);
+      else byDate.set(p.punchDate, [p]);
+    }
+    const rows = Array.from(byDate.entries()).map(([punchDate, group]) => {
+      const sorted = [...group].sort((a, b) => a.checkInTime.localeCompare(b.checkInTime));
+      const openPunch = sorted.find(p => !p.checkOutTime);
+      let totalSelfies = 0;
+      let insideSelfies = 0;
+      let overtimeHours = 0;
+      for (const p of group) {
+        const t = p.isSynthesized ? 0 : (p.checkInTime ? 1 : 0) + (p.checkOutTime ? 1 : 0);
+        totalSelfies += t;
+        insideSelfies += p.isGeofenceException ? Math.max(t - 1, 0) : t;
+        overtimeHours += p.overtimeHours || 0;
+      }
+      return {
+        punchDate,
+        projectName: sorted[0]?.projectName,
+        projectCode: sorted[0]?.projectCode,
+        startTime: sorted[0]?.checkInTime ?? null,
+        endTime: openPunch ? null : sorted[sorted.length - 1]?.checkOutTime ?? null,
+        isOpen: !!openPunch,
+        overtimeHours,
+        approved: group.every(p => p.supervisorApproved === true),
+        geofencePercent: totalSelfies > 0 ? Math.round((insideSelfies / totalSelfies) * 100) : null,
+        // A day counts as estimated only once every shift recorded for it is a placeholder;
+        // a day with any real captured shift is a real day, even if another placeholder
+        // punch briefly existed there too.
+        isSynthesized: group.every(p => p.isSynthesized),
+      };
+    });
+    return rows.sort((a, b) => b.punchDate.localeCompare(a.punchDate));
+  }, [data]);
+
   useEffect(() => {
     if (initialMonth) setSelectedMonth(initialMonth);
   }, [initialMonth]);
@@ -388,15 +434,18 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Attendance & Approval Register: one row per worked date, with the
-                  Days/Hours column adapting to the employee type, a geofence compliance
-                  percentage for that date's selfies, and supervisor approval status. */}
+              {/* Attendance & Approval Register: one row per worked DATE (see
+                  dailyRegisterRows), with clock-in/out times, overtime and geofence
+                  compliance summed across that day's shifts, and supervisor approval
+                  status. Mobility has no real data source yet anywhere in this app
+                  (see EmployeeDeploymentCard/WorkforceDeploymentView) -- shown as
+                  "Coming Soon" here too rather than fabricated. */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Attendance &amp; Approval Register</h3>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{data.punches.length} Day(s)</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">{dailyRegisterRows.length} Day(s)</span>
                 </div>
-                {data.punches.length === 0 ? (
+                {dailyRegisterRows.length === 0 ? (
                   <div className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/40">
                     No daily attendance entries recorded for this month yet.
                   </div>
@@ -408,86 +457,75 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                           <tr className="bg-slate-100/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold">
                             <th className="py-2.5 px-3">Date</th>
                             <th className="py-2.5 px-3">Project</th>
-                            <th className="py-2.5 px-3 text-center">
-                              {data.employee.employeeType === 'Staff' ? 'Days Worked' : 'Hours Worked'}
-                            </th>
+                            <th className="py-2.5 px-3 text-center">Start Time</th>
+                            <th className="py-2.5 px-3 text-center">End Time</th>
                             <th className="py-2.5 px-3 text-center">Overtime</th>
-                            <th className="py-2.5 px-3 text-center">Geofence</th>
                             <th className="py-2.5 px-3 text-center">Approval</th>
+                            <th className="py-2.5 px-3 text-center">Geofence</th>
+                            <th className="py-2.5 px-3 text-center">Mobility</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                          {data.punches.map((punch) => {
-                            const isStaff = data.employee.employeeType === 'Staff';
-                            const daysOrHoursValue = isStaff
-                              ? 1
-                              : punch.hoursWorked ?? (punch.checkOutTime ? 8 : 0);
-
-                            // Geofence %: inside-radius selfies ÷ total selfies captured that date.
-                            // The backend records a single isGeofenceException flag per punch (not
-                            // separately per selfie), so when an exception is flagged on a day with
-                            // both a start and end selfie, one of the two is treated as the outlier.
-                            // A synthesized row never had a real selfie/GPS capture at all, so there
-                            // is nothing to score -- show "-" rather than a fabricated 100%.
-                            const totalSelfies = punch.isSynthesized
-                              ? 0
-                              : (punch.checkInTime ? 1 : 0) + (punch.checkOutTime ? 1 : 0);
-                            const insideSelfies = punch.isGeofenceException
-                              ? Math.max(totalSelfies - 1, 0)
-                              : totalSelfies;
-                            const geofencePercent = totalSelfies > 0 ? Math.round((insideSelfies / totalSelfies) * 100) : null;
-
-                            const isApproved = punch.supervisorApproved === true;
-
-                            return (
-                              <tr key={punch.id} className="hover:bg-slate-50/60 transition-colors">
-                                <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                                  <div className="flex items-center gap-1.5">
-                                    {formatDate(punch.punchDate)}
-                                    {punch.isSynthesized && (
-                                      <span
-                                        title="Auto-generated from the monthly summary -- no real check-in/out was captured for this day."
-                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
-                                      >
-                                        Est.
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                                  {punch.projectName || punch.projectCode || data.employee.assignedProjectName || '-'}
-                                </td>
-                                <td className="py-2.5 px-3 text-center font-semibold">
-                                  {isStaff ? daysOrHoursValue : `${daysOrHoursValue.toFixed(1)} Hrs`}
-                                </td>
-                                <td className="py-2.5 px-3 text-center font-semibold text-amber-600 dark:text-amber-400">
-                                  {punch.overtimeHours || 0}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  {geofencePercent === null ? (
-                                    <span className="text-slate-400 dark:text-slate-500 italic">-</span>
-                                  ) : (
-                                    <span className={`font-bold ${geofencePercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                      {geofencePercent}%
+                          {dailyRegisterRows.map((row) => (
+                            <tr key={row.punchDate} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  {formatDate(row.punchDate)}
+                                  {row.isSynthesized && (
+                                    <span
+                                      title="Auto-generated from the monthly summary -- no real check-in/out was captured for this day."
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
+                                    >
+                                      Est.
                                     </span>
                                   )}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  {isApproved ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                      Approved
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
-                                      <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
-                                      Not-approved
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                {row.projectName || row.projectCode || data.employee.assignedProjectName || '-'}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
+                                {row.startTime ? formatTime(row.startTime) : '-'}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap">
+                                {row.isOpen ? (
+                                  <span className="text-blue-600 dark:text-blue-400 italic">On Shift</span>
+                                ) : row.endTime ? (
+                                  <span className="text-blue-700 dark:text-blue-300">{formatTime(row.endTime)}</span>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-semibold text-amber-600 dark:text-amber-400">
+                                {row.overtimeHours || 0}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {row.approved ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                    Approved
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
+                                    <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                                    Not-approved
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {row.geofencePercent === null ? (
+                                  <span className="text-slate-400 dark:text-slate-500 italic">-</span>
+                                ) : (
+                                  <span className={`font-bold ${row.geofencePercent >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                    {row.geofencePercent}%
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-slate-400 dark:text-slate-500 italic text-[10px]">
+                                Coming Soon
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
