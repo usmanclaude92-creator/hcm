@@ -1074,10 +1074,15 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
     // (not just returned once) so that Make-Report's day/hour calculation and the punch
     // approval routes, both of which read from db.attendancePunches, see them too -- an
     // ephemeral response-only blend would look right in this modal while silently breaking
-    // both of those. A date that already has a manual, imported, or synthesized punch is
-    // never overwritten by real data, to avoid disturbing anything already entered/approved;
-    // a real shift already recorded here gets refreshed in place (e.g. once a clock-out
-    // lands for a shift that was still open the last time this was read).
+    // both of those. A date that already has a genuine manual/imported punch is never
+    // overwritten by real data, to avoid disturbing anything actually entered/approved by a
+    // person. A synthesized placeholder (isSynthesized -- generated only to match a monthly
+    // summary total, never a real captured check-in/out) is different: it was never real to
+    // begin with, so it is replaced by real mobile data the moment real data exists for that
+    // date -- previously a placeholder created first (e.g. by opening this report before the
+    // mobile shift synced) permanently hid the real, GPS-verified shift for that day. A real
+    // shift already recorded here gets refreshed in place (e.g. once a clock-out lands for a
+    // shift that was still open the last time this was read).
     const realShifts = await db.workforceShifts.getForEmployeeAndMonth(emp.id, month);
     if (realShifts.length > 0) {
       const isApprovedMonth = monthStatus === 'Approved' || monthStatus === 'Finalized';
@@ -1099,7 +1104,10 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
         const isGeofenceException = shift.complianceFlag ? shift.complianceFlag !== 'VERIFIED' : undefined;
         const status: AttendancePunch['status'] = checkOutTime ? 'Checked Out' : 'Checked In';
 
-        if (!existingForDate) {
+        if (!existingForDate || existingForDate.isSynthesized) {
+          if (existingForDate) {
+            await db.attendancePunches.delete(existingForDate.id);
+          }
           await db.attendancePunches.create({
             id: wfId,
             employeeId: emp.employeeId,
@@ -1135,7 +1143,7 @@ router.get('/employee/:employeeId', verifyAuth, async (req: AuthRequest, res: Re
             changed = true;
           }
         }
-        // else: a manual/imported/synthesized punch already covers this date -- leave it.
+        // else: a genuine manual/imported punch already covers this date -- leave it.
       }
       if (changed) {
         punches = db.attendancePunches.getByEmployee(emp.employeeId, month);

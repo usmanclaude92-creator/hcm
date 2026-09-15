@@ -1896,6 +1896,20 @@ class DatabaseManager {
           list = list.filter(p => p.punchDate.startsWith(month));
         }
         return list.sort((a, b) => b.punchDate.localeCompare(a.punchDate));
+      },
+      // Used only to remove a synthesized placeholder punch once real Workforce-App mobile
+      // data for that same date arrives -- see the blend logic in routes/attendance.ts.
+      delete: async (id: string) => {
+        const existing = (this.inMemoryData.attendancePunches || []).find(p => p.id === id);
+        const emp = existing ? await this.employees.findByEmployeeId(existing.employeeId) : undefined;
+        return this.withOptimisticRetry(() => {
+          if (!this.inMemoryData.attendancePunches) return { changed: false, value: false };
+          const index = this.inMemoryData.attendancePunches.findIndex(p => p.id === id);
+          if (index === -1) return { changed: false, value: false };
+          this.inMemoryData.attendancePunches.splice(index, 1);
+          if (existing) this.syncPunchesToMonthlyAttendance(emp, existing.employeeId, existing.punchDate.slice(0, 7));
+          return { changed: true, value: true };
+        });
       }
     };
   }
