@@ -108,6 +108,15 @@ function formatDate(dateStr: string | null | undefined): string {
   return formatBusinessDate(dateStr) ?? (dateStr || '-');
 }
 
+// "Hrs : Mns" display, e.g. 8.5 -> "8:30". Rounds to the nearest minute so a value like
+// 1.999999 (float summing) never renders as ":60".
+function formatHrsMins(hoursDecimal: number): string {
+  const totalMinutes = Math.round((hoursDecimal || 0) * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
 export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   employeeId,
   isOpen,
@@ -156,12 +165,18 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
       let totalSelfies = 0;
       let insideSelfies = 0;
       let overtimeHours = 0;
+      let totalHours = 0;
       for (const p of group) {
         const t = p.isSynthesized ? 0 : (p.checkInTime ? 1 : 0) + (p.checkOutTime ? 1 : 0);
         totalSelfies += t;
         insideSelfies += p.isGeofenceException ? Math.max(t - 1, 0) : t;
         overtimeHours += p.overtimeHours || 0;
+        totalHours += p.hoursWorked || 0;
       }
+      // Regular shift time is whatever wasn't already counted as overtime -- same split the
+      // backend already applies per punch (see server/routes/attendance.ts), just summed
+      // across the day's shifts here.
+      const regularHours = Math.max(0, totalHours - overtimeHours);
       return {
         punchDate,
         projectName: sorted[0]?.projectName,
@@ -169,7 +184,9 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
         startTime: sorted[0]?.checkInTime ?? null,
         endTime: openPunch ? null : sorted[sorted.length - 1]?.checkOutTime ?? null,
         isOpen: !!openPunch,
+        regularHours,
         overtimeHours,
+        totalHours,
         approved: group.every(p => p.supervisorApproved === true),
         geofencePercent: totalSelfies > 0 ? Math.round((insideSelfies / totalSelfies) * 100) : null,
         // A day counts as estimated only once every shift recorded for it is a placeholder;
@@ -180,6 +197,25 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
     });
     return rows.sort((a, b) => b.punchDate.localeCompare(a.punchDate));
   }, [data]);
+
+  // The Metric Summary Cards previously read data.summary, which is computed server-side
+  // from the manually-entered monthly record (e.g. a flat "25 days / 200 hrs") -- static
+  // figures that drifted from what the register below actually shows once real Workforce
+  // shifts and honestly-labeled placeholders are blended in. Derived from the same
+  // dailyRegisterRows the table renders instead, so the cards and the table can never
+  // disagree.
+  const monthlyTotals = React.useMemo(
+    () =>
+      dailyRegisterRows.reduce(
+        (acc, row) => ({
+          days: acc.days + 1,
+          hours: acc.hours + row.totalHours,
+          overtimeHours: acc.overtimeHours + row.overtimeHours,
+        }),
+        { days: 0, hours: 0, overtimeHours: 0 }
+      ),
+    [dailyRegisterRows]
+  );
 
   useEffect(() => {
     if (initialMonth) setSelectedMonth(initialMonth);
@@ -399,7 +435,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Days Worked</p>
                   <p className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-                    {data.summary.totalDays}{' '}
+                    {monthlyTotals.days}{' '}
                     <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Days</span>
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Staff / Worker monthly count</p>
@@ -408,19 +444,19 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hours Worked</p>
                   <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
-                    {data.summary.totalHours}{' '}
+                    {formatHrsMins(monthlyTotals.hours)}{' '}
                     <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Hrs</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Regular shift hours</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Total shift hours (Reg. + Overtime)</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Overtime</p>
                   <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                    {data.summary.totalOvertimeHours}{' '}
+                    {formatHrsMins(monthlyTotals.overtimeHours)}{' '}
                     <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Hrs</span>
                   </p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Approved overtime hours</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Overtime hours this month</p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
@@ -459,7 +495,9 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                             <th className="py-2.5 px-3">Project</th>
                             <th className="py-2.5 px-3 text-center">Start Time</th>
                             <th className="py-2.5 px-3 text-center">End Time</th>
-                            <th className="py-2.5 px-3 text-center">Overtime</th>
+                            <th className="py-2.5 px-3 text-center">Reg. Shift Time (Hrs : Mns)</th>
+                            <th className="py-2.5 px-3 text-center">Overtime (Hrs : Mns)</th>
+                            <th className="py-2.5 px-3 text-center">Total Time (Hrs : Mns)</th>
                             <th className="py-2.5 px-3 text-center">Approval</th>
                             <th className="py-2.5 px-3 text-center">Geofence</th>
                             <th className="py-2.5 px-3 text-center">Mobility</th>
@@ -496,8 +534,14 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                                   <span className="text-slate-400 dark:text-slate-500 italic">-</span>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3 text-center font-semibold text-amber-600 dark:text-amber-400">
-                                {row.overtimeHours || 0}
+                              <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-800 dark:text-slate-200">
+                                {formatHrsMins(row.regularHours)}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-semibold text-amber-600 dark:text-amber-400">
+                                {formatHrsMins(row.overtimeHours)}
+                              </td>
+                              <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
+                                {formatHrsMins(row.totalHours)}
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 {row.approved ? (
