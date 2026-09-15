@@ -507,17 +507,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                           {dailyRegisterRows.map((row) => (
                             <tr key={row.punchDate} className="hover:bg-slate-50/60 transition-colors">
                               <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                                <div className="flex items-center gap-1.5">
-                                  {formatDate(row.punchDate)}
-                                  {row.isSynthesized && (
-                                    <span
-                                      title="Auto-generated from the monthly summary -- no real check-in/out was captured for this day."
-                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
-                                    >
-                                      Est.
-                                    </span>
-                                  )}
-                                </div>
+                                {formatDate(row.punchDate)}
                               </td>
                               <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                                 {row.projectName || row.projectCode || data.employee.assignedProjectName || '-'}
