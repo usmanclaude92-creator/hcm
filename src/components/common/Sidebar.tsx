@@ -139,23 +139,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ],
       },
       {
-        id: 'master-data',
-        title: 'ORGANISATION & MASTER DATA',
-        icon: Building2,
-        defaultOpen: false,
-        items: [
-          {
-            id: 'master-data-hub',
-            label: 'Master Data Hub',
-            icon: Layers,
-            targetView: 'master-data',
-            badge: 'Overview',
-            kind: 'master',
-            keywords: ['masters', 'hub', 'configuration', 'setup'],
-          },
-        ],
-      },
-      {
         id: 'payroll',
         title: 'FINANCIAL & PAYROLL',
         icon: Calculator,
@@ -246,6 +229,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             targetView: 'audit',
             managerOnly: true,
             keywords: ['activity', 'security logs', 'who changed what', 'audit log'],
+          },
+        ],
+      },
+      {
+        id: 'master-data',
+        title: 'ORGANISATION & MASTER DATA',
+        icon: Building2,
+        defaultOpen: false,
+        items: [
+          {
+            id: 'master-data-hub',
+            label: 'Master Data Hub',
+            icon: Layers,
+            targetView: 'master-data',
+            badge: 'Overview',
+            kind: 'master',
+            keywords: ['masters', 'hub', 'configuration', 'setup'],
           },
         ],
       },
