@@ -740,6 +740,85 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Print-only rendering of the report: hidden on screen (this modal's interactive
+          view is a poor print source -- dark backgrounds, buttons, month navigator, large
+          selfie photos), shown only inside @media print via the #attendance-report-printable
+          rule in index.css (same visibility-swap technique as EmployeeSummaryPrintModal's
+          #employee-summary-printable, extended to also recognise this id). Print Report
+          covers exactly what was asked for: employee details, the dashboard summary, and
+          the attendance register -- not the Daily Shifts & Selfie Logs photos below it. */}
+      {data && (
+        <div id="attendance-report-printable" className="hidden print:block bg-white text-slate-900 p-2">
+          <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-start justify-between">
+            <div>
+              <h1 className="text-lg font-extrabold uppercase tracking-tight">Employee Attendance Report</h1>
+              <p className="text-xs text-slate-600 mt-0.5">Month: {selectedMonth} &bull; Status: {data.monthStatus}</p>
+            </div>
+            <div className="text-right text-xs">
+              <div className="font-bold">{data.employee.employeeName}</div>
+              <div>ID: {data.employee.employeeId} &bull; {data.employee.employeeType}</div>
+              <div>{data.employee.designation || '-'} &bull; {data.employee.employeeCompany}</div>
+            </div>
+          </div>
+
+          {/* Dashboard summary */}
+          <div className="grid grid-cols-4 gap-3 mb-4 text-xs">
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Days Worked</div>
+              <div className="text-base font-extrabold">{monthlyTotals.days} Days</div>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Hours Worked</div>
+              <div className="text-base font-extrabold">{formatHrsMins(monthlyTotals.hours)} Hrs</div>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Overtime</div>
+              <div className="text-base font-extrabold">{formatHrsMins(monthlyTotals.overtimeHours)} Hrs</div>
+            </div>
+            <div className="border border-slate-300 rounded-lg p-2.5">
+              <div className="text-[10px] font-bold uppercase text-slate-500">Project Allocation</div>
+              <div className="text-sm font-extrabold">{data.employee.assignedProjectCode || 'HO0001'}</div>
+              <div className="text-[10px] text-slate-500">{data.employee.assignedProjectName || 'Head Office'}</div>
+            </div>
+          </div>
+
+          {/* Attendance & Approval Register */}
+          <h2 className="text-xs font-bold uppercase tracking-wider mb-1.5">Attendance &amp; Approval Register</h2>
+          <table className="w-full text-[10px] border-collapse">
+            <thead>
+              <tr className="border-b-2 border-slate-900 text-left">
+                <th className="py-1.5 pr-2">Date</th>
+                <th className="py-1.5 pr-2">Project</th>
+                <th className="py-1.5 pr-2 text-center">Start</th>
+                <th className="py-1.5 pr-2 text-center">End</th>
+                <th className="py-1.5 pr-2 text-center">Reg. (H:M)</th>
+                <th className="py-1.5 pr-2 text-center">OT (H:M)</th>
+                <th className="py-1.5 pr-2 text-center">Total (H:M)</th>
+                <th className="py-1.5 pr-2 text-center">Approval</th>
+                <th className="py-1.5 pr-2 text-center">Geofence</th>
+                <th className="py-1.5 text-center">Mobility</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dailyRegisterRows.map((row) => (
+                <tr key={row.punchDate} className="border-b border-slate-200">
+                  <td className="py-1 pr-2 font-semibold whitespace-nowrap">{formatDate(row.punchDate)}</td>
+                  <td className="py-1 pr-2 whitespace-nowrap">{row.projectName || row.projectCode || data.employee.assignedProjectName || '-'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.startTime ? formatTime(row.startTime) : '-'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.isOpen ? 'On Shift' : row.endTime ? formatTime(row.endTime) : '-'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{formatHrsMins(row.regularHours)}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{formatHrsMins(row.overtimeHours)}</td>
+                  <td className="py-1 pr-2 text-center font-semibold whitespace-nowrap">{formatHrsMins(row.totalHours)}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.approved ? 'Approved' : 'Not-approved'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.geofencePercent === null ? '-' : `${row.geofencePercent}%`}</td>
+                  <td className="py-1 text-center whitespace-nowrap">Coming Soon</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Full Resolution Selfie Lightbox */}
       {lightboxImage && (
         <div

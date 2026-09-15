@@ -84,10 +84,13 @@
     display: none !important;
   }
   #employee-summary-printable,
-  #employee-summary-printable * {
+  #employee-summary-printable *,
+  #attendance-report-printable,
+  #attendance-report-printable * {
     visibility: visible;
   }
-  #employee-summary-printable {
+  #employee-summary-printable,
+  #attendance-report-printable {
     position: absolute;
     left: 0;
     top: 0;
