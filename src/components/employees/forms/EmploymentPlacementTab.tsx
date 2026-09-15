@@ -32,6 +32,8 @@ interface EmploymentPlacementTabProps {
     isActive: boolean;
     promotionReason?: string;
     assignedProjectCode?: string;
+    isSiteSupervisor?: boolean;
+    isSiteManager?: boolean;
   };
   setEmploymentForm: React.Dispatch<
     React.SetStateAction<{
@@ -44,6 +46,8 @@ interface EmploymentPlacementTabProps {
       isActive: boolean;
       promotionReason?: string;
       assignedProjectCode?: string;
+      isSiteSupervisor?: boolean;
+      isSiteManager?: boolean;
     }>
   >;
   canWrite: boolean;
@@ -403,6 +407,51 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
               </span>
             </label>
           </div>
+        </div>
+
+        {/* Site Supervisor / Site Manager -- at most one active holder per project */}
+        <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="text-blue-600" size={15} />
+            <span className="text-xs font-bold text-slate-800">Site Role on Assigned Project</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                disabled={!canWrite}
+                checked={!!employmentForm.isSiteSupervisor}
+                onChange={(e) =>
+                  setEmploymentForm({
+                    ...employmentForm,
+                    isSiteSupervisor: e.target.checked,
+                  })
+                }
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-xs font-semibold text-slate-800">Site Supervisor</span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                disabled={!canWrite}
+                checked={!!employmentForm.isSiteManager}
+                onChange={(e) =>
+                  setEmploymentForm({
+                    ...employmentForm,
+                    isSiteManager: e.target.checked,
+                  })
+                }
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-xs font-semibold text-slate-800">Site Manager</span>
+            </label>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-2">
+            Only one employee can be Site Supervisor, and separately only one can be Site
+            Manager, on the same Assigned Project at a time. Saving will be rejected with the
+            current holder&apos;s name if either role is already taken on this project.
+          </p>
         </div>
 
         {/* Designation Change Log Reason (if updating existing) */}

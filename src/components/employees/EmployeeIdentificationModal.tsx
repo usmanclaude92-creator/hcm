@@ -179,6 +179,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
     isActive: true,
     promotionReason: '',
     assignedProjectCode: '' as string | undefined,
+    isSiteSupervisor: false,
+    isSiteManager: false,
   });
 
   // Form State: Tab 3 (Payroll & WPS)
@@ -455,6 +457,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         isActive: empToFetch.isActive,
         promotionReason: '',
         assignedProjectCode: empToFetch.assignedProjectCode || '',
+        isSiteSupervisor: !!empToFetch.isSiteSupervisor,
+        isSiteManager: !!empToFetch.isSiteManager,
       });
 
       setPayrollForm({
@@ -540,6 +544,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         isActive: empToFetch.isActive,
         promotionReason: '',
         assignedProjectCode: empToFetch.assignedProjectCode || '',
+        isSiteSupervisor: !!empToFetch.isSiteSupervisor,
+        isSiteManager: !!empToFetch.isSiteManager,
       };
       const loadedPayroll = {
         wageType: empToFetch.wageType,
@@ -602,6 +608,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         isActive: true,
         promotionReason: '',
         assignedProjectCode: '',
+        isSiteSupervisor: false,
+        isSiteManager: false,
       };
       const newPayroll = {
         wageType: 'Fixed Monthly' as WageType,
@@ -685,6 +693,8 @@ export const EmployeeIdentificationModal: React.FC<EmployeeIdentificationModalPr
         designation: (employmentForm.designation || 'Staff').trim(),
         employeeCompany: employmentForm.employeeCompany || 'DGO',
         assignedProjectCode: employmentForm.assignedProjectCode || undefined,
+        isSiteSupervisor: employmentForm.isSiteSupervisor === true,
+        isSiteManager: employmentForm.isSiteManager === true,
         salaryPaidBy: payrollForm.salaryPaidBy || employmentForm.employeeCompany || 'DGO',
         monthlySalaryOrRate: Number(payrollForm.monthlySalaryOrRate) || 0,
         wpsEmployee: payrollForm.wpsEmployee === 'Yes' ? 'Yes' : 'No',

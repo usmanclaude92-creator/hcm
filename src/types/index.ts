@@ -431,6 +431,11 @@ export interface Employee {
   // an employee need not be tied to a single site. Distinct from the per-month project
   // cost allocation recorded in AttendanceRecord; this is the master-data "home site".
   assignedProjectCode?: string | null;
+  // Only one active employee per assignedProjectCode may carry each flag -- enforced
+  // server-side on create/update (see server/routes/employees.ts), independently for
+  // Site Supervisor and Site Manager.
+  isSiteSupervisor?: boolean;
+  isSiteManager?: boolean;
   salaryPaidBy: SalaryPaidBy;
   monthlySalaryOrRate: number;
   wpsEmployee: WPSStatus;

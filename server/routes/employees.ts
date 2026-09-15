@@ -33,6 +33,26 @@ import { validateBankAccountNumber, validateIban, validateBankDetails } from '..
 
 const router = Router();
 
+// A project may have at most one active Site Supervisor and, independently, at most one
+// active Site Manager. Returns the conflicting employee (if any) so the caller can name
+// them in the error rather than just rejecting the save.
+function findSiteRoleConflict(
+  projectCode: string,
+  role: 'isSiteSupervisor' | 'isSiteManager',
+  excludeEmployeeDbId: string | undefined,
+): Employee | undefined {
+  return db.employees
+    .getAll()
+    .find(
+      (e) =>
+        e.id !== excludeEmployeeDbId &&
+        e.isActive &&
+        (e.assignedProjectCode || '').trim().toUpperCase() === projectCode.trim().toUpperCase() &&
+        e[role] === true,
+    );
+}
+
+
 // All employee routes require authentication. Applying verifyAuth at the router level
 // ensures req.user is guaranteed to be populated before any router.param handlers execute.
 router.use(verifyAuth);
@@ -1426,6 +1446,8 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       photoUrl,
       personalDetails,
       assignedProjectCode,
+      isSiteSupervisor,
+      isSiteManager,
     } = req.body;
 
     if (!employeeId || !employeeName) {
@@ -1471,6 +1493,30 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
         return res.status(400).json({ error: `Employee company '${employeeCompany}' is not permitted on project ${proj.projectCode} (allowed: ${proj.allowedCompanies.join(', ')}).` });
       }
       resolvedProjectCode = proj.projectCode;
+    }
+
+    // Site Supervisor / Site Manager: at most one active holder per project, checked
+    // independently for each role.
+    const wantsSiteSupervisor = isSiteSupervisor === true;
+    const wantsSiteManager = isSiteManager === true;
+    if ((wantsSiteSupervisor || wantsSiteManager) && !resolvedProjectCode) {
+      return res.status(400).json({ error: 'Assign a Project before marking this employee as Site Supervisor or Site Manager.' });
+    }
+    if (wantsSiteSupervisor) {
+      const conflict = findSiteRoleConflict(resolvedProjectCode!, 'isSiteSupervisor', undefined);
+      if (conflict) {
+        return res.status(400).json({
+          error: `${conflict.employeeName} (${conflict.employeeId}) is already the Site Supervisor for project ${resolvedProjectCode}. Remove them as Site Supervisor first.`,
+        });
+      }
+    }
+    if (wantsSiteManager) {
+      const conflict = findSiteRoleConflict(resolvedProjectCode!, 'isSiteManager', undefined);
+      if (conflict) {
+        return res.status(400).json({
+          error: `${conflict.employeeName} (${conflict.employeeId}) is already the Site Manager for project ${resolvedProjectCode}. Remove them as Site Manager first.`,
+        });
+      }
     }
 
     const numericSalary = Number(monthlySalaryOrRate);
@@ -1535,6 +1581,8 @@ router.post('/', verifyAuth, requireWritePermission, async (req: AuthRequest, re
       designation: (designation || 'Staff').trim(),
       employeeCompany,
       assignedProjectCode: resolvedProjectCode,
+      isSiteSupervisor: wantsSiteSupervisor,
+      isSiteManager: wantsSiteManager,
       salaryPaidBy,
       monthlySalaryOrRate: roundOMR(numericSalary),
       wpsEmployee: wpsEmployee === 'Yes' ? 'Yes' : 'No',
@@ -1631,6 +1679,8 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
       personalDetails,
       salaryRevisionReason,
       assignedProjectCode,
+      isSiteSupervisor,
+      isSiteManager,
     } = req.body;
 
     const updates: Partial<Employee> = {};
@@ -1662,6 +1712,41 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
         updates.assignedProjectCode = proj.projectCode;
       }
     }
+
+    // Site Supervisor / Site Manager: at most one active holder per project, checked
+    // independently for each role, against whichever project this save leaves in effect.
+    const effectiveProjectCode = updates.assignedProjectCode !== undefined ? updates.assignedProjectCode : employee.assignedProjectCode;
+    if (isSiteSupervisor !== undefined) {
+      const wants = isSiteSupervisor === true;
+      if (wants && !effectiveProjectCode) {
+        return res.status(400).json({ error: 'Assign a Project before marking this employee as Site Supervisor.' });
+      }
+      if (wants) {
+        const conflict = findSiteRoleConflict(effectiveProjectCode!, 'isSiteSupervisor', employee.id);
+        if (conflict) {
+          return res.status(400).json({
+            error: `${conflict.employeeName} (${conflict.employeeId}) is already the Site Supervisor for project ${effectiveProjectCode}. Remove them as Site Supervisor first.`,
+          });
+        }
+      }
+      updates.isSiteSupervisor = wants;
+    }
+    if (isSiteManager !== undefined) {
+      const wants = isSiteManager === true;
+      if (wants && !effectiveProjectCode) {
+        return res.status(400).json({ error: 'Assign a Project before marking this employee as Site Manager.' });
+      }
+      if (wants) {
+        const conflict = findSiteRoleConflict(effectiveProjectCode!, 'isSiteManager', employee.id);
+        if (conflict) {
+          return res.status(400).json({
+            error: `${conflict.employeeName} (${conflict.employeeId}) is already the Site Manager for project ${effectiveProjectCode}. Remove them as Site Manager first.`,
+          });
+        }
+      }
+      updates.isSiteManager = wants;
+    }
+
     if (salaryPaidBy && isValidSalaryPaidBy(salaryPaidBy)) updates.salaryPaidBy = salaryPaidBy;
     if (monthlySalaryOrRate !== undefined) updates.monthlySalaryOrRate = roundOMR(Number(monthlySalaryOrRate));
     if (wpsEmployee !== undefined) updates.wpsEmployee = wpsEmployee === 'Yes' ? 'Yes' : 'No';
@@ -1714,7 +1799,7 @@ router.put('/:id', verifyAuth, requireWritePermission, async (req: AuthRequest, 
     // figures involved or the stated reason for the revision.
     const trackedFields: Array<keyof Employee> = [
       'employeeName', 'employeeType', 'nationalityType', 'wageType', 'designation',
-      'employeeCompany', 'assignedProjectCode', 'salaryPaidBy', 'monthlySalaryOrRate', 'wpsEmployee', 'wpsSalary',
+      'employeeCompany', 'assignedProjectCode', 'isSiteSupervisor', 'isSiteManager', 'salaryPaidBy', 'monthlySalaryOrRate', 'wpsEmployee', 'wpsSalary',
       'actualSalary', 'recoverFrom', 'isActive', 'dateOfJoining', 'dateOfLeaving',
       'bankName', 'bankAccountNumber', 'iban', 'bankBranch', 'accountHolderName',
     ];
