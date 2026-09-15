@@ -132,6 +132,7 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
         companyName: e.employeeCompany,
         projectCode: project?.projectCode || null,
         projectName: project?.projectName || null,
+        isWorkforceSupervisor: e.isSiteSupervisor === true,
       });
     }
 

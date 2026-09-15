@@ -37,6 +37,12 @@ export interface WorkforceEligibilityRecord {
   companyName: string;
   projectCode?: string | null;
   projectName?: string | null;
+  // Mirrors HCMS Employment Details' "Site Supervisor" checkbox onto the real Workforce
+  // app's employees.is_workforce_supervisor -- the flag that unlocks the Supervisor
+  // dashboard there (see civil-id-register / pin-login's role derivation). Every full
+  // sync carries every active employee's current value, true or false, so unchecking it
+  // in HCMS also revokes Supervisor access on the next sync.
+  isWorkforceSupervisor: boolean;
 }
 
 export interface WorkforceSyncResult {
@@ -208,6 +214,7 @@ export async function syncEmployeesWithWorkforce(
     company_name: r.companyName,
     project_code: r.projectCode ?? null,
     project_name: r.projectName ?? null,
+    is_workforce_supervisor: r.isWorkforceSupervisor,
   }));
 
   const result = await callFunction('sync-eligibility', { employees: payload });
