@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ArrowRight,
   MapPin,
+  Clock,
 } from 'lucide-react';
 import { formatDate, apiRequest } from '../../../api/client';
 import type {
@@ -18,6 +19,8 @@ import type {
   EmployeeType,
   NationalityType,
   Project,
+  ShiftMaster,
+  EmployeeShiftAssignment,
 } from '../../../types/index';
 
 interface EmploymentPlacementTabProps {
@@ -77,6 +80,193 @@ interface EmploymentPlacementTabProps {
   >;
   onNavigateToPersonal?: () => void;
 }
+
+// Individual employee shift override -- highest priority in shift resolution, ahead of
+// the assigned project's (or Head Office's) default shift. Self-contained: it fetches and
+// saves directly against /api/master/employee-shift-assignments and /api/master/shifts,
+// independent of the Employment & Placement form's own save flow above, since this writes
+// to its own table rather than a column on the employee record. Applies regardless of
+// project (projectId left null) -- for a per-project default instead, use Master Data >
+// Shifts > Project / Head Office Assignment.
+const ShiftAssignmentCard: React.FC<{ employee: Employee; canWrite: boolean }> = ({ employee, canWrite }) => {
+  const [shiftOptions, setShiftOptions] = useState<ShiftMaster[]>([]);
+  const [current, setCurrent] = useState<EmployeeShiftAssignment | null>(null);
+  const [shiftId, setShiftId] = useState('');
+  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split('T')[0]);
+  const [effectiveTo, setEffectiveTo] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      apiRequest<ShiftMaster[]>('/api/master/shifts'),
+      apiRequest<EmployeeShiftAssignment[]>(`/api/master/employee-shift-assignments?employeeId=${employee.id}`),
+    ])
+      .then(([shifts, assignments]) => {
+        if (cancelled) return;
+        setShiftOptions(Array.isArray(shifts) ? shifts : []);
+        // The open-ended (effectiveTo null) active assignment is "this employee's current
+        // shift" -- the same one the unique index treats as the single open-ended override.
+        const openEnded = (Array.isArray(assignments) ? assignments : [])
+          .filter(a => a.isActive && !a.effectiveTo)
+          .sort((a, b) => (b.effectiveFrom || '').localeCompare(a.effectiveFrom || ''))[0];
+        if (openEnded) {
+          setCurrent(openEnded);
+          setShiftId(openEnded.shiftId);
+          setEffectiveFrom(openEnded.effectiveFrom);
+          setEffectiveTo(openEnded.effectiveTo || '');
+        }
+      })
+      .catch((err: any) => {
+        if (!cancelled) setError(err.message || 'Failed to load shift data.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id]);
+
+  const handleAssign = async () => {
+    if (!shiftId) {
+      setError('Select a shift to assign.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const body = {
+        employeeId: employee.id,
+        projectId: null,
+        shiftId,
+        isActive: true,
+        effectiveFrom,
+        effectiveTo: effectiveTo || null,
+      };
+      const result = current
+        ? await apiRequest<EmployeeShiftAssignment>(`/api/master/employee-shift-assignments/${current.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          })
+        : await apiRequest<EmployeeShiftAssignment>('/api/master/employee-shift-assignments', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          });
+      setCurrent(result);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to assign shift.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selectedShift = shiftOptions.find(s => s.id === shiftId);
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs">
+      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Clock className="text-cyan-600 dark:text-cyan-400" size={18} />
+          <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Shift Assignment</h3>
+        </div>
+        {current && (
+          <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300">
+            Currently Assigned
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-slate-400 dark:text-slate-500 py-2">Loading shift data…</p>
+      ) : (
+        <>
+          {shiftOptions.length === 0 ? (
+            <p className="text-xs text-amber-700 dark:text-amber-300 py-2">
+              No shifts defined yet. Create one under Master Data &gt; Shifts &gt; Shift Master first.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Shift</label>
+                <select
+                  disabled={!canWrite}
+                  value={shiftId}
+                  onChange={(e) => setShiftId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white dark:bg-slate-900 font-medium"
+                >
+                  <option value="">— Not Assigned (uses project/Head Office default) —</option>
+                  {shiftOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.shiftCode} — {s.shiftName} ({s.startTime?.slice(0, 5)}–{s.endTime?.slice(0, 5)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Effective From</label>
+                <input
+                  type="date"
+                  disabled={!canWrite}
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white dark:bg-slate-900"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Effective To (optional)</label>
+                <input
+                  type="date"
+                  disabled={!canWrite}
+                  value={effectiveTo}
+                  onChange={(e) => setEffectiveTo(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-white dark:bg-slate-900"
+                />
+              </div>
+            </div>
+          )}
+
+          {selectedShift && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+              Standard hours: {selectedShift.standardWorkingHours}h · Break: {selectedShift.breakMinutes}min ·
+              Grace In/Out: {selectedShift.graceInMinutes}m/{selectedShift.graceOutMinutes}m
+            </p>
+          )}
+
+          {error && <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">{error}</p>}
+          {saved && <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">Shift assignment saved.</p>}
+
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
+            This overrides the project/Head Office default shift for this employee during the effective period.
+            Changing it does not affect already-recorded attendance.
+          </p>
+
+          {canWrite && shiftOptions.length > 0 && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={handleAssign}
+                disabled={saving}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Save size={14} />
+                <span>{saving ? 'Saving...' : current ? 'Update Shift Assignment' : 'Assign Shift'}</span>
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
 
 export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
   employee,
@@ -475,6 +665,12 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* SECTION 1B: Shift Assignment -- individual override for this employee, taking
+          priority over their assigned project's (or Head Office's) default shift. Saves
+          independently of the Employment & Placement form above since it writes to its
+          own table (employee_shift_assignments), not a column on the employee record. */}
+      {employee && <ShiftAssignmentCard employee={employee} canWrite={canWrite} />}
 
       {/* SECTION 2: Role & Designation Promotion History */}
       {employee && (
