@@ -17,10 +17,13 @@ import {
   Info,
   BadgePercent,
   Calendar,
-  DollarSign
+  DollarSign,
+  Clock,
+  UserCog,
+  FolderGit2
 } from 'lucide-react';
 import type { MasterTab } from './MasterDataContainer';
-import type { Department, Project } from '../../types';
+import type { Department, Project, ShiftMaster, Employee } from '../../types';
 
 interface MasterDataEntryModalProps {
   isOpen: boolean;
@@ -33,6 +36,8 @@ interface MasterDataEntryModalProps {
   departments: Department[];
   projects: Project[];
   selectedProjectId?: string;
+  shifts?: ShiftMaster[];
+  employees?: Employee[];
   onSave: (savedData: any) => Promise<void>;
   isSaving?: boolean;
   isLoading?: boolean;
@@ -48,6 +53,8 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
   initialData,
   departments,
   projects,
+  shifts = [],
+  employees = [],
   onSave,
   isSaving: explicitIsSaving,
   isLoading: fallbackIsLoading
@@ -141,11 +148,48 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
           remarks: '',
           isActive: true
         });
+      } else if (activeTab === 'shifts') {
+        // No start/end time is ever defaulted -- the administrator must set both explicitly.
+        setFormData({
+          shiftCode: '',
+          shiftName: '',
+          startTime: '',
+          endTime: '',
+          breakMinutes: 0,
+          standardWorkingHours: '',
+          graceInMinutes: 0,
+          graceOutMinutes: 0,
+          otEligible: false,
+          otMultiplier: '',
+          workingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+          companyCode: '',
+          isActive: true,
+          effectiveFrom: new Date().toISOString().split('T')[0],
+          effectiveTo: ''
+        });
+      } else if (activeTab === 'project-shift-assignments') {
+        setFormData({
+          projectId: projects[0]?.id || '',
+          shiftId: shifts[0]?.id || '',
+          isDefault: true,
+          isActive: true,
+          effectiveFrom: new Date().toISOString().split('T')[0],
+          effectiveTo: ''
+        });
+      } else if (activeTab === 'employee-shift-assignments') {
+        setFormData({
+          employeeId: employees[0]?.id || '',
+          projectId: '',
+          shiftId: shifts[0]?.id || '',
+          isActive: true,
+          effectiveFrom: new Date().toISOString().split('T')[0],
+          effectiveTo: ''
+        });
       }
     }
     setErrors({});
     setGeoSuccessMsg(null);
-  }, [isOpen, modalMode, initialData, activeTab, departments, projects]);
+  }, [isOpen, modalMode, initialData, activeTab, departments, projects, shifts, employees]);
 
   if (!isOpen) return null;
 
@@ -198,6 +242,30 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
       if (!formData.name?.trim()) newErrors.name = 'Leave Type Name is required';
       if (formData.annualEntitlementDays === undefined || Number(formData.annualEntitlementDays) < 0) {
         newErrors.annualEntitlementDays = 'Annual entitlement days must be 0 or greater';
+      }
+    } else if (activeTab === 'shifts') {
+      const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!formData.shiftCode?.trim()) newErrors.shiftCode = 'Shift Code is required (e.g. GEN, DAY1, NIGHT)';
+      if (!formData.shiftName?.trim()) newErrors.shiftName = 'Shift Name is required';
+      if (!TIME_RE.test(formData.startTime || '')) newErrors.startTime = 'Start Time is required -- set the actual shift start time';
+      if (!TIME_RE.test(formData.endTime || '')) newErrors.endTime = 'End Time is required -- set the actual shift end time';
+      if (formData.standardWorkingHours === undefined || formData.standardWorkingHours === '' || Number(formData.standardWorkingHours) <= 0) {
+        newErrors.standardWorkingHours = 'Standard Working Hours must be a positive number';
+      }
+      if (formData.effectiveTo && formData.effectiveFrom && String(formData.effectiveTo) < String(formData.effectiveFrom)) {
+        newErrors.effectiveTo = 'Effective To cannot be before Effective From';
+      }
+    } else if (activeTab === 'project-shift-assignments') {
+      if (!formData.projectId) newErrors.projectId = 'Project (or Head Office) selection is required';
+      if (!formData.shiftId) newErrors.shiftId = 'Shift selection is required';
+      if (formData.effectiveTo && formData.effectiveFrom && String(formData.effectiveTo) < String(formData.effectiveFrom)) {
+        newErrors.effectiveTo = 'Effective To cannot be before Effective From';
+      }
+    } else if (activeTab === 'employee-shift-assignments') {
+      if (!formData.employeeId) newErrors.employeeId = 'Employee selection is required';
+      if (!formData.shiftId) newErrors.shiftId = 'Shift selection is required';
+      if (formData.effectiveTo && formData.effectiveFrom && String(formData.effectiveTo) < String(formData.effectiveFrom)) {
+        newErrors.effectiveTo = 'Effective To cannot be before Effective From';
       }
     }
 
@@ -305,6 +373,27 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
           subtitle: 'Statutory and company leave entitlements, paid status rules, and balance accrual configuration',
           icon: Calendar,
           color: 'teal'
+        };
+      case 'shifts':
+        return {
+          title: modalMode === 'create' ? 'Define Shift' : 'Edit Shift Master Record',
+          subtitle: 'Administrator-defined shift timing, break, grace, and overtime configuration -- no times are pre-set',
+          icon: Clock,
+          color: 'cyan'
+        };
+      case 'project-shift-assignments':
+        return {
+          title: modalMode === 'create' ? 'Assign Shift to Project / Head Office' : 'Edit Project / Head Office Shift Assignment',
+          subtitle: 'Links a defined shift to a project (select the Head Office project row for Head Office shifts)',
+          icon: FolderGit2,
+          color: 'blue'
+        };
+      case 'employee-shift-assignments':
+        return {
+          title: modalMode === 'create' ? 'Assign Individual Employee Shift Override' : 'Edit Employee Shift Assignment',
+          subtitle: 'Highest-priority override for one employee, optionally scoped to a single project, for a given effective period',
+          icon: UserCog,
+          color: 'violet'
         };
       default:
         return {
@@ -1278,6 +1367,505 @@ export const MasterDataEntryModal: React.FC<MasterDataEntryModalProps> = ({
                   />
                   <label htmlFor="isActiveLeaveTypeCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                     Leave Type is Active and Selectable by Employees
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================== */}
+            {/* 6. SHIFT MASTER FORM */}
+            {/* ============================================================== */}
+            {activeTab === 'shifts' && (
+              <div className="space-y-4">
+                <div className="bg-cyan-50/70 border border-cyan-200 dark:border-cyan-800/60 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-cyan-600 dark:text-cyan-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-cyan-800 dark:text-cyan-300 leading-relaxed">
+                    Start and End Time are not pre-filled -- enter the actual shift times. If End Time is earlier than or equal to Start Time, the shift is treated as an overnight shift automatically.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Shift Code <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.shiftCode || ''}
+                      onChange={e => setFormData({ ...formData, shiftCode: e.target.value.toUpperCase() })}
+                      placeholder="e.g. GEN, DAY1, NIGHT"
+                      disabled={modalMode === 'edit'}
+                      className={`w-full text-sm border rounded-lg px-3 py-2 font-mono font-bold uppercase focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                        errors.shiftCode ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                      } ${modalMode === 'edit' ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed text-slate-500 dark:text-slate-400' : ''}`}
+                    />
+                    {errors.shiftCode && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.shiftCode}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Shift Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.shiftName || ''}
+                      onChange={e => setFormData({ ...formData, shiftName: e.target.value })}
+                      placeholder="e.g. General Day Shift, Night Rotation"
+                      className={`w-full text-sm border rounded-lg px-3 py-2 focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                        errors.shiftName ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                      }`}
+                    />
+                    {errors.shiftName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.shiftName}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Start Time <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={formData.startTime || ''}
+                      onChange={e => setFormData({ ...formData, startTime: e.target.value })}
+                      className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                        errors.startTime ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                      }`}
+                    />
+                    {errors.startTime && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.startTime}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      End Time <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={formData.endTime || ''}
+                      onChange={e => setFormData({ ...formData, endTime: e.target.value })}
+                      className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                        errors.endTime ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                      }`}
+                    />
+                    {errors.endTime && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.endTime}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Break (min)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.breakMinutes ?? 0}
+                      onChange={e => setFormData({ ...formData, breakMinutes: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Std Hours <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      required
+                      value={formData.standardWorkingHours ?? ''}
+                      onChange={e => setFormData({ ...formData, standardWorkingHours: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                      placeholder="e.g. 8"
+                      className={`w-full text-sm border rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                        errors.standardWorkingHours ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                      }`}
+                    />
+                    {errors.standardWorkingHours && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.standardWorkingHours}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Grace In (min)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.graceInMinutes ?? 0}
+                      onChange={e => setFormData({ ...formData, graceInMinutes: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Grace Out (min)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.graceOutMinutes ?? 0}
+                      onChange={e => setFormData({ ...formData, graceOutMinutes: parseInt(e.target.value, 10) || 0 })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="otEligibleCheck"
+                      checked={!!formData.otEligible}
+                      onChange={e => setFormData({ ...formData, otEligible: e.target.checked })}
+                      className="rounded text-cyan-600 dark:text-cyan-400 focus:ring-cyan-500 w-4 h-4"
+                    />
+                    <label htmlFor="otEligibleCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                      Overtime Eligible
+                    </label>
+                  </div>
+                  {formData.otEligible && (
+                    <div className="sm:w-48">
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                        OT Multiplier (optional)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="0.25"
+                        value={formData.otMultiplier ?? ''}
+                        onChange={e => setFormData({ ...formData, otMultiplier: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                        placeholder="e.g. 1.5"
+                        className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 font-mono bg-white dark:bg-slate-900 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                    Working Days
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(day => {
+                      const days: string[] = Array.isArray(formData.workingDays) ? formData.workingDays : [];
+                      const checked = days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            const next = checked ? days.filter(d => d !== day) : [...days, day];
+                            setFormData({ ...formData, workingDays: next });
+                          }}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${
+                            checked
+                              ? 'bg-cyan-600 border-cyan-600 text-white'
+                              : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Company (optional)
+                    </label>
+                    <select
+                      value={formData.companyCode || ''}
+                      onChange={e => setFormData({ ...formData, companyCode: e.target.value || null })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    >
+                      <option value="">-- Any Company --</option>
+                      <option value="DGO">DGO</option>
+                      <option value="SMI">SMI</option>
+                      <option value="NC">NC</option>
+                      <option value="Supplier">Supplier</option>
+                      <option value="Azad">Azad</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Effective From
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.effectiveFrom || ''}
+                      onChange={e => setFormData({ ...formData, effectiveFrom: e.target.value })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Effective To (optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.effectiveTo || ''}
+                      onChange={e => setFormData({ ...formData, effectiveTo: e.target.value })}
+                      className={`w-full text-sm border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-cyan-500 focus:outline-none ${
+                        errors.effectiveTo ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    />
+                    {errors.effectiveTo && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.effectiveTo}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <input
+                    type="checkbox"
+                    id="shiftActiveToggle"
+                    checked={formData.isActive !== false}
+                    onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="rounded text-cyan-600 dark:text-cyan-400 focus:ring-cyan-500 w-4 h-4"
+                  />
+                  <div>
+                    <label htmlFor="shiftActiveToggle" className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                      Active Shift Status
+                    </label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Only active shifts can be assigned to projects, Head Office, or individual employees.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================== */}
+            {/* 7. PROJECT / HEAD OFFICE SHIFT ASSIGNMENT FORM */}
+            {/* ============================================================== */}
+            {activeTab === 'project-shift-assignments' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Project / Head Office <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.projectId || ''}
+                    onChange={e => setFormData({ ...formData, projectId: e.target.value })}
+                    className={`w-full text-sm border rounded-lg px-3 py-2 font-medium bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                      errors.projectId ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                    required
+                  >
+                    <option value="">-- Select Project or Head Office --</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.projectCode} — {p.projectName}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.projectId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.projectId}</p>}
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                    Head Office is a Project Master row -- select it here for a Head Office shift assignment.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Shift <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.shiftId || ''}
+                    onChange={e => setFormData({ ...formData, shiftId: e.target.value })}
+                    className={`w-full text-sm border rounded-lg px-3 py-2 font-medium bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                      errors.shiftId ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                    required
+                  >
+                    <option value="">-- Select Shift --</option>
+                    {shifts.filter(s => s.isActive).map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.shiftCode} — {s.shiftName} ({s.startTime?.slice(0, 5)}–{s.endTime?.slice(0, 5)})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.shiftId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.shiftId}</p>}
+                  {shifts.filter(s => s.isActive).length === 0 && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">No active shifts defined yet -- create one under Shift Master first.</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Effective From
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.effectiveFrom || ''}
+                      onChange={e => setFormData({ ...formData, effectiveFrom: e.target.value })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Effective To (optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.effectiveTo || ''}
+                      onChange={e => setFormData({ ...formData, effectiveTo: e.target.value })}
+                      className={`w-full text-sm border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                        errors.effectiveTo ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    />
+                    {errors.effectiveTo && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.effectiveTo}</p>}
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="isDefaultProjectShiftCheck"
+                      checked={formData.isDefault !== false}
+                      onChange={e => setFormData({ ...formData, isDefault: e.target.checked })}
+                      className="rounded text-blue-600 dark:text-blue-400 focus:ring-blue-500 w-4 h-4"
+                    />
+                    <label htmlFor="isDefaultProjectShiftCheck" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                      Default Shift for this Project / Head Office
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-6.5">
+                    Used as the fallback schedule for any employee here without an individual override. Only one open-ended default is allowed per project.
+                  </p>
+
+                  <div className="flex items-center gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <input
+                      type="checkbox"
+                      id="isActiveProjectShiftCheck"
+                      checked={formData.isActive !== false}
+                      onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
+                      className="rounded text-blue-600 dark:text-blue-400 focus:ring-blue-500 w-4 h-4"
+                    />
+                    <label htmlFor="isActiveProjectShiftCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                      Assignment is Active
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================== */}
+            {/* 8. EMPLOYEE SHIFT ASSIGNMENT FORM */}
+            {/* ============================================================== */}
+            {activeTab === 'employee-shift-assignments' && (
+              <div className="space-y-4">
+                <div className="bg-violet-50/70 border border-violet-200 dark:border-violet-800/60 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <UserCog className="w-4 h-4 text-violet-600 dark:text-violet-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-violet-800 dark:text-violet-300 leading-relaxed">
+                    This individual override takes priority over the project/Head Office default shift for the selected employee during its effective period. Leave Project unset to apply regardless of which project the employee is on.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Employee <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.employeeId || ''}
+                    onChange={e => setFormData({ ...formData, employeeId: e.target.value })}
+                    className={`w-full text-sm border rounded-lg px-3 py-2 font-medium bg-white dark:bg-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none ${
+                      errors.employeeId ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                    required
+                  >
+                    <option value="">-- Select Employee --</option>
+                    {employees.map(emp => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.employeeId} — {emp.employeeName}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.employeeId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.employeeId}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Scope to Project (optional)
+                  </label>
+                  <select
+                    value={formData.projectId || ''}
+                    onChange={e => setFormData({ ...formData, projectId: e.target.value || null })}
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                  >
+                    <option value="">-- All Projects (applies regardless of project) --</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.projectCode} — {p.projectName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Shift <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={formData.shiftId || ''}
+                    onChange={e => setFormData({ ...formData, shiftId: e.target.value })}
+                    className={`w-full text-sm border rounded-lg px-3 py-2 font-medium bg-white dark:bg-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none ${
+                      errors.shiftId ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                    required
+                  >
+                    <option value="">-- Select Shift --</option>
+                    {shifts.filter(s => s.isActive).map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.shiftCode} — {s.shiftName} ({s.startTime?.slice(0, 5)}–{s.endTime?.slice(0, 5)})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.shiftId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.shiftId}</p>}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Effective From
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.effectiveFrom || ''}
+                      onChange={e => setFormData({ ...formData, effectiveFrom: e.target.value })}
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Effective To (optional)
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.effectiveTo || ''}
+                      onChange={e => setFormData({ ...formData, effectiveTo: e.target.value })}
+                      className={`w-full text-sm border rounded-lg px-3 py-2 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none ${
+                        errors.effectiveTo ? 'border-rose-400 dark:border-rose-600 bg-rose-50/50' : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    />
+                    {errors.effectiveTo && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.effectiveTo}</p>}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  Changing or adding a future assignment does not affect already-recorded attendance -- each attendance record keeps the schedule that applied on its own date.
+                </p>
+
+                <div className="flex items-center gap-2.5 pt-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <input
+                    type="checkbox"
+                    id="isActiveEmployeeShiftCheck"
+                    checked={formData.isActive !== false}
+                    onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500 w-4 h-4"
+                  />
+                  <label htmlFor="isActiveEmployeeShiftCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                    Assignment is Active
                   </label>
                 </div>
               </div>

@@ -22,7 +22,9 @@ import {
   ToggleRight,
   HelpCircle,
   Check,
-  X
+  X,
+  Clock,
+  UserCog
 } from 'lucide-react';
 import {
   CompanyMaster,
@@ -32,7 +34,11 @@ import {
   ProjectGeofenceLocation,
   Project,
   PayGrade,
-  LeaveType
+  LeaveType,
+  ShiftMaster,
+  ProjectShiftAssignment,
+  EmployeeShiftAssignment,
+  Employee
 } from '../../types';
 import { apiRequest } from '../../api/client';
 import { MasterDataEntryModal } from './MasterDataEntryModal';
@@ -46,7 +52,10 @@ export type MasterTab =
   | 'projects'
   | 'pay-grades'
   | 'leave-types'
-  | 'trades';
+  | 'trades'
+  | 'shifts'
+  | 'project-shift-assignments'
+  | 'employee-shift-assignments';
 
 export interface MasterDataContainerProps {
   initialTab?: MasterTab;
@@ -79,6 +88,9 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     'pay-grades': false,
     'leave-types': false,
     trades: false,
+    shifts: false,
+    'project-shift-assignments': false,
+    'employee-shift-assignments': false,
   });
 
   // Per-tab error notifications
@@ -91,6 +103,9 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     'pay-grades': null,
     'leave-types': null,
     trades: null,
+    shifts: null,
+    'project-shift-assignments': null,
+    'employee-shift-assignments': null,
   });
 
   // Centralized Master Data Collections
@@ -102,6 +117,12 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
   const [payGrades, setPayGrades] = useState<PayGrade[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [shifts, setShifts] = useState<ShiftMaster[]>([]);
+  const [projectShiftAssignments, setProjectShiftAssignments] = useState<ProjectShiftAssignment[]>([]);
+  const [employeeShiftAssignments, setEmployeeShiftAssignments] = useState<EmployeeShiftAssignment[]>([]);
+  // Lightweight employee directory, used only to populate the Employee Shift
+  // Assignment dropdown -- not a master tab of its own.
+  const [employeesForAssignment, setEmployeesForAssignment] = useState<Employee[]>([]);
 
   // Project filter for geofence locations
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -110,10 +131,19 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
   // directory itself, and the geofence zones that belong to those projects.
   const [projectsSubView, setProjectsSubView] = useState<'directory' | 'geofences'>('directory');
 
+  // The "Shifts" master tab has three nested sections: the Shift Master itself, and the
+  // two assignment levels (Project/Head Office covers Head Office too -- it's project
+  // HO0001, not a separate concept -- and individual Employee override).
+  const [shiftsSubView, setShiftsSubView] = useState<'master' | 'project-assignment' | 'employee-assignment'>('master');
+
   // Geofence CRUD (create/edit/delete/toggle/save) still runs on the 'locations'
-  // tab identity internally -- only the outer nav groups it under "Projects".
+  // tab identity internally -- only the outer nav groups it under "Projects". Same
+  // pattern for the two Shifts sub-views under the outer 'shifts' tab.
   const effectiveTab: MasterTab =
-    activeTab === 'projects' && projectsSubView === 'geofences' ? 'locations' : activeTab;
+    activeTab === 'projects' && projectsSubView === 'geofences' ? 'locations' :
+    activeTab === 'shifts' && shiftsSubView === 'project-assignment' ? 'project-shift-assignments' :
+    activeTab === 'shifts' && shiftsSubView === 'employee-assignment' ? 'employee-shift-assignments' :
+    activeTab;
 
   // The Project Directory sub-view renders its own self-contained toolbar/modal
   // (ProjectMasterView), so this container's generic Add Record/search bar hide there.
@@ -172,6 +202,15 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       } else if (tab === 'leave-types') {
         const data = await apiRequest('/api/master/leave-types');
         setLeaveTypes(Array.isArray(data) ? data : []);
+      } else if (tab === 'shifts') {
+        const data = await apiRequest('/api/master/shifts?includeInactive=true');
+        setShifts(Array.isArray(data) ? data : []);
+      } else if (tab === 'project-shift-assignments') {
+        const data = await apiRequest('/api/master/project-shift-assignments');
+        setProjectShiftAssignments(Array.isArray(data) ? data : []);
+      } else if (tab === 'employee-shift-assignments') {
+        const data = await apiRequest('/api/master/employee-shift-assignments');
+        setEmployeeShiftAssignments(Array.isArray(data) ? data : []);
       }
     } catch (err: any) {
       const msg = err.message || `Failed to fetch ${tab} data`;
@@ -193,6 +232,9 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       'pay-grades': true,
       'leave-types': true,
       trades: true,
+      shifts: true,
+      'project-shift-assignments': true,
+      'employee-shift-assignments': true,
     });
     setErrorStates({
       companies: null,
@@ -203,6 +245,9 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       'pay-grades': null,
       'leave-types': null,
       trades: null,
+      shifts: null,
+      'project-shift-assignments': null,
+      'employee-shift-assignments': null,
     });
 
     const tasks = [
@@ -279,6 +324,44 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
         } finally {
           setLoadingStates(prev => ({ ...prev, 'leave-types': false }));
         }
+      })(),
+      (async () => {
+        try {
+          const data = await apiRequest('/api/master/shifts?includeInactive=true');
+          setShifts(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, shifts: err.message || 'Error fetching shifts' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, shifts: false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const data = await apiRequest('/api/master/project-shift-assignments');
+          setProjectShiftAssignments(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, 'project-shift-assignments': err.message || 'Error fetching project shift assignments' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, 'project-shift-assignments': false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const data = await apiRequest('/api/master/employee-shift-assignments');
+          setEmployeeShiftAssignments(Array.isArray(data) ? data : []);
+        } catch (err: any) {
+          setErrorStates(prev => ({ ...prev, 'employee-shift-assignments': err.message || 'Error fetching employee shift assignments' }));
+        } finally {
+          setLoadingStates(prev => ({ ...prev, 'employee-shift-assignments': false }));
+        }
+      })(),
+      (async () => {
+        try {
+          const data = await apiRequest('/api/employees?status=active');
+          if (Array.isArray(data)) setEmployeesForAssignment(data);
+        } catch {
+          // Non-critical: only feeds the Employee Shift Assignment dropdown.
+        }
       })()
     ];
 
@@ -334,6 +417,44 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
         remarks: '',
         isActive: true
       };
+    } else if (effectiveTab === 'shifts') {
+      // No start/end time is ever defaulted here -- the administrator must define the
+      // actual times; blank fields force an explicit choice on save.
+      init = {
+        shiftCode: '',
+        shiftName: '',
+        startTime: '',
+        endTime: '',
+        breakMinutes: 0,
+        standardWorkingHours: '',
+        graceInMinutes: 0,
+        graceOutMinutes: 0,
+        otEligible: false,
+        otMultiplier: '',
+        workingDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+        companyCode: '',
+        isActive: true,
+        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveTo: ''
+      };
+    } else if (effectiveTab === 'project-shift-assignments') {
+      init = {
+        projectId: selectedProjectId || projects[0]?.id || '',
+        shiftId: shifts[0]?.id || '',
+        isDefault: true,
+        isActive: true,
+        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveTo: ''
+      };
+    } else if (effectiveTab === 'employee-shift-assignments') {
+      init = {
+        employeeId: employeesForAssignment[0]?.id || '',
+        projectId: '',
+        shiftId: shifts[0]?.id || '',
+        isActive: true,
+        effectiveFrom: new Date().toISOString().split('T')[0],
+        effectiveTo: ''
+      };
     }
     setFormData(init);
     setIsModalOpen(true);
@@ -364,7 +485,12 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       projects: 'projects',
       'pay-grades': 'pay-grades',
       'leave-types': 'leave-types',
-      trades: 'trades'
+      trades: 'trades',
+      shifts: 'shifts',
+      // Assignment rows have no toggle-status endpoint (only Shift Master does) --
+      // isActive on an assignment is edited via the Edit modal instead.
+      'project-shift-assignments': 'project-shift-assignments',
+      'employee-shift-assignments': 'employee-shift-assignments'
     };
 
     const endpoint = endpointMap[tab];
@@ -377,6 +503,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     if (tab === 'pay-grades') setPayGrades(prev => prev.map(x => x.id === id ? { ...x, isActive: newStatus } : x));
     if (tab === 'leave-types') setLeaveTypes(prev => prev.map(x => x.id === id ? { ...x, isActive: newStatus } : x));
     if (tab === 'trades') setTrades(prev => prev.map(x => x.id === id ? { ...x, isActive: newStatus } : x));
+    if (tab === 'shifts') setShifts(prev => prev.map(x => x.id === id ? { ...x, isActive: newStatus } : x));
 
     try {
       await apiRequest(`/api/master/${endpoint}/${id}/toggle-status`, { method: 'PATCH' });
@@ -406,7 +533,10 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       projects: 'projects',
       'pay-grades': 'pay-grades',
       'leave-types': 'leave-types',
-      trades: 'trades'
+      trades: 'trades',
+      shifts: 'shifts',
+      'project-shift-assignments': 'project-shift-assignments',
+      'employee-shift-assignments': 'employee-shift-assignments'
     };
 
     const endpoint = endpointMap[tab];
@@ -422,6 +552,9 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       if (tab === 'pay-grades') setPayGrades(prev => prev.filter(x => x.id !== id));
       if (tab === 'leave-types') setLeaveTypes(prev => prev.filter(x => x.id !== id));
       if (tab === 'trades') setTrades(prev => prev.filter(x => x.id !== id));
+      if (tab === 'shifts') setShifts(prev => prev.filter(x => x.id !== id));
+      if (tab === 'project-shift-assignments') setProjectShiftAssignments(prev => prev.filter(x => x.id !== id));
+      if (tab === 'employee-shift-assignments') setEmployeeShiftAssignments(prev => prev.filter(x => x.id !== id));
 
       showNotification('success', `Master record "${name}" deleted successfully`);
     } catch (err: any) {
@@ -457,6 +590,15 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       case 'leave-types':
         url = modalMode === 'create' ? '/api/master/leave-types' : `/api/master/leave-types/${submittedData.id}`;
         break;
+      case 'shifts':
+        url = modalMode === 'create' ? '/api/master/shifts' : `/api/master/shifts/${submittedData.id}`;
+        break;
+      case 'project-shift-assignments':
+        url = modalMode === 'create' ? '/api/master/project-shift-assignments' : `/api/master/project-shift-assignments/${submittedData.id}`;
+        break;
+      case 'employee-shift-assignments':
+        url = modalMode === 'create' ? '/api/master/employee-shift-assignments' : `/api/master/employee-shift-assignments/${submittedData.id}`;
+        break;
     }
 
     try {
@@ -483,7 +625,8 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
     { id: 'projects' as MasterTab, label: 'Projects', icon: FolderGit2, count: projects.length },
     { id: 'pay-grades' as MasterTab, label: 'Pay-Grades', icon: BadgePercent, count: payGrades.length },
     { id: 'leave-types' as MasterTab, label: 'Leave Types', icon: Calendar, count: leaveTypes.length },
-    { id: 'trades' as MasterTab, label: 'Trades & Skills', icon: Wrench, count: trades.length }
+    { id: 'trades' as MasterTab, label: 'Trades & Skills', icon: Wrench, count: trades.length },
+    { id: 'shifts' as MasterTab, label: 'Shifts', icon: Clock, count: shifts.length }
   ];
 
   return (
@@ -552,6 +695,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
                   setActiveTab(tab.id);
                   setSearchTerm('');
                   if (tab.id === 'projects') setProjectsSubView('directory');
+                  if (tab.id === 'shifts') setShiftsSubView('master');
                 }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors cursor-pointer relative ${
                   isActive
@@ -625,6 +769,55 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
         </div>
       )}
 
+      {/* Shifts sub-navigation: Shift Master, Project/Head-Office Assignment (Head
+          Office is project HO0001, not a separate concept), and Employee Assignment. */}
+      {activeTab === 'shifts' && (
+        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-fit flex-wrap">
+          <button
+            onClick={() => { setShiftsSubView('master'); setSearchTerm(''); }}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              shiftsSubView === 'master'
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/60'
+                : 'text-slate-500 dark:text-slate-400 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Shift Master
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${shiftsSubView === 'master' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800'}`}>
+              {shifts.length}
+            </span>
+          </button>
+          <button
+            onClick={() => { setShiftsSubView('project-assignment'); setSearchTerm(''); }}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              shiftsSubView === 'project-assignment'
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/60'
+                : 'text-slate-500 dark:text-slate-400 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <FolderGit2 className="w-3.5 h-3.5" />
+            Project / Head Office Assignment
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${shiftsSubView === 'project-assignment' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800'}`}>
+              {projectShiftAssignments.length}
+            </span>
+          </button>
+          <button
+            onClick={() => { setShiftsSubView('employee-assignment'); setSearchTerm(''); }}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              shiftsSubView === 'employee-assignment'
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800/60'
+                : 'text-slate-500 dark:text-slate-400 border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            <UserCog className="w-3.5 h-3.5" />
+            Employee Assignment
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${shiftsSubView === 'employee-assignment' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800'}`}>
+              {employeeShiftAssignments.length}
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Per-Tab Error Notification Banner */}
       {errorStates[activeTab] && (
         <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/60 rounded-xl p-4 flex items-start justify-between gap-3 text-rose-900 dark:text-rose-300 shadow-sm animate-in fade-in">
@@ -677,7 +870,7 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
-              placeholder={`Search ${effectiveTab.replace('-', ' ')} by code, name, or keywords...`}
+              placeholder={`Search ${effectiveTab.replace(/-/g, ' ')} by code, name, or keywords...`}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -1430,6 +1623,325 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
       )}
 
       {/* ========================================================= */}
+      {/* 8a. SHIFT MASTER VIEW */}
+      {/* ========================================================= */}
+      {activeTab === 'shifts' && shiftsSubView === 'master' && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-6 py-3.5">Shift Code</th>
+                  <th className="px-6 py-3.5">Shift Name</th>
+                  <th className="px-6 py-3.5">Start – End</th>
+                  <th className="px-6 py-3.5">Break</th>
+                  <th className="px-6 py-3.5">Std Hours</th>
+                  <th className="px-6 py-3.5">Grace In/Out</th>
+                  <th className="px-6 py-3.5">OT</th>
+                  <th className="px-6 py-3.5">Working Days</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {shifts
+                  .filter(s =>
+                    s.shiftCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    s.shiftName.toLowerCase().includes(searchTerm.toLowerCase())
+                  ).length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                      <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="font-semibold text-slate-700 dark:text-slate-300">No shifts defined</div>
+                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                        {searchTerm ? 'No results matching search' : 'Click "Add Record" to define a shift with its own administrator-set start/end times'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  shifts
+                    .filter(s =>
+                      s.shiftCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      s.shiftName.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(shift => (
+                      <tr key={shift.id} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                          {shift.shiftCode}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">{shift.shiftName}</td>
+                        <td className="px-6 py-4 font-mono text-slate-800 dark:text-slate-200">
+                          {shift.startTime?.slice(0, 5)} – {shift.endTime?.slice(0, 5)}
+                          {shift.endTime <= shift.startTime && (
+                            <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              Overnight
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-mono">{shift.breakMinutes} min</td>
+                        <td className="px-6 py-4 font-mono font-semibold text-slate-900 dark:text-slate-100">{shift.standardWorkingHours}h</td>
+                        <td className="px-6 py-4 font-mono text-xs">{shift.graceInMinutes}m / {shift.graceOutMinutes}m</td>
+                        <td className="px-6 py-4">
+                          {shift.otEligible ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
+                              Eligible{shift.otMultiplier ? ` (${shift.otMultiplier}x)` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400 dark:text-slate-500">Not Eligible</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-mono text-slate-600 dark:text-slate-400">
+                          {(shift.workingDays || []).join(', ')}
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleToggleStatus('shifts', shift.id, shift.isActive, shift.shiftName)}
+                            title="Click to toggle status"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition cursor-pointer ${
+                              shift.isActive
+                                ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${shift.isActive ? 'bg-emerald-600' : 'bg-slate-400'}`} />
+                            {shift.isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEditModal(shift)}
+                              title="Edit Shift"
+                              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-md transition cursor-pointer"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => promptDelete('shifts', shift.id, shift.shiftName)}
+                              title="Delete Shift"
+                              className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-md transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 8b. PROJECT / HEAD OFFICE SHIFT ASSIGNMENT VIEW */}
+      {/* ========================================================= */}
+      {activeTab === 'shifts' && shiftsSubView === 'project-assignment' && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-6 py-3.5">Project / Head Office</th>
+                  <th className="px-6 py-3.5">Assigned Shift</th>
+                  <th className="px-6 py-3.5">Default</th>
+                  <th className="px-6 py-3.5">Effective From – To</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {(() => {
+                  const filtered = projectShiftAssignments.filter(a => {
+                    const proj = projects.find(p => p.id === a.projectId);
+                    const sh = shifts.find(s => s.id === a.shiftId);
+                    const haystack = `${proj?.projectCode || ''} ${proj?.projectName || ''} ${sh?.shiftName || ''} ${sh?.shiftCode || ''}`.toLowerCase();
+                    return haystack.includes(searchTerm.toLowerCase());
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                          <FolderGit2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <div className="font-semibold text-slate-700 dark:text-slate-300">No project or Head Office shift assignments found</div>
+                          <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                            {searchTerm ? 'No results matching search' : 'Click "Add Record" to assign a shift to a project (select the Head Office project row for Head Office shifts)'}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return filtered.map(a => {
+                    const proj = projects.find(p => p.id === a.projectId);
+                    const sh = shifts.find(s => s.id === a.shiftId);
+                    return (
+                      <tr key={a.id} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-mono font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                            <FolderGit2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            {proj?.projectCode || a.projectId}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{proj?.projectName}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">{sh?.shiftName || a.shiftId}</div>
+                          {sh && <div className="font-mono text-xs text-slate-500 dark:text-slate-400">{sh.startTime?.slice(0, 5)} – {sh.endTime?.slice(0, 5)}</div>}
+                        </td>
+                        <td className="px-6 py-4">
+                          {a.isDefault ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                              Default Shift
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400 dark:text-slate-500">Additional</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          {a.effectiveFrom} – {a.effectiveTo || 'Open-ended'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            a.isActive
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${a.isActive ? 'bg-emerald-600' : 'bg-slate-400'}`} />
+                            {a.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEditModal(a)}
+                              title="Edit Assignment"
+                              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-md transition cursor-pointer"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => promptDelete('project-shift-assignments', a.id, `${proj?.projectCode || 'Project'} → ${sh?.shiftName || 'Shift'}`)}
+                              title="Delete Assignment"
+                              className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-md transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 8c. EMPLOYEE SHIFT ASSIGNMENT VIEW */}
+      {/* ========================================================= */}
+      {activeTab === 'shifts' && shiftsSubView === 'employee-assignment' && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th className="px-6 py-3.5">Employee</th>
+                  <th className="px-6 py-3.5">Scope</th>
+                  <th className="px-6 py-3.5">Assigned Shift</th>
+                  <th className="px-6 py-3.5">Effective From – To</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {(() => {
+                  const filtered = employeeShiftAssignments.filter(a => {
+                    const emp = employeesForAssignment.find(e => e.id === a.employeeId);
+                    const sh = shifts.find(s => s.id === a.shiftId);
+                    const haystack = `${emp?.employeeName || ''} ${emp?.employeeId || ''} ${sh?.shiftName || ''}`.toLowerCase();
+                    return haystack.includes(searchTerm.toLowerCase());
+                  });
+                  if (filtered.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                          <UserCog className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <div className="font-semibold text-slate-700 dark:text-slate-300">No individual employee shift overrides found</div>
+                          <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                            {searchTerm ? 'No results matching search' : 'Click "Add Record" to override an employee\'s shift for a specific period, taking priority over the project/Head Office default'}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return filtered.map(a => {
+                    const emp = employeesForAssignment.find(e => e.id === a.employeeId);
+                    const proj = a.projectId ? projects.find(p => p.id === a.projectId) : null;
+                    const sh = shifts.find(s => s.id === a.shiftId);
+                    return (
+                      <tr key={a.id} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">{emp?.employeeName || a.employeeId}</div>
+                          <div className="font-mono text-xs text-slate-500 dark:text-slate-400">{emp?.employeeId}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {a.projectId ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                              {proj?.projectCode || a.projectId}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400 dark:text-slate-500">All Projects</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">{sh?.shiftName || a.shiftId}</div>
+                          {sh && <div className="font-mono text-xs text-slate-500 dark:text-slate-400">{sh.startTime?.slice(0, 5)} – {sh.endTime?.slice(0, 5)}</div>}
+                        </td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          {a.effectiveFrom} – {a.effectiveTo || 'Open-ended'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            a.isActive
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${a.isActive ? 'bg-emerald-600' : 'bg-slate-400'}`} />
+                            {a.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEditModal(a)}
+                              title="Edit Assignment"
+                              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-md transition cursor-pointer"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => promptDelete('employee-shift-assignments', a.id, `${emp?.employeeName || 'Employee'} → ${sh?.shiftName || 'Shift'}`)}
+                              title="Delete Assignment"
+                              className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-md transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
       {/* DELETE CONFIRMATION MODAL */}
       {/* ========================================================= */}
       {deleteConfirm && (
@@ -1480,6 +1992,8 @@ export const MasterDataContainer: React.FC<MasterDataContainerProps> = ({
         departments={departments}
         projects={projects}
         selectedProjectId={selectedProjectId}
+        shifts={shifts}
+        employees={employeesForAssignment}
         onSave={handleSaveMaster}
         isSaving={isLoading}
       />
