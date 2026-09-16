@@ -117,6 +117,14 @@ function formatHrsMins(hoursDecimal: number): string {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
+// "X hrs Y mins" wording, for the dashboard summary cards specifically.
+function formatHrsMinsWords(hoursDecimal: number): string {
+  const totalMinutes = Math.round((hoursDecimal || 0) * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h} hrs ${m} mins`;
+}
+
 export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   employeeId,
   isOpen,
@@ -151,52 +159,90 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
   // clock-out (or "On Shift" if any of that day's shifts is still open), overtime and
   // geofence-selfie counts summed across the day's shifts, and the day counted Approved
   // only once every shift in it has been.
+  //
+  // Built from realPunches (non-synthesized) ONLY -- a synthesized placeholder (generated
+  // to match a manually-entered monthly summary, see server/routes/attendance.ts) has no
+  // real GPS/selfie behind it and must never render as if it were genuine attendance. Within
+  // a real punch, Start/End Time are shown only where an actual Workforce-App selfie backs
+  // that side (startSelfieUrl/selfieUrl for Start, endSelfieUrl for End) -- never a
+  // scheduled/assigned shift time. A day resolves to no row at all (falls through to the
+  // "Absent" default in fullMonthRegisterRows below) unless it has a currently-open shift or
+  // a fully selfie-verified, non-zero worked duration -- this is also what "Days Worked"
+  // counts, since monthlyTotals below is derived from this same array's length.
   const dailyRegisterRows = React.useMemo(() => {
     if (!data) return [];
     const byDate = new Map<string, AttendancePunchItem[]>();
-    for (const p of data.punches) {
+    for (const p of realPunches) {
       const list = byDate.get(p.punchDate);
       if (list) list.push(p);
       else byDate.set(p.punchDate, [p]);
     }
-    const rows = Array.from(byDate.entries()).map(([punchDate, group]) => {
+    const rows: Array<{
+      punchDate: string;
+      projectName?: string;
+      projectCode?: string;
+      startTime: string | null;
+      endTime: string | null;
+      isOpen: boolean;
+      regularHours: number;
+      overtimeHours: number;
+      totalHours: number;
+      approved: boolean;
+      geofencePercent: number | null;
+    }> = [];
+    for (const [punchDate, group] of byDate.entries()) {
       const sorted = [...group].sort((a, b) => a.checkInTime.localeCompare(b.checkInTime));
       const openPunch = sorted.find(p => !p.checkOutTime);
+      const startPunch = sorted[0];
+      const hasStartSelfie = !!(startPunch?.startSelfieUrl || startPunch?.selfieUrl);
+      const lastCompleted = [...sorted].reverse().find(p => !!p.checkOutTime);
+      const hasEndSelfie = !!lastCompleted?.endSelfieUrl;
+
       let totalSelfies = 0;
       let insideSelfies = 0;
       let overtimeHours = 0;
       let totalHours = 0;
-      for (const p of group) {
-        const t = p.isSynthesized ? 0 : (p.checkInTime ? 1 : 0) + (p.checkOutTime ? 1 : 0);
+      let anyVerified = false;
+      for (const p of sorted) {
+        const pHasStart = !!(p.startSelfieUrl || p.selfieUrl);
+        const pHasEnd = !!p.checkOutTime && !!p.endSelfieUrl;
+        if (pHasStart && pHasEnd) {
+          overtimeHours += p.overtimeHours || 0;
+          totalHours += p.hoursWorked || 0;
+          anyVerified = true;
+        } else if (pHasStart && !p.checkOutTime) {
+          // Currently on shift -- genuine, selfie-verified attendance in progress, just not
+          // finished yet, so it doesn't yet contribute worked minutes.
+          anyVerified = true;
+        }
+        const t = (pHasStart ? 1 : 0) + (pHasEnd ? 1 : 0);
         totalSelfies += t;
         insideSelfies += p.isGeofenceException ? Math.max(t - 1, 0) : t;
-        overtimeHours += p.overtimeHours || 0;
-        totalHours += p.hoursWorked || 0;
       }
-      // Regular shift time is whatever wasn't already counted as overtime -- same split the
-      // backend already applies per punch (see server/routes/attendance.ts), just summed
-      // across the day's shifts here.
+
+      // A day only counts as worked when there's a currently-open, selfie-verified shift, or
+      // a fully selfie-verified shift with a genuine non-zero worked duration -- otherwise
+      // there is nothing to show as attendance for this date at all.
+      const worked = !!openPunch || (anyVerified && totalHours > 0);
+      if (!worked) continue;
+
       const regularHours = Math.max(0, totalHours - overtimeHours);
-      return {
+      rows.push({
         punchDate,
         projectName: sorted[0]?.projectName,
         projectCode: sorted[0]?.projectCode,
-        startTime: sorted[0]?.checkInTime ?? null,
-        endTime: openPunch ? null : sorted[sorted.length - 1]?.checkOutTime ?? null,
+        startTime: hasStartSelfie ? startPunch.checkInTime : null,
+        endTime: !openPunch && hasEndSelfie ? lastCompleted!.checkOutTime! : null,
         isOpen: !!openPunch,
         regularHours,
         overtimeHours,
         totalHours,
         approved: group.every(p => p.supervisorApproved === true),
         geofencePercent: totalSelfies > 0 ? Math.round((insideSelfies / totalSelfies) * 100) : null,
-        // A day counts as estimated only once every shift recorded for it is a placeholder;
-        // a day with any real captured shift is a real day, even if another placeholder
-        // punch briefly existed there too.
-        isSynthesized: group.every(p => p.isSynthesized),
-      };
-    });
+      });
+    }
     return rows.sort((a, b) => b.punchDate.localeCompare(a.punchDate));
-  }, [data]);
+  }, [realPunches]);
 
   // The Metric Summary Cards previously read data.summary, which is computed server-side
   // from the manually-entered monthly record (e.g. a flat "25 days / 200 hrs") -- static
@@ -246,7 +292,6 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
               totalHours: 0,
               approved: false,
               geofencePercent: null,
-              isSynthesized: false,
               hasPunch: false,
             }
       );
@@ -481,8 +526,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hours Worked</p>
                   <p className="text-xl font-bold text-indigo-700 dark:text-indigo-300 mt-0.5">
-                    {formatHrsMins(monthlyTotals.hours)}{' '}
-                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Hrs</span>
+                    {formatHrsMinsWords(monthlyTotals.hours)}
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Total shift hours (Reg. + Overtime)</p>
                 </div>
@@ -490,8 +534,7 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                 <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Overtime</p>
                   <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                    {formatHrsMins(monthlyTotals.overtimeHours)}{' '}
-                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">Hrs</span>
+                    {formatHrsMinsWords(monthlyTotals.overtimeHours)}
                   </p>
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Overtime hours this month</p>
                 </div>
@@ -559,13 +602,17 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                               )}
                             </td>
                             <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-800 dark:text-slate-200">
-                              {row.hasPunch ? formatHrsMins(row.regularHours) : '-'}
+                              {row.hasPunch ? formatHrsMins(row.regularHours) : '0:00'}
                             </td>
                             <td className="py-2.5 px-3 text-center font-mono font-semibold text-amber-600 dark:text-amber-400">
-                              {row.hasPunch ? formatHrsMins(row.overtimeHours) : '-'}
+                              {row.hasPunch ? formatHrsMins(row.overtimeHours) : '0:00'}
                             </td>
-                            <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-900 dark:text-slate-100">
-                              {row.hasPunch ? formatHrsMins(row.totalHours) : '-'}
+                            <td className="py-2.5 px-3 text-center font-mono font-bold">
+                              {row.hasPunch ? (
+                                <span className="text-slate-900 dark:text-slate-100">{formatHrsMins(row.totalHours)}</span>
+                              ) : (
+                                <span className="text-slate-400 dark:text-slate-500 italic">Absent</span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 text-center">
                               {!row.hasPunch ? (
@@ -804,11 +851,11 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
             </div>
             <div className="border border-slate-300 rounded-lg p-2.5">
               <div className="text-[10px] font-bold uppercase text-slate-500">Hours Worked</div>
-              <div className="text-base font-extrabold">{formatHrsMins(monthlyTotals.hours)} Hrs</div>
+              <div className="text-base font-extrabold">{formatHrsMinsWords(monthlyTotals.hours)}</div>
             </div>
             <div className="border border-slate-300 rounded-lg p-2.5">
               <div className="text-[10px] font-bold uppercase text-slate-500">Overtime</div>
-              <div className="text-base font-extrabold">{formatHrsMins(monthlyTotals.overtimeHours)} Hrs</div>
+              <div className="text-base font-extrabold">{formatHrsMinsWords(monthlyTotals.overtimeHours)}</div>
             </div>
             <div className="border border-slate-300 rounded-lg p-2.5">
               <div className="text-[10px] font-bold uppercase text-slate-500">Project Allocation</div>
@@ -841,9 +888,9 @@ export const EmployeeAttendanceReportModal: React.FC<Props> = ({
                   <td className="py-1 pr-2 whitespace-nowrap">{row.hasPunch ? (row.projectName || row.projectCode || data.employee.assignedProjectName || '-') : '-'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{row.startTime ? formatTime(row.startTime) : '-'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{row.isOpen ? 'On Shift' : row.endTime ? formatTime(row.endTime) : '-'}</td>
-                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.regularHours) : '-'}</td>
-                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.overtimeHours) : '-'}</td>
-                  <td className="py-1 pr-2 text-center font-semibold whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.totalHours) : '-'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.regularHours) : '0:00'}</td>
+                  <td className="py-1 pr-2 text-center whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.overtimeHours) : '0:00'}</td>
+                  <td className="py-1 pr-2 text-center font-semibold whitespace-nowrap">{row.hasPunch ? formatHrsMins(row.totalHours) : 'Absent'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{!row.hasPunch ? '-' : row.approved ? 'Approved' : 'Not-approved'}</td>
                   <td className="py-1 pr-2 text-center whitespace-nowrap">{row.geofencePercent === null ? '-' : `${row.geofencePercent}%`}</td>
                   <td className="py-1 text-center whitespace-nowrap">{row.hasPunch ? 'Coming Soon' : '-'}</td>
