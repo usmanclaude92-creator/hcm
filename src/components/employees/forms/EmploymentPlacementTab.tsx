@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import {
   Building,
   Briefcase,
@@ -81,14 +81,22 @@ interface EmploymentPlacementTabProps {
   onNavigateToPersonal?: () => void;
 }
 
+export interface ShiftAssignmentCardHandle {
+  // Persists the currently-selected shift (no-op if nothing is selected). Invoked by the
+  // parent's own "Save Employment & Placement" button so shift assignment saves alongside
+  // the rest of the tab in one click, instead of its own separate button.
+  save: () => Promise<void>;
+}
+
 // Individual employee shift override -- highest priority in shift resolution, ahead of
-// the assigned project's (or Head Office's) default shift. Self-contained: it fetches and
-// saves directly against /api/master/employee-shift-assignments and /api/master/shifts,
-// independent of the Employment & Placement form's own save flow above, since this writes
-// to its own table rather than a column on the employee record. Applies regardless of
-// project (projectId left null) -- for a per-project default instead, use Master Data >
-// Shifts > Project / Head Office Assignment.
-const ShiftAssignmentCard: React.FC<{ employee: Employee; canWrite: boolean }> = ({ employee, canWrite }) => {
+// the assigned project's (or Head Office's) default shift. Fetches its own options/current
+// assignment against /api/master/employee-shift-assignments and /api/master/shifts, but
+// saving is driven externally (see ShiftAssignmentCardHandle) since this writes to its own
+// table rather than a column on the employee record, and shares the Employment &
+// Placement form's single Save button. Applies regardless of project (projectId left
+// null) -- for a per-project default instead, use Master Data > Shifts > Project / Head
+// Office Assignment.
+const ShiftAssignmentCard = forwardRef<ShiftAssignmentCardHandle, { employee: Employee; canWrite: boolean }>(({ employee, canWrite }, ref) => {
   const [shiftOptions, setShiftOptions] = useState<ShiftMaster[]>([]);
   const [current, setCurrent] = useState<EmployeeShiftAssignment | null>(null);
   const [shiftId, setShiftId] = useState('');
@@ -133,9 +141,12 @@ const ShiftAssignmentCard: React.FC<{ employee: Employee; canWrite: boolean }> =
     };
   }, [employee.id]);
 
+  // No shift selected is a valid state (falls back to the project/Head Office default) --
+  // a no-op here, not an error, so the combined save never fails just because this
+  // employee has no individual override.
   const handleAssign = async () => {
     if (!shiftId) {
-      setError('Select a shift to assign.');
+      setSaved(false);
       return;
     }
     setSaving(true);
@@ -161,13 +172,15 @@ const ShiftAssignmentCard: React.FC<{ employee: Employee; canWrite: boolean }> =
           });
       setCurrent(result);
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to assign shift.');
+      throw err;
     } finally {
       setSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({ save: handleAssign }), [shiftId, effectiveFrom, effectiveTo, current, employee.id]);
 
   const selectedShift = shiftOptions.find(s => s.id === shiftId);
 
@@ -246,27 +259,13 @@ const ShiftAssignmentCard: React.FC<{ employee: Employee; canWrite: boolean }> =
 
           <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
             This overrides the project/Head Office default shift for this employee during the effective period.
-            Changing it does not affect already-recorded attendance.
+            Changing it does not affect already-recorded attendance. Saved together with the button below.
           </p>
-
-          {canWrite && shiftOptions.length > 0 && (
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={handleAssign}
-                disabled={saving}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-              >
-                <Save size={14} />
-                <span>{saving ? 'Saving...' : current ? 'Update Shift Assignment' : 'Assign Shift'}</span>
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
   );
-};
+});
 
 export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
   employee,
@@ -334,6 +333,23 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
     !designationOptions.some(
       t => t.trim().toLowerCase() === employmentForm.designation.trim().toLowerCase()
     );
+
+  // Shift assignment saves alongside the rest of this tab, via the same "Save Employment &
+  // Placement" button -- it has no separate button of its own.
+  const shiftCardRef = useRef<ShiftAssignmentCardHandle | null>(null);
+  const [savingShift, setSavingShift] = useState(false);
+  const handleSaveEmploymentAndShift = async () => {
+    setSavingShift(true);
+    try {
+      await shiftCardRef.current?.save();
+    } catch {
+      // The shift card surfaces its own error inline; still proceed to save the rest of
+      // the Employment & Placement fields rather than blocking on it.
+    } finally {
+      setSavingShift(false);
+    }
+    await onSave();
+  };
 
   return (
     <div className="space-y-6">
@@ -670,7 +686,7 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
           priority over their assigned project's (or Head Office's) default shift. Saves
           independently of the Employment & Placement form above since it writes to its
           own table (employee_shift_assignments), not a column on the employee record. */}
-      {employee && <ShiftAssignmentCard employee={employee} canWrite={canWrite} />}
+      {employee && <ShiftAssignmentCard ref={shiftCardRef} employee={employee} canWrite={canWrite} />}
 
       {/* SECTION 2: Role & Designation Promotion History */}
       {employee && (
@@ -750,12 +766,12 @@ export const EmploymentPlacementTab: React.FC<EmploymentPlacementTabProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={onSave}
-                disabled={saving}
+                onClick={handleSaveEmploymentAndShift}
+                disabled={saving || savingShift}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <Save size={15} />
-                <span>{saving ? 'Saving Placement...' : 'Save Employment & Placement'}</span>
+                <span>{saving || savingShift ? 'Saving Placement...' : 'Save Employment & Placement'}</span>
               </button>
             )}
           </div>
