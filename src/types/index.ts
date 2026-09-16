@@ -1089,6 +1089,10 @@ export interface TradeMaster {
   updatedAt: string;
 }
 
+// Shift start/end are "HH:MM:SS" (Postgres time). No default/assumed times are ever
+// created by the app -- every shift is defined by an administrator. end_time < start_time
+// is a valid overnight shift, not an error; duration math must add 24h in that case
+// rather than treating it as negative.
 export interface ShiftMaster {
   id: string;
   shiftCode: string;
@@ -1096,9 +1100,58 @@ export interface ShiftMaster {
   startTime: string;
   endTime: string;
   breakMinutes: number;
-  workHours: number;
-  isNightShift: boolean;
+  standardWorkingHours: number;
+  graceInMinutes: number;
+  graceOutMinutes: number;
+  otEligible: boolean;
+  otMultiplier?: number | null;
+  // Day codes, e.g. ['MON','TUE','WED','THU','FRI','SAT'].
+  workingDays: string[];
+  companyCode?: EmployeeCompany | null;
   isActive: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Project Shift Assignment also covers Head Office -- it's project HO0001, not a
+// separate concept. A project may have several active shifts; at most one is the
+// open-ended default, used when no individual employee override applies.
+export interface ProjectShiftAssignment {
+  id: string;
+  projectId: string;
+  projectCode?: string;
+  projectName?: string;
+  shiftId: string;
+  shift?: ShiftMaster;
+  isDefault: boolean;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Individual employee override -- highest priority in shift resolution. projectId is
+// optional: set it to scope the override to only while the employee is on that project,
+// or leave it unset for an override that applies regardless of project.
+export interface EmployeeShiftAssignment {
+  id: string;
+  employeeId: string;
+  employeeCode?: string;
+  employeeName?: string;
+  projectId?: string | null;
+  projectCode?: string | null;
+  shiftId: string;
+  shift?: ShiftMaster;
+  isActive: boolean;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }

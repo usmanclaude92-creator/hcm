@@ -9,6 +9,7 @@ import type {
   TradeMaster,
   ProjectGeofenceLocation,
   PayGrade,
+  ShiftMaster,
 } from '../../src/types/index';
 import {
   listLeaveTypes,
@@ -528,6 +529,309 @@ router.patch('/trades/:id/toggle-status', async (req, res) => {
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to toggle trade status.' });
+  }
+});
+
+// =================================================================
+// CENTRAL MASTER DATA API: SHIFT MASTER + SHIFT ASSIGNMENTS
+// Backed by db.shifts / db.projectShiftAssignments / db.employeeShiftAssignments -- the
+// normalized `shifts` / `project_shift_assignments` / `employee_shift_assignments`
+// Postgres tables (see db/migrations/010_shift_master_and_assignments.sql). No shift
+// start/end time is ever defaulted here -- every field below comes from the request body,
+// as entered by an administrator.
+// =================================================================
+
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/;
+
+function isValidTimeStr(v: any): boolean {
+  return typeof v === 'string' && TIME_RE.test(v.trim());
+}
+
+router.get('/shifts', async (req, res) => {
+  try {
+    const includeInactive = String(req.query.includeInactive || '') === 'true';
+    const shifts = (await db.shifts.getAll()).filter(s => includeInactive || s.isActive);
+    res.json(shifts);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch shifts.' });
+  }
+});
+
+router.post('/shifts', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { shiftCode, shiftName, startTime, endTime, breakMinutes, standardWorkingHours,
+      graceInMinutes, graceOutMinutes, otEligible, otMultiplier, workingDays, companyCode,
+      isActive, effectiveFrom, effectiveTo } = req.body;
+
+    if (!shiftCode || !shiftName) {
+      return res.status(400).json({ error: 'Shift Code and Shift Name are required.' });
+    }
+    if (!isValidTimeStr(startTime) || !isValidTimeStr(endTime)) {
+      return res.status(400).json({ error: 'Start Time and End Time must be valid times (HH:MM), as defined by the administrator.' });
+    }
+    const hours = Number(standardWorkingHours);
+    if (!Number.isFinite(hours) || hours <= 0) {
+      return res.status(400).json({ error: 'Standard Working Hours must be a positive number.' });
+    }
+    const code = String(shiftCode).trim().toUpperCase();
+    if (await db.shifts.findByCode(code)) {
+      return res.status(400).json({ error: `Shift with code '${code}' already exists.` });
+    }
+    if (effectiveTo && effectiveFrom && String(effectiveTo) < String(effectiveFrom)) {
+      return res.status(400).json({ error: 'Effective To cannot be before Effective From.' });
+    }
+
+    const now = new Date().toISOString();
+    const newShift: ShiftMaster = {
+      id: crypto.randomUUID(),
+      shiftCode: code,
+      shiftName: String(shiftName).trim(),
+      startTime: String(startTime).trim(),
+      endTime: String(endTime).trim(),
+      breakMinutes: Number(breakMinutes) || 0,
+      standardWorkingHours: hours,
+      graceInMinutes: Number(graceInMinutes) || 0,
+      graceOutMinutes: Number(graceOutMinutes) || 0,
+      otEligible: otEligible === true,
+      otMultiplier: otMultiplier !== undefined && otMultiplier !== null && otMultiplier !== '' ? Number(otMultiplier) : null,
+      workingDays: Array.isArray(workingDays) && workingDays.length > 0 ? workingDays : ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+      companyCode: companyCode || null,
+      isActive: isActive !== false,
+      effectiveFrom: effectiveFrom || now.split('T')[0],
+      effectiveTo: effectiveTo || null,
+      createdBy: req.user?.username || null,
+      updatedBy: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.shifts.create(newShift);
+    res.status(201).json(newShift);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to create shift.' });
+  }
+});
+
+router.put('/shifts/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.shifts.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Shift not found.' });
+
+    if (req.body.startTime !== undefined && !isValidTimeStr(req.body.startTime)) {
+      return res.status(400).json({ error: 'Start Time must be a valid time (HH:MM).' });
+    }
+    if (req.body.endTime !== undefined && !isValidTimeStr(req.body.endTime)) {
+      return res.status(400).json({ error: 'End Time must be a valid time (HH:MM).' });
+    }
+    if (req.body.standardWorkingHours !== undefined) {
+      const hours = Number(req.body.standardWorkingHours);
+      if (!Number.isFinite(hours) || hours <= 0) {
+        return res.status(400).json({ error: 'Standard Working Hours must be a positive number.' });
+      }
+    }
+    const effFrom = req.body.effectiveFrom ?? existing.effectiveFrom;
+    const effTo = req.body.effectiveTo !== undefined ? req.body.effectiveTo : existing.effectiveTo;
+    if (effTo && effFrom && String(effTo) < String(effFrom)) {
+      return res.status(400).json({ error: 'Effective To cannot be before Effective From.' });
+    }
+
+    const updates: Partial<ShiftMaster> = { ...req.body };
+    if (req.body.shiftCode) updates.shiftCode = String(req.body.shiftCode).trim().toUpperCase();
+    if (req.body.shiftName) updates.shiftName = String(req.body.shiftName).trim();
+    delete (updates as any).id;
+
+    const updated = await db.shifts.update(existing.id, updates, req.user?.username);
+    if (!updated) return res.status(404).json({ error: 'Shift not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update shift.' });
+  }
+});
+
+router.delete('/shifts/:id', verifyAuth, requireRoles('Administrator'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.shifts.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Shift not found.' });
+    const removed = await db.shifts.delete(existing.id);
+    if (!removed) return res.status(404).json({ error: 'Shift not found.' });
+    res.json({ success: true, message: `Shift '${existing.shiftName}' removed successfully.` });
+  } catch (err: any) {
+    // Referenced by an assignment or attendance snapshot (ON DELETE RESTRICT) -- deactivate instead.
+    if (err?.code === '23503') {
+      return res.status(400).json({ error: 'This shift is in use by an assignment or attendance record and cannot be deleted. Deactivate it instead.' });
+    }
+    res.status(500).json({ error: err.message || 'Failed to delete shift.' });
+  }
+});
+
+router.patch('/shifts/:id/toggle-status', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.shifts.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Shift not found.' });
+    const updated = await db.shifts.update(existing.id, { isActive: !existing.isActive }, req.user?.username);
+    if (!updated) return res.status(404).json({ error: 'Shift not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to toggle shift status.' });
+  }
+});
+
+// Project Shift Assignment -- also covers Head Office, which is project HO0001, not a
+// separate concept.
+router.get('/project-shift-assignments', async (req, res) => {
+  try {
+    const { projectId } = req.query;
+    if (projectId) {
+      return res.json(await db.projectShiftAssignments.getByProject(String(projectId)));
+    }
+    res.json(await db.projectShiftAssignments.getAll());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch project shift assignments.' });
+  }
+});
+
+router.post('/project-shift-assignments', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { projectId, shiftId, isDefault, isActive, effectiveFrom, effectiveTo } = req.body;
+    if (!projectId || !shiftId) {
+      return res.status(400).json({ error: 'Project and Shift are required.' });
+    }
+    if (!(await db.projects.findById(projectId))) {
+      return res.status(400).json({ error: 'Project not found.' });
+    }
+    if (!(await db.shifts.findById(shiftId))) {
+      return res.status(400).json({ error: 'Shift not found.' });
+    }
+    const effFrom = effectiveFrom || new Date().toISOString().split('T')[0];
+    if (effectiveTo && String(effectiveTo) < String(effFrom)) {
+      return res.status(400).json({ error: 'Effective To cannot be before Effective From.' });
+    }
+    const created = await db.projectShiftAssignments.create({
+      projectId, shiftId, isDefault: isDefault === true, isActive: isActive !== false,
+      effectiveFrom: effFrom, effectiveTo: effectiveTo || null, createdBy: req.user?.username || null,
+    });
+    res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(400).json({ error: 'This project already has an open-ended default shift. Close its effective date or unset default on it before adding another.' });
+    }
+    res.status(500).json({ error: err.message || 'Failed to create project shift assignment.' });
+  }
+});
+
+router.put('/project-shift-assignments/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.projectShiftAssignments.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Project shift assignment not found.' });
+    const updated = await db.projectShiftAssignments.update(existing.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Project shift assignment not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(400).json({ error: 'This project already has an open-ended default shift.' });
+    }
+    res.status(500).json({ error: err.message || 'Failed to update project shift assignment.' });
+  }
+});
+
+router.delete('/project-shift-assignments/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.projectShiftAssignments.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Project shift assignment not found.' });
+    await db.projectShiftAssignments.delete(existing.id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete project shift assignment.' });
+  }
+});
+
+// Employee Shift Assignment -- individual override, highest priority in resolution.
+router.get('/employee-shift-assignments', async (req, res) => {
+  try {
+    const { employeeId } = req.query;
+    if (employeeId) {
+      return res.json(await db.employeeShiftAssignments.getByEmployee(String(employeeId)));
+    }
+    res.json(await db.employeeShiftAssignments.getAll());
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch employee shift assignments.' });
+  }
+});
+
+router.post('/employee-shift-assignments', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId, projectId, shiftId, isActive, effectiveFrom, effectiveTo } = req.body;
+    if (!employeeId || !shiftId) {
+      return res.status(400).json({ error: 'Employee and Shift are required.' });
+    }
+    if (!(await db.employees.findById(employeeId))) {
+      return res.status(400).json({ error: 'Employee not found.' });
+    }
+    if (!(await db.shifts.findById(shiftId))) {
+      return res.status(400).json({ error: 'Shift not found.' });
+    }
+    if (projectId && !(await db.projects.findById(projectId))) {
+      return res.status(400).json({ error: 'Project not found.' });
+    }
+    const effFrom = effectiveFrom || new Date().toISOString().split('T')[0];
+    if (effectiveTo && String(effectiveTo) < String(effFrom)) {
+      return res.status(400).json({ error: 'Effective To cannot be before Effective From.' });
+    }
+    const created = await db.employeeShiftAssignments.create({
+      employeeId, projectId: projectId || null, shiftId, isActive: isActive !== false,
+      effectiveFrom: effFrom, effectiveTo: effectiveTo || null, createdBy: req.user?.username || null,
+    });
+    res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(400).json({ error: 'This employee already has an open-ended individual shift assignment. Close its effective date first, or edit that one instead of adding a conflicting new one.' });
+    }
+    res.status(500).json({ error: err.message || 'Failed to create employee shift assignment.' });
+  }
+});
+
+router.put('/employee-shift-assignments/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.employeeShiftAssignments.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Employee shift assignment not found.' });
+    const updated = await db.employeeShiftAssignments.update(existing.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Employee shift assignment not found.' });
+    res.json(updated);
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      return res.status(400).json({ error: 'This employee already has an open-ended individual shift assignment.' });
+    }
+    res.status(500).json({ error: err.message || 'Failed to update employee shift assignment.' });
+  }
+});
+
+router.delete('/employee-shift-assignments/:id', verifyAuth, requireRoles('Administrator', 'Payroll Manager'), async (req: AuthRequest, res: Response) => {
+  try {
+    const existing = await db.employeeShiftAssignments.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Employee shift assignment not found.' });
+    await db.employeeShiftAssignments.delete(existing.id);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to delete employee shift assignment.' });
+  }
+});
+
+// GET /api/masters/shifts/resolve?employeeId=&date=[&projectId=]
+// Applicable shift for an employee on a given attendance date, per the priority order:
+// individual employee assignment, then the project's (Head Office included) default
+// shift. Used by the HCMS UI to preview resolution and by attendance capture to snapshot
+// the schedule that applied that day.
+router.get('/shifts/resolve', async (req, res) => {
+  try {
+    const { employeeId, date, projectId } = req.query;
+    if (!employeeId || !date) {
+      return res.status(400).json({ error: 'employeeId and date are required.' });
+    }
+    const emp = await db.employees.findById(String(employeeId));
+    if (!emp) return res.status(404).json({ error: 'Employee not found.' });
+    const shift = await db.resolveEmployeeShift(String(employeeId), String(date), projectId !== undefined ? String(projectId) : undefined);
+    res.json({ shift: shift || null });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to resolve applicable shift.' });
   }
 });
 

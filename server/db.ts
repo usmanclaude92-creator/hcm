@@ -32,6 +32,9 @@ import type {
   CompanyMaster,
   TradeMaster,
   PayGrade,
+  ShiftMaster,
+  ProjectShiftAssignment,
+  EmployeeShiftAssignment,
   ProjectGeofenceLocation,
   LeaveRequest,
   AuditLog,
@@ -400,6 +403,110 @@ function rowToPayGrade(row: any): PayGrade {
     standardAllowance: Number(row.standard_allowance),
     description: row.description ?? '',
     isActive: row.is_active,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToShift(row: any): ShiftMaster {
+  return {
+    id: row.id,
+    shiftCode: row.shift_code,
+    shiftName: row.shift_name,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    breakMinutes: Number(row.break_minutes),
+    standardWorkingHours: Number(row.standard_working_hours),
+    graceInMinutes: Number(row.grace_in_minutes),
+    graceOutMinutes: Number(row.grace_out_minutes),
+    otEligible: row.ot_eligible,
+    otMultiplier: row.ot_multiplier !== null && row.ot_multiplier !== undefined ? Number(row.ot_multiplier) : null,
+    workingDays: Array.isArray(row.working_days) ? row.working_days : [],
+    companyCode: row.company_code ?? null,
+    isActive: row.is_active,
+    effectiveFrom: dateOrNull(row.effective_from) as string,
+    effectiveTo: dateOrNull(row.effective_to),
+    createdBy: row.created_by ?? null,
+    updatedBy: row.updated_by ?? null,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToProjectShiftAssignment(row: any): ProjectShiftAssignment {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    projectCode: row.project_code ?? undefined,
+    projectName: row.project_name ?? undefined,
+    shiftId: row.shift_id,
+    shift: row.shift_shift_code ? rowToShift({
+      id: row.shift_id,
+      shift_code: row.shift_shift_code,
+      shift_name: row.shift_shift_name,
+      start_time: row.shift_start_time,
+      end_time: row.shift_end_time,
+      break_minutes: row.shift_break_minutes,
+      standard_working_hours: row.shift_standard_working_hours,
+      grace_in_minutes: row.shift_grace_in_minutes,
+      grace_out_minutes: row.shift_grace_out_minutes,
+      ot_eligible: row.shift_ot_eligible,
+      ot_multiplier: row.shift_ot_multiplier,
+      working_days: row.shift_working_days,
+      company_code: row.shift_company_code,
+      is_active: row.shift_is_active,
+      effective_from: row.shift_effective_from,
+      effective_to: row.shift_effective_to,
+      created_by: null,
+      updated_by: null,
+      created_at: row.shift_created_at,
+      updated_at: row.shift_updated_at,
+    }) : undefined,
+    isDefault: row.is_default,
+    isActive: row.is_active,
+    effectiveFrom: dateOrNull(row.effective_from) as string,
+    effectiveTo: dateOrNull(row.effective_to),
+    createdBy: row.created_by ?? null,
+    createdAt: isoOrNow(row.created_at),
+    updatedAt: isoOrNow(row.updated_at),
+  };
+}
+
+function rowToEmployeeShiftAssignment(row: any): EmployeeShiftAssignment {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeCode: row.employee_code ?? undefined,
+    employeeName: row.employee_name ?? undefined,
+    projectId: row.project_id ?? null,
+    projectCode: row.project_code ?? null,
+    shiftId: row.shift_id,
+    shift: row.shift_shift_code ? rowToShift({
+      id: row.shift_id,
+      shift_code: row.shift_shift_code,
+      shift_name: row.shift_shift_name,
+      start_time: row.shift_start_time,
+      end_time: row.shift_end_time,
+      break_minutes: row.shift_break_minutes,
+      standard_working_hours: row.shift_standard_working_hours,
+      grace_in_minutes: row.shift_grace_in_minutes,
+      grace_out_minutes: row.shift_grace_out_minutes,
+      ot_eligible: row.shift_ot_eligible,
+      ot_multiplier: row.shift_ot_multiplier,
+      working_days: row.shift_working_days,
+      company_code: row.shift_company_code,
+      is_active: row.shift_is_active,
+      effective_from: row.shift_effective_from,
+      effective_to: row.shift_effective_to,
+      created_by: null,
+      updated_by: null,
+      created_at: row.shift_created_at,
+      updated_at: row.shift_updated_at,
+    }) : undefined,
+    isActive: row.is_active,
+    effectiveFrom: dateOrNull(row.effective_from) as string,
+    effectiveTo: dateOrNull(row.effective_to),
+    createdBy: row.created_by ?? null,
     createdAt: isoOrNow(row.created_at),
     updatedAt: isoOrNow(row.updated_at),
   };
@@ -2944,6 +3051,293 @@ class DatabaseManager {
         });
       },
     };
+  }
+
+  // Shift Master + Project/Employee Shift Assignment. SQL-only (no in-memory/local-dev
+  // fallback, unlike the other masters above) -- this feature is new, and every
+  // environment that needs it runs with DATABASE_URL configured; see the summary note in
+  // db/migrations/010_shift_master_and_assignments.sql for that scope decision.
+  public get shifts() {
+    const sql = this.isPostgresConnected && this.pgPool;
+    const requireSql = () => {
+      if (!sql) throw new Error('Shift Master requires a connected database (DATABASE_URL).');
+    };
+    return {
+      getAll: async (): Promise<ShiftMaster[]> => {
+        requireSql();
+        const res = await this.pgPool!.query('SELECT * FROM shifts ORDER BY shift_name');
+        return res.rows.map(rowToShift);
+      },
+      findById: async (id: string): Promise<ShiftMaster | undefined> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return undefined;
+        const res = await this.pgPool!.query('SELECT * FROM shifts WHERE id = $1', [id]);
+        return res.rows[0] ? rowToShift(res.rows[0]) : undefined;
+      },
+      findByCode: async (code: string): Promise<ShiftMaster | undefined> => {
+        requireSql();
+        const res = await this.pgPool!.query('SELECT * FROM shifts WHERE upper(trim(shift_code)) = upper(trim($1))', [code]);
+        return res.rows[0] ? rowToShift(res.rows[0]) : undefined;
+      },
+      create: async (shift: ShiftMaster): Promise<ShiftMaster> => {
+        requireSql();
+        const res = await this.pgPool!.query(
+          `INSERT INTO shifts (
+             id, shift_code, shift_name, start_time, end_time, break_minutes, standard_working_hours,
+             grace_in_minutes, grace_out_minutes, ot_eligible, ot_multiplier, working_days, company_code,
+             is_active, effective_from, effective_to, created_by, updated_by, created_at, updated_at
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+           RETURNING *`,
+          [shift.id, shift.shiftCode, shift.shiftName, shift.startTime, shift.endTime, shift.breakMinutes,
+           shift.standardWorkingHours, shift.graceInMinutes, shift.graceOutMinutes, shift.otEligible,
+           shift.otMultiplier ?? null, shift.workingDays, shift.companyCode ?? null, shift.isActive,
+           shift.effectiveFrom, shift.effectiveTo ?? null, shift.createdBy ?? null, shift.updatedBy ?? null,
+           shift.createdAt, shift.updatedAt]
+        );
+        return rowToShift(res.rows[0]);
+      },
+      update: async (id: string, updates: Partial<ShiftMaster>, updatedBy?: string): Promise<ShiftMaster | null> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return null;
+        const existingRes = await this.pgPool!.query('SELECT * FROM shifts WHERE id = $1', [id]);
+        if (!existingRes.rows[0]) return null;
+        const merged = { ...rowToShift(existingRes.rows[0]), ...updates };
+        const res = await this.pgPool!.query(
+          `UPDATE shifts SET
+             shift_code=$2, shift_name=$3, start_time=$4, end_time=$5, break_minutes=$6,
+             standard_working_hours=$7, grace_in_minutes=$8, grace_out_minutes=$9, ot_eligible=$10,
+             ot_multiplier=$11, working_days=$12, company_code=$13, is_active=$14, effective_from=$15,
+             effective_to=$16, updated_by=$17, updated_at=now()
+           WHERE id=$1 RETURNING *`,
+          [id, merged.shiftCode, merged.shiftName, merged.startTime, merged.endTime, merged.breakMinutes,
+           merged.standardWorkingHours, merged.graceInMinutes, merged.graceOutMinutes, merged.otEligible,
+           merged.otMultiplier ?? null, merged.workingDays, merged.companyCode ?? null, merged.isActive,
+           merged.effectiveFrom, merged.effectiveTo ?? null, updatedBy ?? merged.updatedBy ?? null]
+        );
+        return rowToShift(res.rows[0]);
+      },
+      delete: async (id: string): Promise<boolean> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return false;
+        const res = await this.pgPool!.query('DELETE FROM shifts WHERE id = $1', [id]);
+        return (res.rowCount ?? 0) > 0;
+      },
+    };
+  }
+
+  private shiftJoinSelect = `
+    s.shift_code AS shift_shift_code, s.shift_name AS shift_shift_name, s.start_time AS shift_start_time,
+    s.end_time AS shift_end_time, s.break_minutes AS shift_break_minutes,
+    s.standard_working_hours AS shift_standard_working_hours, s.grace_in_minutes AS shift_grace_in_minutes,
+    s.grace_out_minutes AS shift_grace_out_minutes, s.ot_eligible AS shift_ot_eligible,
+    s.ot_multiplier AS shift_ot_multiplier, s.working_days AS shift_working_days,
+    s.company_code AS shift_company_code, s.is_active AS shift_is_active,
+    s.effective_from AS shift_effective_from, s.effective_to AS shift_effective_to,
+    s.created_at AS shift_created_at, s.updated_at AS shift_updated_at
+  `;
+
+  public get projectShiftAssignments() {
+    const sql = this.isPostgresConnected && this.pgPool;
+    const requireSql = () => {
+      if (!sql) throw new Error('Project Shift Assignment requires a connected database (DATABASE_URL).');
+    };
+    const baseSelect = `
+      SELECT psa.*, p.project_code AS project_code, p.project_name AS project_name, ${this.shiftJoinSelect}
+      FROM project_shift_assignments psa
+      JOIN projects p ON p.id = psa.project_id
+      JOIN shifts s ON s.id = psa.shift_id
+    `;
+    return {
+      getAll: async (): Promise<ProjectShiftAssignment[]> => {
+        requireSql();
+        const res = await this.pgPool!.query(`${baseSelect} ORDER BY p.project_name, psa.effective_from DESC`);
+        return res.rows.map(rowToProjectShiftAssignment);
+      },
+      getByProject: async (projectId: string): Promise<ProjectShiftAssignment[]> => {
+        requireSql();
+        if (!looksLikeUuid(projectId)) return [];
+        const res = await this.pgPool!.query(`${baseSelect} WHERE psa.project_id = $1 ORDER BY psa.effective_from DESC`, [projectId]);
+        return res.rows.map(rowToProjectShiftAssignment);
+      },
+      findById: async (id: string): Promise<ProjectShiftAssignment | undefined> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return undefined;
+        const res = await this.pgPool!.query(`${baseSelect} WHERE psa.id = $1`, [id]);
+        return res.rows[0] ? rowToProjectShiftAssignment(res.rows[0]) : undefined;
+      },
+      // The applicable default shift for a project on a given date -- priority level 3/4
+      // (Project, or Head Office when projectId is HO0001) in shift resolution.
+      findDefaultForProjectAndDate: async (projectId: string, dateStr: string): Promise<ProjectShiftAssignment | undefined> => {
+        requireSql();
+        if (!looksLikeUuid(projectId)) return undefined;
+        const res = await this.pgPool!.query(
+          `${baseSelect}
+           WHERE psa.project_id = $1 AND psa.is_default AND psa.is_active
+             AND psa.effective_from <= $2 AND (psa.effective_to IS NULL OR psa.effective_to >= $2)
+           ORDER BY psa.effective_from DESC LIMIT 1`,
+          [projectId, dateStr]
+        );
+        return res.rows[0] ? rowToProjectShiftAssignment(res.rows[0]) : undefined;
+      },
+      create: async (a: { projectId: string; shiftId: string; isDefault: boolean; isActive: boolean; effectiveFrom: string; effectiveTo?: string | null; createdBy?: string | null }): Promise<ProjectShiftAssignment> => {
+        requireSql();
+        const id = crypto.randomUUID();
+        await this.pgPool!.query(
+          `INSERT INTO project_shift_assignments (id, project_id, shift_id, is_default, is_active, effective_from, effective_to, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [id, a.projectId, a.shiftId, a.isDefault, a.isActive, a.effectiveFrom, a.effectiveTo ?? null, a.createdBy ?? null]
+        );
+        const res = await this.pgPool!.query(`${baseSelect} WHERE psa.id = $1`, [id]);
+        return rowToProjectShiftAssignment(res.rows[0]);
+      },
+      update: async (id: string, updates: Partial<{ shiftId: string; isDefault: boolean; isActive: boolean; effectiveFrom: string; effectiveTo: string | null }>): Promise<ProjectShiftAssignment | null> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return null;
+        const existingRes = await this.pgPool!.query('SELECT * FROM project_shift_assignments WHERE id = $1', [id]);
+        if (!existingRes.rows[0]) return null;
+        const current = existingRes.rows[0];
+        const merged = {
+          shiftId: updates.shiftId ?? current.shift_id,
+          isDefault: updates.isDefault ?? current.is_default,
+          isActive: updates.isActive ?? current.is_active,
+          effectiveFrom: updates.effectiveFrom ?? current.effective_from,
+          effectiveTo: updates.effectiveTo !== undefined ? updates.effectiveTo : current.effective_to,
+        };
+        await this.pgPool!.query(
+          `UPDATE project_shift_assignments SET shift_id=$2, is_default=$3, is_active=$4, effective_from=$5, effective_to=$6, updated_at=now()
+           WHERE id=$1`,
+          [id, merged.shiftId, merged.isDefault, merged.isActive, merged.effectiveFrom, merged.effectiveTo]
+        );
+        const res = await this.pgPool!.query(`${baseSelect} WHERE psa.id = $1`, [id]);
+        return rowToProjectShiftAssignment(res.rows[0]);
+      },
+      delete: async (id: string): Promise<boolean> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return false;
+        const res = await this.pgPool!.query('DELETE FROM project_shift_assignments WHERE id = $1', [id]);
+        return (res.rowCount ?? 0) > 0;
+      },
+    };
+  }
+
+  public get employeeShiftAssignments() {
+    const sql = this.isPostgresConnected && this.pgPool;
+    const requireSql = () => {
+      if (!sql) throw new Error('Employee Shift Assignment requires a connected database (DATABASE_URL).');
+    };
+    const baseSelect = `
+      SELECT esa.*, e.employee_id AS employee_code, e.employee_name AS employee_name,
+             p.project_code AS project_code, ${this.shiftJoinSelect}
+      FROM employee_shift_assignments esa
+      JOIN employees e ON e.id = esa.employee_id
+      LEFT JOIN projects p ON p.id = esa.project_id
+      JOIN shifts s ON s.id = esa.shift_id
+    `;
+    return {
+      getAll: async (): Promise<EmployeeShiftAssignment[]> => {
+        requireSql();
+        const res = await this.pgPool!.query(`${baseSelect} ORDER BY e.employee_name, esa.effective_from DESC`);
+        return res.rows.map(rowToEmployeeShiftAssignment);
+      },
+      getByEmployee: async (employeeId: string): Promise<EmployeeShiftAssignment[]> => {
+        requireSql();
+        if (!looksLikeUuid(employeeId)) return [];
+        const res = await this.pgPool!.query(`${baseSelect} WHERE esa.employee_id = $1 ORDER BY esa.effective_from DESC`, [employeeId]);
+        return res.rows.map(rowToEmployeeShiftAssignment);
+      },
+      findById: async (id: string): Promise<EmployeeShiftAssignment | undefined> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return undefined;
+        const res = await this.pgPool!.query(`${baseSelect} WHERE esa.id = $1`, [id]);
+        return res.rows[0] ? rowToEmployeeShiftAssignment(res.rows[0]) : undefined;
+      },
+      // The applicable individual override for an employee on a given date -- priority
+      // level 1 (highest) in shift resolution. When more than one row matches (an
+      // employee-wide override and a project-scoped one both covering the date), the
+      // project-scoped one wins if it matches the employee's project that date.
+      findActiveForEmployeeAndDate: async (employeeId: string, dateStr: string, projectId: string | null): Promise<EmployeeShiftAssignment | undefined> => {
+        requireSql();
+        if (!looksLikeUuid(employeeId)) return undefined;
+        const res = await this.pgPool!.query(
+          `${baseSelect}
+           WHERE esa.employee_id = $1 AND esa.is_active
+             AND esa.effective_from <= $2 AND (esa.effective_to IS NULL OR esa.effective_to >= $2)
+             AND (esa.project_id IS NULL OR esa.project_id = $3)
+           ORDER BY (esa.project_id IS NOT NULL) DESC, esa.effective_from DESC
+           LIMIT 1`,
+          [employeeId, dateStr, projectId]
+        );
+        return res.rows[0] ? rowToEmployeeShiftAssignment(res.rows[0]) : undefined;
+      },
+      create: async (a: { employeeId: string; projectId?: string | null; shiftId: string; isActive: boolean; effectiveFrom: string; effectiveTo?: string | null; createdBy?: string | null }): Promise<EmployeeShiftAssignment> => {
+        requireSql();
+        const id = crypto.randomUUID();
+        await this.pgPool!.query(
+          `INSERT INTO employee_shift_assignments (id, employee_id, project_id, shift_id, is_active, effective_from, effective_to, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [id, a.employeeId, a.projectId ?? null, a.shiftId, a.isActive, a.effectiveFrom, a.effectiveTo ?? null, a.createdBy ?? null]
+        );
+        const res = await this.pgPool!.query(`${baseSelect} WHERE esa.id = $1`, [id]);
+        return rowToEmployeeShiftAssignment(res.rows[0]);
+      },
+      update: async (id: string, updates: Partial<{ projectId: string | null; shiftId: string; isActive: boolean; effectiveFrom: string; effectiveTo: string | null }>): Promise<EmployeeShiftAssignment | null> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return null;
+        const existingRes = await this.pgPool!.query('SELECT * FROM employee_shift_assignments WHERE id = $1', [id]);
+        if (!existingRes.rows[0]) return null;
+        const current = existingRes.rows[0];
+        const merged = {
+          projectId: updates.projectId !== undefined ? updates.projectId : current.project_id,
+          shiftId: updates.shiftId ?? current.shift_id,
+          isActive: updates.isActive ?? current.is_active,
+          effectiveFrom: updates.effectiveFrom ?? current.effective_from,
+          effectiveTo: updates.effectiveTo !== undefined ? updates.effectiveTo : current.effective_to,
+        };
+        await this.pgPool!.query(
+          `UPDATE employee_shift_assignments SET project_id=$2, shift_id=$3, is_active=$4, effective_from=$5, effective_to=$6, updated_at=now()
+           WHERE id=$1`,
+          [id, merged.projectId, merged.shiftId, merged.isActive, merged.effectiveFrom, merged.effectiveTo]
+        );
+        const res = await this.pgPool!.query(`${baseSelect} WHERE esa.id = $1`, [id]);
+        return rowToEmployeeShiftAssignment(res.rows[0]);
+      },
+      delete: async (id: string): Promise<boolean> => {
+        requireSql();
+        if (!looksLikeUuid(id)) return false;
+        const res = await this.pgPool!.query('DELETE FROM employee_shift_assignments WHERE id = $1', [id]);
+        return (res.rowCount ?? 0) > 0;
+      },
+    };
+  }
+
+  // Shift resolution priority for an employee + attendance date:
+  //   1. Individual Employee Shift Assignment (project-scoped one wins over an
+  //      employee-wide one when both cover the date -- see findActiveForEmployeeAndDate).
+  //   2. (Employee Group/Trade level: not implemented -- nothing in the existing schema
+  //      supports it, and the task this was built against explicitly allows skipping it
+  //      rather than adding unneeded structure.)
+  //   3/4. Project Shift Assignment's default shift, where "Project" also covers Head
+  //        Office (it's project HO0001, not a separate concept).
+  // Returns undefined if nothing applicable is configured -- never fabricated.
+  public async resolveEmployeeShift(employeeId: string, dateStr: string, projectIdOverride?: string | null): Promise<ShiftMaster | undefined> {
+    if (!this.isPostgresConnected || !this.pgPool) return undefined;
+    const emp = await this.employees.findById(employeeId);
+    if (!emp) return undefined;
+    let projectId: string | null = projectIdOverride !== undefined ? projectIdOverride : null;
+    if (projectId === null && emp.assignedProjectCode) {
+      const proj = await this.projects.findByCode(emp.assignedProjectCode);
+      projectId = proj?.id ?? null;
+    }
+
+    const individual = await this.employeeShiftAssignments.findActiveForEmployeeAndDate(employeeId, dateStr, projectId);
+    if (individual?.shift) return individual.shift;
+
+    if (projectId) {
+      const projectDefault = await this.projectShiftAssignments.findDefaultForProjectAndDate(projectId, dateStr);
+      if (projectDefault?.shift) return projectDefault.shift;
+    }
+
+    return undefined;
   }
 
   // Geofence create/update enforce "only one primary gate per project" with a plain
