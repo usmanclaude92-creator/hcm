@@ -62,8 +62,14 @@ interface DeploymentEntry {
 // agree with each other and with the badge shown on the employee's own card.
 // Priority: an approved leave request covering today wins over any shift/attendance
 // signal; otherwise a live "today" shift (open, or closed with a clock-out) counts as
-// Present; otherwise we fall back to whether the employee has any attendance logged
-// this month at all (the only signal available for employees not on the mobile app).
+// Present. The "attendance logged this month" fallback only applies when the employee
+// has NO live Workforce status feed at all (shift is undefined -- not linked to a Civil
+// ID / never registered a device): the only case with no real-time signal to go on.
+// A linked employee who simply hasn't punched in today (shift.status === 'NO_SHIFT_TODAY')
+// must still read Absent here, matching their own card's real-time badge -- previously
+// this fell back to hasAttendanceThisMonth regardless of a live "no shift today" status,
+// so a linked worker with hours logged earlier in the month counted Present in the
+// header/section totals while their card correctly showed Absent.
 function classifyPresence(
   employeeId: string,
   hasAttendanceThisMonth: boolean,
@@ -75,7 +81,7 @@ function classifyPresence(
   const shift = shiftStatusByEmployee[key];
   if (shift?.status === 'OPEN') return 'Present';
   if (shift?.status === 'CLOSED' && shift.clockOutAt) return 'Present';
-  if (hasAttendanceThisMonth) return 'Present';
+  if (!shift && hasAttendanceThisMonth) return 'Present';
   return 'Absent';
 }
 
