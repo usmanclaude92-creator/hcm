@@ -554,6 +554,7 @@ function rowToEmployee(row: any): Employee {
     dateOfLeaving: dateOrNull(row.date_of_leaving),
     designation: row.designation,
     employeeCompany: row.employee_company,
+    civilId: row.civil_id ?? null,
     assignedProjectCode: row.assigned_project_code ?? null,
     isSiteSupervisor: row.is_site_supervisor ?? false,
     isSiteManager: row.is_site_manager ?? false,
@@ -1467,11 +1468,11 @@ class DatabaseManager {
                  assigned_project_id, monthly_salary_or_rate, wps_employee, wps_salary, actual_salary,
                  recover_from, is_active, bank_name, bank_account_number, iban, bank_branch,
                  account_holder_name, photo_url, avatar_url, is_site_supervisor, is_site_manager,
-                 created_at, updated_at
+                 civil_id, created_at, updated_at
                ) VALUES (
                  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
                  (SELECT id FROM projects WHERE upper(trim(project_code)) = upper(trim($12))),
-                 $13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29
+                 $13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30
                ) RETURNING id`,
               [emp.id, emp.employeeId, emp.employeeName, emp.employeeType, emp.nationalityType, emp.wageType,
                emp.dateOfJoining, emp.dateOfLeaving ?? null, emp.designation, emp.employeeCompany, emp.salaryPaidBy,
@@ -1480,7 +1481,7 @@ class DatabaseManager {
                emp.recoverFrom ?? null, emp.isActive, emp.bankName ?? null, emp.bankAccountNumber ?? null,
                emp.iban ?? null, emp.bankBranch ?? null, emp.accountHolderName ?? null,
                emp.photoUrl ?? null, emp.avatarUrl ?? null, emp.isSiteSupervisor === true, emp.isSiteManager === true,
-               emp.createdAt, emp.updatedAt]
+               emp.civilId ?? null, emp.createdAt, emp.updatedAt]
             );
             const res2 = await this.pgPool!.query(`${this.employeesProjectSelect} WHERE e.id = $1`, [res.rows[0].id]);
             return rowToEmployee(res2.rows[0]);
@@ -1563,7 +1564,7 @@ class DatabaseManager {
                monthly_salary_or_rate=$13, wps_employee=$14, wps_salary=$15, actual_salary=$16,
                recover_from=$17, is_active=$18, bank_name=$19, bank_account_number=$20, iban=$21,
                bank_branch=$22, account_holder_name=$23, photo_url=$24, avatar_url=$25,
-               is_site_supervisor=$26, is_site_manager=$27, updated_at=now()
+               is_site_supervisor=$26, is_site_manager=$27, civil_id=$28, updated_at=now()
              WHERE id=$1`,
             [id, merged.employeeId, merged.employeeName, merged.employeeType, merged.nationalityType, merged.wageType,
              merged.dateOfJoining, merged.dateOfLeaving ?? null, merged.designation, merged.employeeCompany, merged.salaryPaidBy,
@@ -1572,7 +1573,7 @@ class DatabaseManager {
              merged.recoverFrom ?? null, merged.isActive, merged.bankName ?? null, merged.bankAccountNumber ?? null,
              merged.iban ?? null, merged.bankBranch ?? null, merged.accountHolderName ?? null,
              merged.photoUrl ?? null, merged.avatarUrl ?? null,
-             merged.isSiteSupervisor === true, merged.isSiteManager === true]
+             merged.isSiteSupervisor === true, merged.isSiteManager === true, merged.civilId ?? null]
           );
           const res2 = await this.pgPool!.query(`${this.employeesProjectSelect} WHERE e.id = $1`, [id]);
           return rowToEmployee(res2.rows[0]);
@@ -3647,6 +3648,21 @@ class DatabaseManager {
 
   // --- Oman HR Compliance Repositories ---
 
+  // Keeps the plain employees.civil_id column -- the exact field the Workforce-App mobile
+  // Civil-ID-then-PIN registration (civil-id-register edge function) looks up by -- in sync
+  // with the current record in the Civil ID document history below, automatically, on every
+  // create/renew/update. Without this, a Civil ID entered anywhere in HCMS's own Government
+  // Docs / Personal Information screens would never reach the one column the mobile app
+  // actually reads, silently blocking that employee from ever registering on the app.
+  private async syncEmployeeCivilId(employeeCode: string, civilIdNumber: string): Promise<void> {
+    const trimmed = civilIdNumber.trim();
+    if (!trimmed) return;
+    const emp = await this.employees.findByEmployeeId(employeeCode);
+    if (emp && emp.civilId !== trimmed) {
+      await this.employees.update(emp.id, { civilId: trimmed });
+    }
+  }
+
   public get civilIds() {
     return {
       getAll: () => [...this.inMemoryData.civilIds],
@@ -3685,6 +3701,9 @@ class DatabaseManager {
         }
         this.inMemoryData.civilIds.push(record);
         await this.persist();
+        if (record.isCurrent) {
+          await this.syncEmployeeCivilId(norm, record.civilIdNumber);
+        }
         return record;
       },
       renew: async (empId: string, newRecord: EmployeeCivilId, reason: string, user: string) => {
@@ -3706,6 +3725,7 @@ class DatabaseManager {
         newRecord.updatedAt = timestamp;
         this.inMemoryData.civilIds.push(newRecord);
         await this.persist();
+        await this.syncEmployeeCivilId(norm, newRecord.civilIdNumber);
         return newRecord;
       },
       update: async (id: string, updates: Partial<EmployeeCivilId>) => {
@@ -3719,8 +3739,12 @@ class DatabaseManager {
           ...updates,
           updatedAt: new Date().toISOString(),
         };
+        const updated = this.inMemoryData.civilIds[index];
         await this.persist();
-        return this.inMemoryData.civilIds[index];
+        if (updated.isCurrent) {
+          await this.syncEmployeeCivilId(updated.employeeId, updated.civilIdNumber);
+        }
+        return updated;
       },
     };
   }

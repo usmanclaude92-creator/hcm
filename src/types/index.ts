@@ -442,6 +442,12 @@ export interface Employee {
   dateOfLeaving?: string | null;
   designation: string;
   employeeCompany: EmployeeCompany;
+  // Plain Civil ID number column on the employee record itself -- kept automatically in
+  // sync with the current record in the Civil ID document history (see db.civilIds) so it
+  // never requires a separate manual step. This is the exact field the Workforce-App
+  // mobile Civil-ID-then-PIN registration (civil-id-register edge function) looks up by;
+  // the document-history table is HCMS's own richer tracking (issue/expiry/attachment).
+  civilId?: string | null;
   // Employment Details' link to Project Master Data (Project.projectCode). Optional --
   // an employee need not be tied to a single site. Distinct from the per-month project
   // cost allocation recorded in AttendanceRecord; this is the master-data "home site".
