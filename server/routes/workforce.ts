@@ -33,7 +33,13 @@ router.get('/shift-status', verifyAuth, async (req: AuthRequest, res: Response) 
       // Civil ID only: an employee with no genuine Civil ID on file is skipped rather
       // than substituting the internal employeeId, which would query Workforce using an
       // identifier that was never actually registered as that employee's Civil ID there.
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber?.trim();
+      // Reads the employee's own synced `civilId` (employees.civil_id -- kept current by
+      // syncEmployeeCivilId whenever a Civil ID document is saved) rather than the
+      // separate in-memory Civil ID document history, which misses any employee whose
+      // civil_id was set directly (e.g. by an admin fix) without going through that
+      // document flow -- previously making an otherwise-linked employee's card silently
+      // stay "unlinked" and never show their real shift start/end at all.
+      const civilId = e.civilId?.trim() || db.civilIds.getCurrent(e.employeeId)?.civilIdNumber?.trim();
       if (civilId) {
         employeeIdByCivilId.set(civilId, normalizeEmployeeId(e.employeeId));
       } else {
@@ -87,8 +93,10 @@ router.post('/sync-eligibility', verifyAuth, requireRoles('Administrator'), asyn
     for (const e of activeEmployees) {
       // Genuine Civil ID only -- never the employeeId as a stand-in. Pushing an
       // employeeId into Workforce's civil_id_lookup would let an unrelated employee
-      // register against this record (see the shift-status handler above).
-      const civilId = db.civilIds.getCurrent(e.employeeId)?.civilIdNumber?.trim();
+      // register against this record (see the shift-status handler above). Same
+      // e.civilId-first source as shift-status, so a directly-fixed civil_id is
+      // eligible for sync too.
+      const civilId = e.civilId?.trim() || db.civilIds.getCurrent(e.employeeId)?.civilIdNumber?.trim();
       if (!civilId) {
         skippedNoCivilId.push(normalizeEmployeeId(e.employeeId));
         continue;
