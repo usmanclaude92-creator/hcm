@@ -95,11 +95,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ isDark, toggleTheme }) => 
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center mb-4">
-          <img src="/logo.png" alt="HCMS Logo" className="w-32 h-32 rounded-2xl object-cover shadow-lg shadow-blue-500/25" />
+          <img
+            src={isDark ? '/logo-full-dark.png' : '/logo-full-light.png'}
+            alt="Artify Human Capital Management System"
+            className="w-full max-w-xs h-auto drop-shadow-lg"
+          />
         </div>
-        <h2 className="text-center text-2xl font-extrabold tracking-wide text-balance bg-gradient-to-r from-blue-600 via-fuchsia-600 to-purple-600 dark:from-blue-400 dark:via-fuchsia-400 dark:to-purple-400 bg-clip-text text-transparent">
-          Human Capital Management System
-        </h2>
         <p className="mt-1.5 text-center text-2xl text-slate-500 dark:text-slate-400 italic">
           by Artify Solutions
         </p>
